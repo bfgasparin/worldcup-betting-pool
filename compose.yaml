@@ -92,6 +92,22 @@ services:
             - '${FORWARD_MAILPIT_DASHBOARD_PORT:-8025}:8025'
         networks:
             - sail
+    claude-code:
+        build:
+            context: '.docker/claude-code'
+            dockerfile: Dockerfile
+            args:
+                WWWGROUP: '${WWWGROUP}'
+        image: 'dacxichain-cf-demo-claude-code'
+        stdin_open: true
+        tty: true
+        environment:
+            WWWUSER: '${WWWUSER}'
+            LARAVEL_SAIL: 1
+        volumes:
+            - '.:/var/www/html'
+        networks:
+            - sail
 networks:
     sail:
         driver: bridge
