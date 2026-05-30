@@ -1,7 +1,7 @@
-import { Head } from '@inertiajs/react';
-import { CalendarDays } from 'lucide-react';
+import { Head, Link } from '@inertiajs/react';
+import { CalendarDays, PencilLine } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { index as games } from '@/routes/games';
+import games from '@/routes/games';
 import type {
     BracketFixture,
     BracketPhase,
@@ -159,6 +159,13 @@ export default function GameShow({ game, groups, bracket }: GameShowProps) {
                                 </span>
                             )}
                         </div>
+                        <Link
+                            href={games.predict.edit(game.slug)}
+                            className="bg-brand-gradient mt-2 inline-flex w-fit items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-primary-foreground shadow transition hover:opacity-90"
+                        >
+                            <PencilLine className="size-4" />
+                            Make / edit predictions
+                        </Link>
                     </div>
                 </header>
 
@@ -211,5 +218,5 @@ export default function GameShow({ game, groups, bracket }: GameShowProps) {
 }
 
 GameShow.layout = {
-    breadcrumbs: [{ title: 'Tournaments', href: games() }],
+    breadcrumbs: [{ title: 'Tournaments', href: games.index() }],
 };

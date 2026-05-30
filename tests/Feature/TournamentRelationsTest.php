@@ -6,6 +6,7 @@ use App\Enums\FeederOutcome;
 use App\Enums\PhaseType;
 use App\Enums\ScoringStrategy;
 use App\Enums\Sport;
+use App\Enums\TournamentStatus;
 use App\Models\Entry;
 use App\Models\Fixture;
 use App\Models\Group;
@@ -70,5 +71,37 @@ class TournamentRelationsTest extends TestCase
         GroupPrediction::factory()->count(2)->for($entry)->create();
 
         $this->assertCount(2, $entry->groupPredictions);
+    }
+
+    public function test_accepts_predictions_when_open_and_before_the_lock_time(): void
+    {
+        $tournament = Tournament::factory()->create([
+            'status' => TournamentStatus::Open,
+            'predictions_lock_at' => now()->addDay(),
+        ]);
+
+        $this->assertTrue($tournament->acceptsPredictions());
+    }
+
+    public function test_does_not_accept_predictions_after_the_lock_time(): void
+    {
+        $tournament = Tournament::factory()->create([
+            'status' => TournamentStatus::Open,
+            'predictions_lock_at' => now()->subMinute(),
+        ]);
+
+        $this->assertFalse($tournament->acceptsPredictions());
+    }
+
+    public function test_does_not_accept_predictions_once_the_tournament_has_progressed(): void
+    {
+        foreach ([TournamentStatus::Locked, TournamentStatus::InProgress, TournamentStatus::Completed] as $status) {
+            $tournament = Tournament::factory()->create([
+                'status' => $status,
+                'predictions_lock_at' => now()->addWeek(),
+            ]);
+
+            $this->assertFalse($tournament->acceptsPredictions());
+        }
     }
 }

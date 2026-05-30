@@ -47,6 +47,17 @@ class Tournament extends Model
     }
 
     /**
+     * Whether the tournament still accepts prediction edits: it must be open (or a draft
+     * not yet published) and the predictions lock time must be in the future.
+     */
+    public function acceptsPredictions(): bool
+    {
+        return in_array($this->status, [TournamentStatus::Open, TournamentStatus::Draft], true)
+            && $this->predictions_lock_at !== null
+            && now()->lessThan($this->predictions_lock_at);
+    }
+
+    /**
      * @return HasMany<Phase, $this>
      */
     public function phases(): HasMany
