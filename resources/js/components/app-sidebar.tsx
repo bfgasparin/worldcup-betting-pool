@@ -1,42 +1,36 @@
-import { Link } from '@inertiajs/react';
-import { LayoutGrid, Trophy } from 'lucide-react';
+import { Link, usePage } from '@inertiajs/react';
+import { ChevronLeft } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
-import { NavMain } from '@/components/nav-main';
+import { NavTournament } from '@/components/nav-tournament';
 import { NavUser } from '@/components/nav-user';
 import {
     Sidebar,
     SidebarContent,
     SidebarFooter,
+    SidebarGroup,
     SidebarHeader,
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { dashboard } from '@/routes';
 import { index as games } from '@/routes/games';
-import type { NavItem } from '@/types';
 
-const mainNavItems: NavItem[] = [
-    {
-        title: 'Dashboard',
-        href: dashboard(),
-        icon: LayoutGrid,
-    },
-    {
-        title: 'Games',
-        href: games(),
-        icon: Trophy,
-    },
-];
+interface TournamentNavInfo {
+    slug: string;
+    name: string;
+    status: string;
+}
 
 export function AppSidebar() {
+    const game = usePage<{ game?: TournamentNavInfo }>().props.game;
+
     return (
         <Sidebar collapsible="icon" variant="inset">
             <SidebarHeader>
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href={dashboard()} prefetch>
+                            <Link href={games()} prefetch>
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>
@@ -45,7 +39,25 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                {game ? (
+                    <NavTournament name={game.name} />
+                ) : (
+                    <SidebarGroup className="px-2 py-0">
+                        <SidebarMenu>
+                            <SidebarMenuItem>
+                                <SidebarMenuButton
+                                    asChild
+                                    tooltip={{ children: 'All tournaments' }}
+                                >
+                                    <Link href={games()} prefetch>
+                                        <ChevronLeft />
+                                        <span>All tournaments</span>
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                        </SidebarMenu>
+                    </SidebarGroup>
+                )}
             </SidebarContent>
 
             <SidebarFooter>

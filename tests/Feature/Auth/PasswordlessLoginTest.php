@@ -59,7 +59,7 @@ class PasswordlessLoginTest extends TestCase
         $response->assertSessionHasErrors('email');
     }
 
-    public function test_a_valid_code_logs_the_user_in_and_redirects_to_the_dashboard()
+    public function test_a_valid_code_logs_the_user_in_and_redirects_to_the_games_hub()
     {
         $user = User::factory()->create();
 
@@ -74,7 +74,7 @@ class PasswordlessLoginTest extends TestCase
         ]);
 
         $this->assertAuthenticatedAs($user);
-        $response->assertRedirect(route('dashboard', absolute: false));
+        $response->assertRedirect(route('games.index', absolute: false));
         $this->assertNull(Cache::get(SendLoginCode::cacheKey($user->email)));
     }
 

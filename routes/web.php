@@ -9,9 +9,5 @@ Route::post('login/code', [LoginCodeController::class, 'store'])
     ->middleware(['guest', 'throttle:login-code'])
     ->name('login.code.send');
 
-Route::middleware(['auth'])->group(function () {
-    Route::inertia('dashboard', 'dashboard')->name('dashboard');
-});
-
 require __DIR__.'/games.php';
 require __DIR__.'/settings.php';

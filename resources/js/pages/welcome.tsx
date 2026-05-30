@@ -1,6 +1,7 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import AppLogoIcon from '@/components/app-logo-icon';
-import { dashboard, login } from '@/routes';
+import { login } from '@/routes';
+import { index as games } from '@/routes/games';
 
 export default function Welcome() {
     const { auth } = usePage().props;
@@ -28,10 +29,10 @@ export default function Welcome() {
                     <nav className="flex items-center gap-3">
                         {auth.user ? (
                             <Link
-                                href={dashboard()}
+                                href={games()}
                                 className="rounded-md border border-border px-5 py-2 text-sm font-semibold transition-colors hover:bg-accent hover:text-accent-foreground"
                             >
-                                Dashboard
+                                Tournaments
                             </Link>
                         ) : (
                             <Link
@@ -57,7 +58,7 @@ export default function Welcome() {
                         <span className="text-accent"> glory</span>.
                     </h1>
 
-                    <p className="mt-6 max-w-xl text-lg text-muted-foreground text-pretty">
+                    <p className="mt-6 max-w-xl text-lg text-pretty text-muted-foreground">
                         Predict the fixtures, climb the leaderboard, and settle
                         the bragging rights. The private betting pool for the
                         FF&amp;A crew — every match, every season.
@@ -65,10 +66,10 @@ export default function Welcome() {
 
                     <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row">
                         <Link
-                            href={auth.user ? dashboard() : login()}
+                            href={auth.user ? games() : login()}
                             className="group inline-flex items-center gap-2 rounded-md bg-primary px-8 py-3.5 text-base font-bold text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/40"
                         >
-                            {auth.user ? 'Go to Dashboard' : 'Log in'}
+                            {auth.user ? 'Go to Tournaments' : 'Log in'}
                             <span className="transition-transform group-hover:translate-x-1">
                                 →
                             </span>

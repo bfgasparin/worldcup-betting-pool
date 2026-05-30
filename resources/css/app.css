@@ -62,76 +62,100 @@
 }
 
 :root {
-    /* FF&A Betting Pool — pitch-green primary + gold/amber accent */
+    /* FF&A Betting Pool — vivid pitch-green primary + gold/amber accent */
     --background: oklch(0.985 0.004 145);
-    --foreground: oklch(0.18 0.03 155);
+    --foreground: oklch(0.17 0.03 155);
     --card: oklch(1 0 0);
-    --card-foreground: oklch(0.18 0.03 155);
+    --card-foreground: oklch(0.17 0.03 155);
     --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.18 0.03 155);
-    --primary: oklch(0.58 0.17 150);
-    --primary-foreground: oklch(0.985 0.01 145);
-    --secondary: oklch(0.95 0.02 150);
-    --secondary-foreground: oklch(0.32 0.08 152);
+    --popover-foreground: oklch(0.17 0.03 155);
+    --primary: oklch(0.6 0.2 150);
+    --primary-foreground: oklch(0.99 0.01 145);
+    --secondary: oklch(0.95 0.025 150);
+    --secondary-foreground: oklch(0.32 0.09 152);
     --muted: oklch(0.96 0.012 150);
     --muted-foreground: oklch(0.5 0.03 152);
-    --accent: oklch(0.8 0.16 85);
-    --accent-foreground: oklch(0.26 0.06 80);
+    --accent: oklch(0.81 0.18 85);
+    --accent-foreground: oklch(0.26 0.07 80);
     --destructive: oklch(0.577 0.245 27.325);
     --destructive-foreground: oklch(0.985 0.01 145);
     --border: oklch(0.9 0.015 150);
     --input: oklch(0.9 0.015 150);
-    --ring: oklch(0.58 0.17 150);
-    --chart-1: oklch(0.58 0.17 150);
-    --chart-2: oklch(0.8 0.16 85);
+    --ring: oklch(0.6 0.2 150);
+    --chart-1: oklch(0.6 0.2 150);
+    --chart-2: oklch(0.81 0.18 85);
     --chart-3: oklch(0.6 0.13 200);
     --chart-4: oklch(0.68 0.18 35);
     --chart-5: oklch(0.5 0.16 300);
-    --radius: 0.625rem;
+    --radius: 0.75rem;
     --sidebar: oklch(0.97 0.012 150);
-    --sidebar-foreground: oklch(0.18 0.03 155);
-    --sidebar-primary: oklch(0.58 0.17 150);
-    --sidebar-primary-foreground: oklch(0.985 0.01 145);
-    --sidebar-accent: oklch(0.92 0.04 150);
-    --sidebar-accent-foreground: oklch(0.32 0.08 152);
+    --sidebar-foreground: oklch(0.17 0.03 155);
+    --sidebar-primary: oklch(0.6 0.2 150);
+    --sidebar-primary-foreground: oklch(0.99 0.01 145);
+    --sidebar-accent: oklch(0.92 0.045 150);
+    --sidebar-accent-foreground: oklch(0.32 0.09 152);
     --sidebar-border: oklch(0.9 0.015 150);
-    --sidebar-ring: oklch(0.58 0.17 150);
+    --sidebar-ring: oklch(0.6 0.2 150);
+
+    /* Brand gradients + glows (stadium energy) */
+    --gradient-brand: linear-gradient(135deg, var(--primary), var(--accent));
+    --gradient-pitch: linear-gradient(
+        165deg,
+        oklch(0.64 0.19 150),
+        oklch(0.42 0.13 156)
+    );
+    --glow-primary:
+        0 1px 0 color-mix(in oklch, var(--primary) 35%, transparent),
+        0 22px 50px -18px color-mix(in oklch, var(--primary) 55%, transparent);
+    --glow-accent: 0 22px 50px -18px
+        color-mix(in oklch, var(--accent) 55%, transparent);
 }
 
 .dark {
     /* Premium deep pitch with glowing green + gold accents */
-    --background: oklch(0.18 0.02 155);
+    --background: oklch(0.17 0.02 155);
     --foreground: oklch(0.97 0.01 145);
     --card: oklch(0.22 0.025 155);
     --card-foreground: oklch(0.97 0.01 145);
     --popover: oklch(0.2 0.025 155);
     --popover-foreground: oklch(0.97 0.01 145);
-    --primary: oklch(0.72 0.19 150);
-    --primary-foreground: oklch(0.16 0.03 155);
-    --secondary: oklch(0.28 0.03 155);
+    --primary: oklch(0.74 0.21 150);
+    --primary-foreground: oklch(0.15 0.03 155);
+    --secondary: oklch(0.28 0.035 155);
     --secondary-foreground: oklch(0.97 0.01 145);
     --muted: oklch(0.28 0.025 155);
     --muted-foreground: oklch(0.72 0.03 150);
-    --accent: oklch(0.82 0.17 85);
-    --accent-foreground: oklch(0.2 0.04 80);
+    --accent: oklch(0.84 0.19 85);
+    --accent-foreground: oklch(0.2 0.05 80);
     --destructive: oklch(0.55 0.2 27);
     --destructive-foreground: oklch(0.97 0.01 145);
     --border: oklch(0.3 0.03 155);
     --input: oklch(0.32 0.03 155);
-    --ring: oklch(0.72 0.19 150);
-    --chart-1: oklch(0.72 0.19 150);
-    --chart-2: oklch(0.82 0.17 85);
+    --ring: oklch(0.74 0.21 150);
+    --chart-1: oklch(0.74 0.21 150);
+    --chart-2: oklch(0.84 0.19 85);
     --chart-3: oklch(0.68 0.14 200);
     --chart-4: oklch(0.7 0.19 35);
     --chart-5: oklch(0.62 0.18 300);
     --sidebar: oklch(0.2 0.025 155);
     --sidebar-foreground: oklch(0.97 0.01 145);
-    --sidebar-primary: oklch(0.72 0.19 150);
-    --sidebar-primary-foreground: oklch(0.16 0.03 155);
-    --sidebar-accent: oklch(0.3 0.04 152);
+    --sidebar-primary: oklch(0.74 0.21 150);
+    --sidebar-primary-foreground: oklch(0.15 0.03 155);
+    --sidebar-accent: oklch(0.3 0.045 152);
     --sidebar-accent-foreground: oklch(0.97 0.01 145);
     --sidebar-border: oklch(0.3 0.03 155);
-    --sidebar-ring: oklch(0.72 0.19 150);
+    --sidebar-ring: oklch(0.74 0.21 150);
+
+    --gradient-pitch: linear-gradient(
+        165deg,
+        oklch(0.34 0.1 152),
+        oklch(0.2 0.05 156)
+    );
+    --glow-primary:
+        0 1px 0 color-mix(in oklch, var(--primary) 40%, transparent),
+        0 24px 55px -18px color-mix(in oklch, var(--primary) 60%, transparent);
+    --glow-accent: 0 24px 55px -18px
+        color-mix(in oklch, var(--accent) 55%, transparent);
 }
 
 @layer base {
@@ -141,5 +165,53 @@
 
     body {
         @apply bg-background text-foreground;
+    }
+}
+
+@layer components {
+    /* Clipped gradient text for vibrant headlines */
+    .text-gradient-brand {
+        background-image: var(--gradient-brand);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    .bg-brand-gradient {
+        background-image: var(--gradient-brand);
+    }
+
+    /* Deep pitch field with subtle mowed stripes */
+    .bg-pitch {
+        background-color: var(--background);
+        background-image:
+            linear-gradient(
+                180deg,
+                color-mix(in oklch, var(--primary) 14%, transparent),
+                transparent 55%
+            ),
+            repeating-linear-gradient(
+                90deg,
+                color-mix(in oklch, var(--primary) 4%, transparent) 0 84px,
+                color-mix(in oklch, var(--primary) 7%, transparent) 84px 168px
+            );
+    }
+
+    .shadow-glow {
+        box-shadow: var(--glow-primary);
+    }
+
+    .shadow-glow-accent {
+        box-shadow: var(--glow-accent);
+    }
+
+    /* Elevated surface with soft depth */
+    .card-elevated {
+        border: 1px solid var(--border);
+        background-color: var(--card);
+        box-shadow:
+            0 1px 2px color-mix(in oklch, var(--foreground) 8%, transparent),
+            0 16px 36px -24px
+                color-mix(in oklch, var(--foreground) 45%, transparent);
     }
 }

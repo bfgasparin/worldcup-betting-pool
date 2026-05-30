@@ -18,6 +18,7 @@ class GameController extends Controller
     public function index(): Response
     {
         $games = Tournament::query()
+            ->withCount(['groups', 'fixtures'])
             ->orderByDesc('starts_on')
             ->get()
             ->map(fn (Tournament $tournament): array => [
@@ -27,6 +28,8 @@ class GameController extends Controller
                 'status' => $tournament->status->value,
                 'starts_on' => $tournament->starts_on?->toDateString(),
                 'ends_on' => $tournament->ends_on?->toDateString(),
+                'groups_count' => $tournament->groups_count,
+                'fixtures_count' => $tournament->fixtures_count,
             ]);
 
         return Inertia::render('games/index', ['games' => $games]);

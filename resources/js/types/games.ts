@@ -12,6 +12,8 @@ export interface GameSummary {
     status: GameStatus;
     starts_on: string | null;
     ends_on: string | null;
+    groups_count?: number;
+    fixtures_count?: number;
 }
 
 export interface TeamRef {

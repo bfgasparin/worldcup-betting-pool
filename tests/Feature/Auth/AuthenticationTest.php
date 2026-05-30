@@ -36,7 +36,7 @@ class AuthenticationTest extends TestCase
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard', absolute: false));
+        $response->assertRedirect(route('games.index', absolute: false));
         $this->assertNull(Cache::get(SendLoginCode::cacheKey($user->email)));
     }
 
