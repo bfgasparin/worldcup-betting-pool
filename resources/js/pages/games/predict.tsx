@@ -1,13 +1,14 @@
 import { Head, Link, router } from '@inertiajs/react';
 import {
     CalendarDays,
+    Check,
     ChevronLeft,
     ChevronRight,
+    CircleAlert,
+    Loader2,
     Lock,
-    Save,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { toast } from 'sonner';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +31,7 @@ type ScorePair = { home: string; away: string };
 type GroupScores = Record<number, ScorePair>;
 type KnockoutPick = { home: string; away: string; advancing: number | null };
 type KnockoutPicks = Record<number, KnockoutPick>;
+type SaveStatusValue = 'idle' | 'saving' | 'saved' | 'error';
 
 const KNOCKOUT_STEPS: { title: string; phaseKeys: string[] }[] = [
     { title: 'Round of 32', phaseKeys: ['round_of_32'] },
@@ -43,6 +45,8 @@ const STEP_TITLES = [
     'Group Stage',
     ...KNOCKOUT_STEPS.map((step) => step.title),
 ];
+
+const AUTOSAVE_DELAY = 700;
 
 function teamName(
     team: TeamRef | null,
@@ -86,14 +90,52 @@ function buildPicks(bracket: PredictBracketPhase[]): KnockoutPicks {
     return picks;
 }
 
+/**
+ * Mirror the server's cascade invalidation on the client: clear only the local picks whose
+ * advancing team is no longer one of the fixture's resolved teams. Everything else (valid,
+ * possibly in-progress edits) is left untouched.
+ */
+function reconcilePicks(
+    picks: KnockoutPicks,
+    bracket: PredictBracketPhase[],
+): KnockoutPicks {
+    let changed = false;
+    const next = { ...picks };
+
+    for (const phase of bracket) {
+        for (const fixture of phase.fixtures) {
+            const pick = next[fixture.fixture_id];
+
+            if (!pick || pick.advancing === null) {
+                continue;
+            }
+
+            const resolvedIds = [fixture.home?.id, fixture.away?.id];
+
+            if (!resolvedIds.includes(pick.advancing)) {
+                next[fixture.fixture_id] = {
+                    home: '',
+                    away: '',
+                    advancing: null,
+                };
+                changed = true;
+            }
+        }
+    }
+
+    return changed ? next : picks;
+}
+
 function ScoreInput({
     value,
     onChange,
+    onCommit,
     disabled,
     label,
 }: {
     value: string;
     onChange: (value: string) => void;
+    onCommit?: () => void;
     disabled: boolean;
     label: string;
 }) {
@@ -109,6 +151,7 @@ function ScoreInput({
             onChange={(event) =>
                 onChange(event.target.value.replace(/[^0-9]/g, '').slice(0, 2))
             }
+            onBlur={onCommit}
             className="h-9 w-12 px-0 text-center tabular-nums"
         />
     );
@@ -163,11 +206,13 @@ function GroupCard({
     scores,
     canEdit,
     onChange,
+    onCommit,
 }: {
     group: PredictGroup;
     scores: GroupScores;
     canEdit: boolean;
     onChange: (fixtureId: number, side: 'home' | 'away', value: string) => void;
+    onCommit: () => void;
 }) {
     return (
         <div className="card-elevated overflow-hidden rounded-2xl">
@@ -204,6 +249,7 @@ function GroupCard({
                                                 value,
                                             )
                                         }
+                                        onCommit={onCommit}
                                     />
                                     <span className="text-muted-foreground">
                                         –
@@ -219,6 +265,7 @@ function GroupCard({
                                                 value,
                                             )
                                         }
+                                        onCommit={onCommit}
                                     />
                                 </div>
                                 <span className="truncate text-sm text-muted-foreground">
@@ -234,6 +281,33 @@ function GroupCard({
     );
 }
 
+function SlotRow({
+    label,
+    value,
+    disabled,
+    onChange,
+    onCommit,
+}: {
+    label: string;
+    value: string;
+    disabled: boolean;
+    onChange: (value: string) => void;
+    onCommit: () => void;
+}) {
+    return (
+        <div className="flex items-center justify-between gap-2">
+            <span className="truncate font-medium">{label}</span>
+            <ScoreInput
+                value={value}
+                disabled={disabled}
+                label={`${label} goals`}
+                onChange={onChange}
+                onCommit={onCommit}
+            />
+        </div>
+    );
+}
+
 function KnockoutCard({
     fixture,
     pick,
@@ -241,6 +315,7 @@ function KnockoutCard({
     isFinal,
     onScore,
     onAdvance,
+    onCommit,
 }: {
     fixture: KnockoutPredictionFixture;
     pick: KnockoutPick;
@@ -248,6 +323,7 @@ function KnockoutCard({
     isFinal: boolean;
     onScore: (side: 'home' | 'away', value: string) => void;
     onAdvance: (teamId: number | null) => void;
+    onCommit: () => void;
 }) {
     const resolved = fixture.home !== null && fixture.away !== null;
 
@@ -265,6 +341,7 @@ function KnockoutCard({
                 value={pick.home}
                 disabled={!canEdit || !resolved}
                 onChange={(value) => onScore('home', value)}
+                onCommit={onCommit}
             />
             <div className="border-t border-border/50" />
             <SlotRow
@@ -272,6 +349,7 @@ function KnockoutCard({
                 value={pick.away}
                 disabled={!canEdit || !resolved}
                 onChange={(value) => onScore('away', value)}
+                onCommit={onCommit}
             />
 
             {resolved ? (
@@ -313,27 +391,33 @@ function KnockoutCard({
     );
 }
 
-function SlotRow({
-    label,
-    value,
-    disabled,
-    onChange,
-}: {
-    label: string;
-    value: string;
-    disabled: boolean;
-    onChange: (value: string) => void;
-}) {
+function SaveStatus({ status }: { status: SaveStatusValue }) {
+    if (status === 'idle') {
+        return null;
+    }
+
+    if (status === 'saving') {
+        return (
+            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Loader2 className="size-3.5 animate-spin" /> Saving…
+            </span>
+        );
+    }
+
+    if (status === 'saved') {
+        return (
+            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Check className="size-3.5 text-emerald-600" /> All changes
+                saved
+            </span>
+        );
+    }
+
     return (
-        <div className="flex items-center justify-between gap-2">
-            <span className="truncate font-medium">{label}</span>
-            <ScoreInput
-                value={value}
-                disabled={disabled}
-                label={`${label} goals`}
-                onChange={onChange}
-            />
-        </div>
+        <span className="inline-flex items-center gap-1.5 text-xs text-destructive">
+            <CircleAlert className="size-3.5" /> Couldn't save — check your
+            connection
+        </span>
     );
 }
 
@@ -345,25 +429,13 @@ export default function Predict({
 }: PredictPageProps) {
     const canEdit = game.can_edit;
     const [step, setStep] = useState(0);
-    const [saving, setSaving] = useState(false);
+    const [saveStatus, setSaveStatus] = useState<SaveStatusValue>('idle');
     const [groupScores, setGroupScores] = useState<GroupScores>(() =>
         buildGroupScores(groups),
     );
     const [picks, setPicks] = useState<KnockoutPicks>(() =>
         buildPicks(bracket),
     );
-
-    // The server is authoritative: whenever it returns fresh props (after a save), Inertia
-    // replaces the groups/bracket arrays, so resync the editable state during render to
-    // reflect any cascade-invalidated picks. Local typing keeps the same prop identities,
-    // so in-progress edits are never clobbered mid-step.
-    const [synced, setSynced] = useState({ groups, bracket });
-
-    if (synced.groups !== groups || synced.bracket !== bracket) {
-        setSynced({ groups, bracket });
-        setGroupScores(buildGroupScores(groups));
-        setPicks(buildPicks(bracket));
-    }
 
     const phasesByKey = useMemo(() => {
         const map: Record<string, PredictBracketPhase> = {};
@@ -375,58 +447,76 @@ export default function Predict({
         return map;
     }, [bracket]);
 
+    // Refs mirror the latest editable state and context so the debounced/queued auto-save
+    // always reads current values, even from a timer scheduled in an earlier render.
+    const groupScoresRef = useRef(groupScores);
+    const picksRef = useRef(picks);
+    const stepRef = useRef(step);
+    const groupsRef = useRef(groups);
+    const phasesByKeyRef = useRef(phasesByKey);
+    const dirtyRef = useRef(false);
+    const savingRef = useRef(false);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // When the server returns a fresh bracket (after a save), reflect any cascade
+    // invalidation without clobbering valid in-progress edits.
+    const [syncedBracket, setSyncedBracket] = useState(bracket);
+
+    if (syncedBracket !== bracket) {
+        setSyncedBracket(bracket);
+        setPicks((previous) => reconcilePicks(previous, bracket));
+    }
+
+    // Keep the auto-save refs in step with the latest committed state and props, so a
+    // queued/debounced flush always reads current values (refs are only touched outside
+    // render). The setters below also write them synchronously for immediate saves.
+    useEffect(() => {
+        groupScoresRef.current = groupScores;
+    }, [groupScores]);
+    useEffect(() => {
+        picksRef.current = picks;
+    }, [picks]);
+    useEffect(() => {
+        stepRef.current = step;
+    }, [step]);
+    useEffect(() => {
+        groupsRef.current = groups;
+    }, [groups]);
+    useEffect(() => {
+        phasesByKeyRef.current = phasesByKey;
+    }, [phasesByKey]);
+
     const isLastStep = step === STEP_TITLES.length - 1;
 
-    const persist = (
-        url: string,
-        predictions: Array<Record<string, number | null>>,
-        onDone?: () => void,
-    ): void => {
-        setSaving(true);
-        router.put(
-            url,
-            { predictions },
-            {
-                preserveScroll: true,
-                preserveState: true,
-                onSuccess: () => {
-                    toast.success('Predictions saved');
-                    onDone?.();
-                },
-                onError: () => toast.error('Could not save your predictions'),
-                onFinish: () => setSaving(false),
-            },
-        );
-    };
+    function buildStepPayload(): {
+        url: string;
+        predictions: Array<Record<string, number | null>>;
+    } {
+        if (stepRef.current === 0) {
+            const predictions = groupsRef.current
+                .flatMap((group) => group.fixtures)
+                .map((fixture) => ({
+                    fixture,
+                    score: groupScoresRef.current[fixture.fixture_id],
+                }))
+                .filter(
+                    ({ score }) =>
+                        score && score.home !== '' && score.away !== '',
+                )
+                .map(({ fixture, score }) => ({
+                    fixture_id: fixture.fixture_id,
+                    home_goals: Number(score.home),
+                    away_goals: Number(score.away),
+                }));
 
-    const saveGroupStage = (next?: number): void => {
-        const predictions = groups
-            .flatMap((group) => group.fixtures)
-            .map((fixture) => ({
-                fixture,
-                score: groupScores[fixture.fixture_id],
-            }))
-            .filter(
-                ({ score }) => score && score.home !== '' && score.away !== '',
-            )
-            .map(({ fixture, score }) => ({
-                fixture_id: fixture.fixture_id,
-                home_goals: Number(score.home),
-                away_goals: Number(score.away),
-            }));
+            return { url: games.predict.group(game.slug).url, predictions };
+        }
 
-        persist(
-            games.predict.group(game.slug).url,
-            predictions,
-            () => next !== undefined && setStep(next),
-        );
-    };
-
-    const saveKnockout = (phaseKeys: string[], next?: number): void => {
+        const phaseKeys = KNOCKOUT_STEPS[stepRef.current - 1].phaseKeys;
         const predictions = phaseKeys
-            .flatMap((key) => phasesByKey[key]?.fixtures ?? [])
+            .flatMap((key) => phasesByKeyRef.current[key]?.fixtures ?? [])
             .map((fixture) => {
-                const pick = picks[fixture.fixture_id] ?? {
+                const pick = picksRef.current[fixture.fixture_id] ?? {
                     home: '',
                     away: '',
                     advancing: null,
@@ -440,58 +530,133 @@ export default function Predict({
                 };
             });
 
-        persist(
-            games.predict.knockout(game.slug).url,
-            predictions,
-            () => next !== undefined && setStep(next),
+        return { url: games.predict.knockout(game.slug).url, predictions };
+    }
+
+    function flush(): void {
+        if (timerRef.current !== null) {
+            clearTimeout(timerRef.current);
+            timerRef.current = null;
+        }
+
+        if (!canEdit || savingRef.current) {
+            return;
+        }
+
+        const { url, predictions } = buildStepPayload();
+
+        if (predictions.length === 0) {
+            dirtyRef.current = false;
+
+            return;
+        }
+
+        savingRef.current = true;
+        dirtyRef.current = false;
+        setSaveStatus('saving');
+
+        router.put(
+            url,
+            { predictions },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onSuccess: () => setSaveStatus('saved'),
+                onError: () => setSaveStatus('error'),
+                onFinish: () => {
+                    savingRef.current = false;
+
+                    if (dirtyRef.current) {
+                        scheduleFlush(0);
+                    }
+                },
+            },
         );
-    };
+    }
 
-    const handleForward = (): void => {
+    function scheduleFlush(delay: number = AUTOSAVE_DELAY): void {
         if (!canEdit) {
-            if (!isLastStep) {
-                setStep(step + 1);
+            return;
+        }
+
+        if (timerRef.current !== null) {
+            clearTimeout(timerRef.current);
+        }
+
+        timerRef.current = setTimeout(() => {
+            timerRef.current = null;
+            flush();
+        }, delay);
+    }
+
+    function markDirty(): void {
+        if (!canEdit) {
+            return;
+        }
+
+        dirtyRef.current = true;
+        scheduleFlush();
+    }
+
+    useEffect(() => {
+        return () => {
+            if (timerRef.current !== null) {
+                clearTimeout(timerRef.current);
             }
+        };
+    }, []);
 
-            return;
-        }
-
-        if (step === 0) {
-            saveGroupStage(1);
-
-            return;
-        }
-
-        const knockoutStep = KNOCKOUT_STEPS[step - 1];
-        saveKnockout(knockoutStep.phaseKeys, isLastStep ? undefined : step + 1);
-    };
-
-    const setGroupScore = (
+    const updateGroupScore = (
         fixtureId: number,
         side: 'home' | 'away',
         value: string,
     ): void => {
-        setGroupScores((previous) => ({
-            ...previous,
+        const next: GroupScores = {
+            ...groupScoresRef.current,
             [fixtureId]: {
-                ...(previous[fixtureId] ?? { home: '', away: '' }),
+                ...(groupScoresRef.current[fixtureId] ?? {
+                    home: '',
+                    away: '',
+                }),
                 [side]: value,
             },
-        }));
+        };
+
+        groupScoresRef.current = next;
+        setGroupScores(next);
+        markDirty();
     };
 
-    const setPick = (fixtureId: number, patch: Partial<KnockoutPick>): void => {
-        setPicks((previous) => ({
-            ...previous,
+    const updatePick = (
+        fixtureId: number,
+        patch: Partial<KnockoutPick>,
+        immediate = false,
+    ): void => {
+        const next: KnockoutPicks = {
+            ...picksRef.current,
             [fixtureId]: {
-                ...(previous[fixtureId] ?? {
+                ...(picksRef.current[fixtureId] ?? {
                     home: '',
                     away: '',
                     advancing: null,
                 }),
                 ...patch,
             },
-        }));
+        };
+
+        picksRef.current = next;
+        setPicks(next);
+
+        if (immediate) {
+            flush();
+        } else {
+            markDirty();
+        }
+    };
+
+    const goToStep = (target: number): void => {
+        flush();
+        setStep(target);
     };
 
     const dates = game.starts_on
@@ -549,7 +714,7 @@ export default function Predict({
                         <li key={title}>
                             <button
                                 type="button"
-                                onClick={() => setStep(index)}
+                                onClick={() => goToStep(index)}
                                 className={cn(
                                     'rounded-full px-3 py-1.5 text-xs font-semibold transition',
                                     index === step
@@ -572,7 +737,8 @@ export default function Predict({
                                     group={group}
                                     scores={groupScores}
                                     canEdit={canEdit}
-                                    onChange={setGroupScore}
+                                    onChange={updateGroupScore}
+                                    onCommit={flush}
                                 />
                             ))}
                         </div>
@@ -585,11 +751,16 @@ export default function Predict({
                                 picks={picks}
                                 canEdit={canEdit}
                                 onScore={(fixtureId, side, value) =>
-                                    setPick(fixtureId, { [side]: value })
+                                    updatePick(fixtureId, { [side]: value })
                                 }
                                 onAdvance={(fixtureId, teamId) =>
-                                    setPick(fixtureId, { advancing: teamId })
+                                    updatePick(
+                                        fixtureId,
+                                        { advancing: teamId },
+                                        true,
+                                    )
                                 }
+                                onCommit={flush}
                             />
                         </>
                     )}
@@ -600,38 +771,25 @@ export default function Predict({
                         type="button"
                         variant="outline"
                         disabled={step === 0}
-                        onClick={() => setStep(Math.max(0, step - 1))}
+                        onClick={() => goToStep(Math.max(0, step - 1))}
                     >
                         <ChevronLeft className="size-4" /> Back
                     </Button>
 
-                    {canEdit ? (
-                        <Button
-                            type="button"
-                            disabled={saving}
-                            onClick={handleForward}
-                        >
-                            {isLastStep ? (
-                                <>
-                                    <Save className="size-4" /> Save predictions
-                                </>
-                            ) : (
-                                <>
-                                    Save &amp; continue{' '}
-                                    <ChevronRight className="size-4" />
-                                </>
-                            )}
+                    {canEdit && <SaveStatus status={saveStatus} />}
+
+                    {isLastStep ? (
+                        <Button asChild>
+                            <Link href={games.show(game.slug)}>Finish</Link>
                         </Button>
                     ) : (
-                        !isLastStep && (
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setStep(step + 1)}
-                            >
-                                Next <ChevronRight className="size-4" />
-                            </Button>
-                        )
+                        <Button
+                            type="button"
+                            variant={canEdit ? 'default' : 'outline'}
+                            onClick={() => goToStep(step + 1)}
+                        >
+                            Next <ChevronRight className="size-4" />
+                        </Button>
                     )}
                 </footer>
             </div>
@@ -676,6 +834,7 @@ function KnockoutStep({
     canEdit,
     onScore,
     onAdvance,
+    onCommit,
 }: {
     phaseKeys: string[];
     phasesByKey: Record<string, PredictBracketPhase>;
@@ -683,6 +842,7 @@ function KnockoutStep({
     canEdit: boolean;
     onScore: (fixtureId: number, side: 'home' | 'away', value: string) => void;
     onAdvance: (fixtureId: number, teamId: number | null) => void;
+    onCommit: () => void;
 }) {
     return (
         <div className="flex flex-col gap-8">
@@ -718,6 +878,7 @@ function KnockoutStep({
                                     onAdvance={(teamId) =>
                                         onAdvance(fixture.fixture_id, teamId)
                                     }
+                                    onCommit={onCommit}
                                 />
                             ))}
                         </div>
