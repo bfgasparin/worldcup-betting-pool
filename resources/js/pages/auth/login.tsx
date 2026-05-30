@@ -1,117 +1,188 @@
-import { Form, Head } from '@inertiajs/react';
+import { Form, Head, useForm } from '@inertiajs/react';
+import { useState } from 'react';
+import type { FormEvent } from 'react';
 import InputError from '@/components/input-error';
+import OtpInput from '@/components/otp-input';
 import PasskeyVerify from '@/components/passkey-verify';
-import PasswordInput from '@/components/password-input';
-import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import { register } from '@/routes';
 import { store } from '@/routes/login';
-import { request } from '@/routes/password';
+import { send as sendLoginCode } from '@/routes/login/code';
 
 type Props = {
     status?: string;
-    canResetPassword: boolean;
 };
 
-export default function Login({ status, canResetPassword }: Props) {
+const CODE_LENGTH = 6;
+
+export default function Login({ status }: Props) {
+    const [step, setStep] = useState<'email' | 'code'>('email');
+    const [submittedEmail, setSubmittedEmail] = useState('');
+    const [otp, setOtp] = useState('');
+
+    const emailForm = useForm({ email: '' });
+
+    const requestCode = ({ advance }: { advance: boolean }): void => {
+        emailForm.post(sendLoginCode().url, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setSubmittedEmail(emailForm.data.email);
+
+                if (advance) {
+                    setOtp('');
+                    setStep('code');
+                }
+            },
+        });
+    };
+
+    const submitEmail = (event: FormEvent<HTMLFormElement>): void => {
+        event.preventDefault();
+        requestCode({ advance: true });
+    };
+
+    const backToEmail = (): void => {
+        setStep('email');
+        setOtp('');
+    };
+
     return (
         <>
             <Head title="Log in" />
 
             <PasskeyVerify />
 
-            <Form
-                {...store.form()}
-                resetOnSuccess={['password']}
-                className="flex flex-col gap-6"
-            >
-                {({ processing, errors }) => (
-                    <>
-                        <div className="grid gap-6">
+            {step === 'email' ? (
+                <form onSubmit={submitEmail} className="flex flex-col gap-6">
+                    <div className="grid gap-2">
+                        <Label htmlFor="email">Email address</Label>
+                        <Input
+                            id="email"
+                            type="email"
+                            name="email"
+                            required
+                            autoFocus
+                            tabIndex={1}
+                            autoComplete="email"
+                            placeholder="email@example.com"
+                            value={emailForm.data.email}
+                            onChange={(event) =>
+                                emailForm.setData('email', event.target.value)
+                            }
+                        />
+                        <InputError message={emailForm.errors.email} />
+                    </div>
+
+                    <Button
+                        type="submit"
+                        className="w-full"
+                        tabIndex={2}
+                        disabled={emailForm.processing}
+                        data-test="send-code-button"
+                    >
+                        {emailForm.processing && <Spinner />}
+                        Send login code
+                    </Button>
+
+                    {status && (
+                        <div className="text-center text-sm font-medium text-primary">
+                            {status}
+                        </div>
+                    )}
+                </form>
+            ) : (
+                <Form
+                    {...store.form()}
+                    resetOnError={['code']}
+                    className="flex flex-col gap-6"
+                >
+                    {({ processing, errors }) => (
+                        <>
+                            <input
+                                type="hidden"
+                                name="email"
+                                value={submittedEmail}
+                            />
+
+                            <div className="grid gap-2 text-center">
+                                <p className="text-sm text-muted-foreground">
+                                    We sent a 6-digit code to{' '}
+                                    <span className="font-medium text-foreground">
+                                        {submittedEmail}
+                                    </span>
+                                </p>
+                            </div>
+
                             <div className="grid gap-2">
-                                <Label htmlFor="email">Email address</Label>
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    name="email"
-                                    required
+                                <Label htmlFor="code">Login code</Label>
+                                <OtpInput
+                                    name="code"
+                                    value={otp}
+                                    onChange={setOtp}
+                                    length={CODE_LENGTH}
                                     autoFocus
-                                    tabIndex={1}
-                                    autoComplete="email"
-                                    placeholder="email@example.com"
-                                />
-                                <InputError message={errors.email} />
-                            </div>
-
-                            <div className="grid gap-2">
-                                <div className="flex items-center">
-                                    <Label htmlFor="password">Password</Label>
-                                    {canResetPassword && (
-                                        <TextLink
-                                            href={request()}
-                                            className="ml-auto text-sm"
-                                            tabIndex={5}
-                                        >
-                                            Forgot your password?
-                                        </TextLink>
+                                    disabled={processing}
+                                    invalid={Boolean(
+                                        errors.code || errors.email,
                                     )}
-                                </div>
-                                <PasswordInput
-                                    id="password"
-                                    name="password"
-                                    required
-                                    tabIndex={2}
-                                    autoComplete="current-password"
-                                    placeholder="Password"
+                                    aria-label="Login code"
                                 />
-                                <InputError message={errors.password} />
-                            </div>
-
-                            <div className="flex items-center space-x-3">
-                                <Checkbox
-                                    id="remember"
-                                    name="remember"
-                                    tabIndex={3}
-                                />
-                                <Label htmlFor="remember">Remember me</Label>
+                                <InputError message={errors.code} />
+                                <InputError message={errors.email} />
                             </div>
 
                             <Button
                                 type="submit"
-                                className="mt-4 w-full"
-                                tabIndex={4}
-                                disabled={processing}
-                                data-test="login-button"
+                                className="w-full"
+                                disabled={
+                                    processing || otp.length < CODE_LENGTH
+                                }
+                                data-test="verify-code-button"
                             >
                                 {processing && <Spinner />}
                                 Log in
                             </Button>
-                        </div>
 
-                        <div className="text-center text-sm text-muted-foreground">
-                            Don't have an account?{' '}
-                            <TextLink href={register()} tabIndex={5}>
-                                Sign up
-                            </TextLink>
-                        </div>
-                    </>
-                )}
-            </Form>
+                            <div className="flex flex-col items-center gap-2 text-center text-sm text-muted-foreground">
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        requestCode({ advance: false })
+                                    }
+                                    disabled={emailForm.processing}
+                                    className="font-medium text-foreground underline-offset-4 hover:underline disabled:opacity-50"
+                                    data-test="resend-code-button"
+                                >
+                                    {emailForm.processing
+                                        ? 'Resending…'
+                                        : 'Resend code'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={backToEmail}
+                                    className="underline-offset-4 hover:underline"
+                                    data-test="change-email-button"
+                                >
+                                    Use a different email
+                                </button>
+                            </div>
 
-            {status && (
-                <div className="mb-4 text-center text-sm font-medium text-green-600">
-                    {status}
-                </div>
+                            {status && (
+                                <div className="text-center text-sm font-medium text-primary">
+                                    {status}
+                                </div>
+                            )}
+                        </>
+                    )}
+                </Form>
             )}
         </>
     );
 }
 
 Login.layout = {
-    title: 'Log in to your account',
-    description: 'Enter your email and password below to log in',
+    title: 'Log in',
+    description: 'Enter your email to receive a login code',
 };
