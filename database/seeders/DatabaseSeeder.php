@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call(UserSeeder::class);
+        $this->call(WorldCup2026Seeder::class);
 
         // Keep a known test user so local/dev flows and tests can rely on it.
         User::updateOrCreate(
