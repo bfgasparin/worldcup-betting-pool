@@ -19,10 +19,6 @@ class SecurityController extends Controller
     public function edit(TwoFactorAuthenticationRequest $request): Response
     {
         $props = [
-            /* @chisel-2fa */
-            'canManageTwoFactor' => Features::canManageTwoFactorAuthentication(),
-            /* @end-chisel-2fa */
-            /* @chisel-passkeys */
             'canManagePasskeys' => Features::canManagePasskeys(),
             'passkeys' => Features::canManagePasskeys()
                 ? $request->user()
@@ -40,18 +36,8 @@ class SecurityController extends Controller
                     ->values()
                     ->all()
                 : [],
-            /* @end-chisel-passkeys */
             'passwordRules' => Password::defaults()->toPasswordRulesString(),
         ];
-
-        /* @chisel-2fa */
-        if (Features::canManageTwoFactorAuthentication()) {
-            $request->ensureStateIsValid();
-
-            $props['twoFactorEnabled'] = $request->user()->hasEnabledTwoFactorAuthentication();
-            $props['requiresConfirmation'] = Features::optionEnabled(Features::twoFactorAuthentication(), 'confirm');
-        }
-        /* @end-chisel-2fa */
 
         return Inertia::render('settings/security', $props);
     }
