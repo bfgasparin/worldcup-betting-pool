@@ -226,3 +226,15 @@ Use Wayfinder to generate TypeScript functions for Laravel routes. Import from `
 - IMPORTANT: Activate `inertia-react-development` when working with Inertia React client-side patterns.
 
 </laravel-boost-guidelines>
+
+=== environment override (manual, not Boost-managed) ===
+
+# Execution Environment
+
+- The Claude Code agent runs **inside** the Sail Docker container (hostname-based, working dir `/var/www/html`). PHP, Composer, Artisan, and Node are all directly available on `PATH`.
+- DO NOT prefix commands with `vendor/bin/sail`. Run them directly instead. This OVERRIDES the `=== sail rules ===` section above.
+    - Artisan: `php artisan migrate`
+    - Tests: `php artisan test --compact`
+    - Composer: `composer install`
+    - Node: `npm run dev`
+    - Pint: `vendor/bin/pint --dirty --format agent`
