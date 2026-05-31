@@ -79,8 +79,8 @@ class WorldCup2026Seeder extends Seeder
             [2, 4, '2026-06-11', '22:00', 'Guadalajara Stadium'],
             [4, 3, '2026-06-18', '12:00', 'Atlanta Stadium'],
             [1, 2, '2026-06-18', '21:00', 'Guadalajara Stadium'],
-            [1, 4, '2026-06-24', '21:00', 'Mexico City Stadium'],
-            [2, 3, '2026-06-24', '21:00', 'Monterrey Stadium'],
+            [4, 1, '2026-06-24', '21:00', 'Mexico City Stadium'],
+            [3, 2, '2026-06-24', '21:00', 'Monterrey Stadium'],
         ],
         'B' => [
             [1, 4, '2026-06-12', '15:00', 'Toronto Stadium'],
@@ -93,17 +93,17 @@ class WorldCup2026Seeder extends Seeder
         'C' => [
             [1, 2, '2026-06-13', '18:00', 'New York New Jersey Stadium'],
             [4, 3, '2026-06-13', '21:00', 'Boston Stadium'],
-            [3, 2, '2026-06-19', '15:00', 'Boston Stadium'],
-            [1, 4, '2026-06-19', '21:00', 'Philadelphia Stadium'],
-            [1, 3, '2026-06-24', '18:00', 'Miami Stadium'],
+            [3, 2, '2026-06-19', '18:00', 'Boston Stadium'],
+            [1, 4, '2026-06-19', '20:30', 'Philadelphia Stadium'],
+            [3, 1, '2026-06-24', '18:00', 'Miami Stadium'],
             [2, 4, '2026-06-24', '18:00', 'Atlanta Stadium'],
         ],
         'D' => [
             [1, 2, '2026-06-12', '21:00', 'Los Angeles Stadium'],
-            [3, 4, '2026-06-13', '00:00', 'BC Place Vancouver'],
+            [3, 4, '2026-06-14', '00:00', 'BC Place Vancouver'],
             [1, 3, '2026-06-19', '15:00', 'Seattle Stadium'],
-            [4, 2, '2026-06-19', '00:00', 'San Francisco Bay Stadium'],
-            [1, 4, '2026-06-25', '22:00', 'Los Angeles Stadium'],
+            [4, 2, '2026-06-19', '23:00', 'San Francisco Bay Stadium'],
+            [4, 1, '2026-06-25', '22:00', 'Los Angeles Stadium'],
             [2, 3, '2026-06-25', '22:00', 'San Francisco Bay Stadium'],
         ],
         'E' => [
@@ -116,9 +116,9 @@ class WorldCup2026Seeder extends Seeder
         ],
         'F' => [
             [1, 2, '2026-06-14', '16:00', 'Dallas Stadium'],
-            [3, 4, '2026-06-14', '22:00', 'Monterrey Stadium'],
+            [4, 3, '2026-06-14', '22:00', 'Monterrey Stadium'],
             [1, 4, '2026-06-20', '13:00', 'Houston Stadium'],
-            [3, 2, '2026-06-20', '00:00', 'Monterrey Stadium'],
+            [3, 2, '2026-06-21', '00:00', 'Monterrey Stadium'],
             [3, 1, '2026-06-25', '19:00', 'Kansas City Stadium'],
             [2, 4, '2026-06-25', '19:00', 'Dallas Stadium'],
         ],
@@ -148,10 +148,10 @@ class WorldCup2026Seeder extends Seeder
         ],
         'J' => [
             [1, 3, '2026-06-16', '21:00', 'Kansas City Stadium'],
-            [2, 4, '2026-06-16', '00:00', 'San Francisco Bay Stadium'],
+            [2, 4, '2026-06-17', '00:00', 'San Francisco Bay Stadium'],
             [1, 2, '2026-06-22', '13:00', 'Dallas Stadium'],
             [4, 3, '2026-06-22', '23:00', 'San Francisco Bay Stadium'],
-            [1, 4, '2026-06-27', '22:00', 'Dallas Stadium'],
+            [4, 1, '2026-06-27', '22:00', 'Dallas Stadium'],
             [3, 2, '2026-06-27', '22:00', 'Kansas City Stadium'],
         ],
         'K' => [
@@ -174,30 +174,30 @@ class WorldCup2026Seeder extends Seeder
 
     /**
      * Official knockout schedule keyed by match number (the app's knockout numbers follow
-     * FIFA's): [date, kick-off time in ET, venue]. Match 103 (third place) date/venue are from
-     * a secondary source and its time is inferred (FoxSports omitted it).
+     * FIFA's): [date, kick-off time in ET, venue]. All 32 entries use the official FIFA times;
+     * match 103 (third place) kicks off 17:00 ET (21:00 UTC).
      *
      * @var array<int, array{string, string, string}>
      */
     private const KNOCKOUT_SCHEDULE = [
         73 => ['2026-06-28', '15:00', 'Los Angeles Stadium'],
-        74 => ['2026-06-29', '13:00', 'Houston Stadium'],
-        75 => ['2026-06-29', '16:30', 'Boston Stadium'],
-        76 => ['2026-06-29', '21:00', 'Monterrey Stadium'],
-        77 => ['2026-06-30', '13:00', 'Dallas Stadium'],
-        78 => ['2026-06-30', '17:00', 'New York New Jersey Stadium'],
+        74 => ['2026-06-29', '16:30', 'Boston Stadium'],
+        75 => ['2026-06-29', '21:00', 'Monterrey Stadium'],
+        76 => ['2026-06-29', '13:00', 'Houston Stadium'],
+        77 => ['2026-06-30', '17:00', 'New York New Jersey Stadium'],
+        78 => ['2026-06-30', '13:00', 'Dallas Stadium'],
         79 => ['2026-06-30', '21:00', 'Mexico City Stadium'],
         80 => ['2026-07-01', '12:00', 'Atlanta Stadium'],
-        81 => ['2026-07-01', '16:00', 'Seattle Stadium'],
-        82 => ['2026-07-01', '20:00', 'San Francisco Bay Stadium'],
-        83 => ['2026-07-02', '15:00', 'Los Angeles Stadium'],
-        84 => ['2026-07-02', '19:00', 'Toronto Stadium'],
+        81 => ['2026-07-01', '20:00', 'San Francisco Bay Stadium'],
+        82 => ['2026-07-01', '16:00', 'Seattle Stadium'],
+        83 => ['2026-07-02', '19:00', 'Toronto Stadium'],
+        84 => ['2026-07-02', '15:00', 'Los Angeles Stadium'],
         85 => ['2026-07-02', '23:00', 'BC Place Vancouver'],
-        86 => ['2026-07-03', '14:00', 'Dallas Stadium'],
-        87 => ['2026-07-03', '18:00', 'Miami Stadium'],
-        88 => ['2026-07-03', '21:30', 'Kansas City Stadium'],
-        89 => ['2026-07-04', '13:00', 'Houston Stadium'],
-        90 => ['2026-07-04', '17:00', 'Philadelphia Stadium'],
+        86 => ['2026-07-03', '18:00', 'Miami Stadium'],
+        87 => ['2026-07-03', '21:30', 'Kansas City Stadium'],
+        88 => ['2026-07-03', '14:00', 'Dallas Stadium'],
+        89 => ['2026-07-04', '17:00', 'Philadelphia Stadium'],
+        90 => ['2026-07-04', '13:00', 'Houston Stadium'],
         91 => ['2026-07-05', '16:00', 'New York New Jersey Stadium'],
         92 => ['2026-07-05', '20:00', 'Mexico City Stadium'],
         93 => ['2026-07-06', '15:00', 'Dallas Stadium'],
@@ -210,7 +210,7 @@ class WorldCup2026Seeder extends Seeder
         100 => ['2026-07-11', '21:00', 'Kansas City Stadium'],
         101 => ['2026-07-14', '15:00', 'Dallas Stadium'],
         102 => ['2026-07-15', '15:00', 'Atlanta Stadium'],
-        103 => ['2026-07-18', '15:00', 'Miami Stadium'],
+        103 => ['2026-07-18', '17:00', 'Miami Stadium'],
         104 => ['2026-07-19', '15:00', 'New York New Jersey Stadium'],
     ];
 

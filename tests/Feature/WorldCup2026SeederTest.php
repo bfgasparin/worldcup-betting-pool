@@ -152,13 +152,39 @@ class WorldCup2026SeederTest extends TestCase
         $this->assertSame('MEX', $opener->homeTeam->code);
         $this->assertSame('RSA', $opener->awayTeam->code);
 
-        // A late-ET kick-off stays correct across timezones: midnight ET on Jun 13 in Vancouver
-        // is really 9 p.m. local on Jun 12.
+        // A late kick-off stays correct across timezones: 9 p.m. local on Jun 13 in Vancouver
+        // is really 04:00 UTC on Jun 14 (Australia v Türkiye).
         $vancouver = Fixture::where('match_number', 20)->firstOrFail();
-        $this->assertSame('2026-06-13T04:00:00+00:00', $vancouver->kicks_off_at->toIso8601String());
+        $this->assertSame('2026-06-14T04:00:00+00:00', $vancouver->kicks_off_at->toIso8601String());
         $this->assertSame(
-            '2026-06-12 21:00',
+            '2026-06-13 21:00',
             $vancouver->kicks_off_at->copy()->setTimezone('America/Vancouver')->format('Y-m-d H:i'),
+        );
+
+        // Corrected group-stage kick-offs (previously off by hours/a day vs the official schedule).
+        $this->assertSame(
+            '2026-06-19T22:00:00+00:00',
+            Fixture::where('match_number', 15)->firstOrFail()->kicks_off_at->toIso8601String(),
+        );
+        $this->assertSame(
+            '2026-06-17T04:00:00+00:00',
+            Fixture::where('match_number', 56)->firstOrFail()->kicks_off_at->toIso8601String(),
+        );
+
+        // Corrected knockout fixtures whose date/time/venue were permuted between same-day matches.
+        $match74 = Fixture::where('match_number', 74)->firstOrFail();
+        $this->assertSame('2026-06-29T20:30:00+00:00', $match74->kicks_off_at->toIso8601String());
+        $this->assertSame('Boston Stadium', $match74->venue);
+        $this->assertSame('America/New_York', $match74->venue_timezone);
+
+        $match87 = Fixture::where('match_number', 87)->firstOrFail();
+        $this->assertSame('2026-07-04T01:30:00+00:00', $match87->kicks_off_at->toIso8601String());
+        $this->assertSame('Kansas City Stadium', $match87->venue);
+
+        // Third-place play-off now uses the official 17:00 ET (21:00 UTC) kick-off.
+        $this->assertSame(
+            '2026-07-18T21:00:00+00:00',
+            Fixture::where('match_number', 103)->firstOrFail()->kicks_off_at->toIso8601String(),
         );
 
         // The Final — 3 p.m. ET on Jul 19 (19:00 UTC) at MetLife / New York New Jersey.
@@ -166,6 +192,20 @@ class WorldCup2026SeederTest extends TestCase
         $this->assertSame('2026-07-19T19:00:00+00:00', $final->kicks_off_at->toIso8601String());
         $this->assertSame('New York New Jersey Stadium', $final->venue);
         $this->assertSame('America/New_York', $final->venue_timezone);
+    }
+
+    public function test_it_corrects_home_away_order_to_match_fifa(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+
+        // Group matches whose home/away order was flipped versus the official FIFA schedule.
+        $match5 = Fixture::where('match_number', 5)->firstOrFail();
+        $this->assertSame('CZE', $match5->homeTeam->code);
+        $this->assertSame('MEX', $match5->awayTeam->code);
+
+        $match32 = Fixture::where('match_number', 32)->firstOrFail();
+        $this->assertSame('SWE', $match32->homeTeam->code);
+        $this->assertSame('TUN', $match32->awayTeam->code);
     }
 
     private function teamAt(Tournament $tournament, string $group, int $position): Team
