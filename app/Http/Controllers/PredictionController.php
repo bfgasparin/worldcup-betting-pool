@@ -110,13 +110,13 @@ class PredictionController extends Controller
         $entry = $request->entry();
 
         DB::transaction(function () use ($entry, $request): void {
-            foreach ($request->validated('predictions') as $prediction) {
+            foreach ($request->predictionsForPersistence() as $prediction) {
                 KnockoutPrediction::updateOrCreate(
                     ['entry_id' => $entry->id, 'fixture_id' => $prediction['fixture_id']],
                     [
-                        'home_goals' => $prediction['home_goals'] ?? null,
-                        'away_goals' => $prediction['away_goals'] ?? null,
-                        'advancing_team_id' => $prediction['advancing_team_id'] ?? null,
+                        'home_goals' => $prediction['home_goals'],
+                        'away_goals' => $prediction['away_goals'],
+                        'advancing_team_id' => $prediction['advancing_team_id'],
                     ],
                 );
             }

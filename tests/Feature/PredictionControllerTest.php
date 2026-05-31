@@ -104,7 +104,7 @@ class PredictionControllerTest extends TestCase
         ]);
     }
 
-    public function test_saving_knockout_predictions_persists_advancing_and_scores(): void
+    public function test_saving_knockout_predictions_persists_scores_and_derives_advancing(): void
     {
         $entry = Entry::factory()->for($this->tournament)->for($this->user)->create();
         $this->predictAllGroups($entry, $this->tournament, $this->seedOrderScores());
@@ -113,11 +113,11 @@ class PredictionControllerTest extends TestCase
         $r32 = $this->knockoutFixture($this->tournament, 'R32-1');
         $homeTeamId = $entry->knockoutPredictions()->where('fixture_id', $r32->id)->value('predicted_home_team_id');
 
+        // A decisive score sets who advances on its own — no manual pick is sent.
         $payload = ['predictions' => [[
             'fixture_id' => $r32->id,
             'home_goals' => 2,
             'away_goals' => 1,
-            'advancing_team_id' => $homeTeamId,
         ]]];
 
         $this->actingAs($this->user)
@@ -133,7 +133,83 @@ class PredictionControllerTest extends TestCase
         ]);
     }
 
-    public function test_advancing_team_must_be_one_of_the_resolved_teams(): void
+    public function test_a_decisive_score_overrides_a_contradictory_advancing_pick(): void
+    {
+        $entry = Entry::factory()->for($this->tournament)->for($this->user)->create();
+        $this->predictAllGroups($entry, $this->tournament, $this->seedOrderScores());
+        (new BracketResolver)->persist($entry);
+
+        $r32 = $this->knockoutFixture($this->tournament, 'R32-1');
+        $prediction = $entry->knockoutPredictions()->where('fixture_id', $r32->id)->firstOrFail();
+
+        // Client claims the away team advances, but the away team lost 2-1.
+        $payload = ['predictions' => [[
+            'fixture_id' => $r32->id,
+            'home_goals' => 2,
+            'away_goals' => 1,
+            'advancing_team_id' => $prediction->predicted_away_team_id,
+        ]]];
+
+        $this->actingAs($this->user)
+            ->put(route('games.predict.knockout', 'world-cup-2026'), $payload)
+            ->assertRedirect(route('games.predict.edit', 'world-cup-2026'));
+
+        $this->assertDatabaseHas('knockout_predictions', [
+            'entry_id' => $entry->id,
+            'fixture_id' => $r32->id,
+            'advancing_team_id' => $prediction->predicted_home_team_id,
+        ]);
+    }
+
+    public function test_a_draw_persists_the_manual_advancing_pick(): void
+    {
+        $entry = Entry::factory()->for($this->tournament)->for($this->user)->create();
+        $this->predictAllGroups($entry, $this->tournament, $this->seedOrderScores());
+        (new BracketResolver)->persist($entry);
+
+        $r32 = $this->knockoutFixture($this->tournament, 'R32-1');
+        $awayTeamId = $entry->knockoutPredictions()->where('fixture_id', $r32->id)->value('predicted_away_team_id');
+
+        $payload = ['predictions' => [[
+            'fixture_id' => $r32->id,
+            'home_goals' => 1,
+            'away_goals' => 1,
+            'advancing_team_id' => $awayTeamId,
+        ]]];
+
+        $this->actingAs($this->user)
+            ->put(route('games.predict.knockout', 'world-cup-2026'), $payload)
+            ->assertRedirect(route('games.predict.edit', 'world-cup-2026'));
+
+        $this->assertDatabaseHas('knockout_predictions', [
+            'entry_id' => $entry->id,
+            'fixture_id' => $r32->id,
+            'home_goals' => 1,
+            'away_goals' => 1,
+            'advancing_team_id' => $awayTeamId,
+        ]);
+    }
+
+    public function test_a_draw_requires_a_manual_advancing_pick(): void
+    {
+        $entry = Entry::factory()->for($this->tournament)->for($this->user)->create();
+        $this->predictAllGroups($entry, $this->tournament, $this->seedOrderScores());
+        (new BracketResolver)->persist($entry);
+
+        $r32 = $this->knockoutFixture($this->tournament, 'R32-1');
+
+        $payload = ['predictions' => [[
+            'fixture_id' => $r32->id,
+            'home_goals' => 1,
+            'away_goals' => 1,
+        ]]];
+
+        $this->actingAs($this->user)
+            ->put(route('games.predict.knockout', 'world-cup-2026'), $payload)
+            ->assertSessionHasErrors('predictions.0.advancing_team_id');
+    }
+
+    public function test_a_drawn_advancing_team_must_be_one_of_the_resolved_teams(): void
     {
         $entry = Entry::factory()->for($this->tournament)->for($this->user)->create();
         $this->predictAllGroups($entry, $this->tournament, $this->seedOrderScores());
@@ -145,7 +221,7 @@ class PredictionControllerTest extends TestCase
         $payload = ['predictions' => [[
             'fixture_id' => $r32->id,
             'home_goals' => 1,
-            'away_goals' => 0,
+            'away_goals' => 1,
             'advancing_team_id' => $notInMatch,
         ]]];
 

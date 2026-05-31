@@ -60,6 +60,34 @@ function toScore(value: number | null): string {
     return value === null || value === undefined ? '' : String(value);
 }
 
+/**
+ * The winning team id for a decisive knockout score, or null when the score is a draw or
+ * incomplete. A draw needs a manual pick (penalties decide), so it resolves to null here.
+ */
+function deriveAdvancing(
+    home: string,
+    away: string,
+    fixture: KnockoutPredictionFixture,
+): number | null {
+    if (
+        home === '' ||
+        away === '' ||
+        fixture.home === null ||
+        fixture.away === null
+    ) {
+        return null;
+    }
+
+    const homeGoals = Number(home);
+    const awayGoals = Number(away);
+
+    if (homeGoals === awayGoals) {
+        return null;
+    }
+
+    return homeGoals > awayGoals ? fixture.home.id : fixture.away.id;
+}
+
 function buildGroupScores(groups: PredictGroup[]): GroupScores {
     const scores: GroupScores = {};
 
@@ -395,19 +423,47 @@ function KnockoutCard({
     pick,
     canEdit,
     isFinal,
-    onScore,
-    onAdvance,
+    onChange,
     onCommit,
 }: {
     fixture: KnockoutPredictionFixture;
     pick: KnockoutPick;
     canEdit: boolean;
     isFinal: boolean;
-    onScore: (side: 'home' | 'away', value: string) => void;
-    onAdvance: (teamId: number | null) => void;
+    onChange: (patch: Partial<KnockoutPick>, immediate?: boolean) => void;
     onCommit: () => void;
 }) {
     const resolved = fixture.home !== null && fixture.away !== null;
+    const bothScored = pick.home !== '' && pick.away !== '';
+    const isDraw = bothScored && Number(pick.home) === Number(pick.away);
+    const decisiveWinnerId =
+        bothScored && !isDraw
+            ? deriveAdvancing(pick.home, pick.away, fixture)
+            : null;
+    const winnerTeam =
+        decisiveWinnerId === fixture.home?.id
+            ? fixture.home
+            : decisiveWinnerId === fixture.away?.id
+              ? fixture.away
+              : null;
+
+    const handleScore = (side: 'home' | 'away', value: string): void => {
+        const next = { ...pick, [side]: value };
+
+        // A draw keeps any existing manual pick; a decisive or incomplete score derives it.
+        if (
+            next.home !== '' &&
+            next.away !== '' &&
+            Number(next.home) === Number(next.away)
+        ) {
+            onChange({ [side]: value });
+        } else {
+            onChange({
+                [side]: value,
+                advancing: deriveAdvancing(next.home, next.away, fixture),
+            });
+        }
+    };
 
     return (
         <div
@@ -423,7 +479,7 @@ function KnockoutCard({
                 team={fixture.home}
                 value={pick.home}
                 disabled={!canEdit || !resolved}
-                onChange={(value) => onScore('home', value)}
+                onChange={(value) => handleScore('home', value)}
                 onCommit={onCommit}
             />
             <div className="border-t border-border/50" />
@@ -432,14 +488,22 @@ function KnockoutCard({
                 team={fixture.away}
                 value={pick.away}
                 disabled={!canEdit || !resolved}
-                onChange={(value) => onScore('away', value)}
+                onChange={(value) => handleScore('away', value)}
                 onCommit={onCommit}
             />
 
-            {resolved ? (
+            {!resolved ? (
+                <p className="mt-1 text-xs text-muted-foreground italic">
+                    Pick the earlier rounds to reveal these teams.
+                </p>
+            ) : !bothScored ? (
+                <p className="mt-1 text-xs text-muted-foreground italic">
+                    Enter the score to set who advances.
+                </p>
+            ) : isDraw ? (
                 <div className="mt-1 flex flex-col gap-1">
                     <span className="text-[0.65rem] font-semibold tracking-wide text-muted-foreground uppercase">
-                        Advances
+                        Extra time / penalties — who advances?
                     </span>
                     <ToggleGroup
                         type="single"
@@ -448,7 +512,10 @@ function KnockoutCard({
                         disabled={!canEdit}
                         value={pick.advancing ? String(pick.advancing) : ''}
                         onValueChange={(value) =>
-                            onAdvance(value ? Number(value) : null)
+                            onChange(
+                                { advancing: value ? Number(value) : null },
+                                true,
+                            )
                         }
                         className="w-full"
                     >
@@ -469,9 +536,15 @@ function KnockoutCard({
                     </ToggleGroup>
                 </div>
             ) : (
-                <p className="mt-1 text-xs text-muted-foreground italic">
-                    Pick the earlier rounds to reveal these teams.
-                </p>
+                <div className="mt-1 flex flex-col gap-1">
+                    <span className="text-[0.65rem] font-semibold tracking-wide text-muted-foreground uppercase">
+                        Advances
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold">
+                        <Flag team={winnerTeam} />
+                        {winnerTeam?.code ?? winnerTeam?.name}
+                    </span>
+                </div>
             )}
         </div>
     );
@@ -836,15 +909,8 @@ export default function Predict({
                                 phasesByKey={phasesByKey}
                                 picks={picks}
                                 canEdit={canEdit}
-                                onScore={(fixtureId, side, value) =>
-                                    updatePick(fixtureId, { [side]: value })
-                                }
-                                onAdvance={(fixtureId, teamId) =>
-                                    updatePick(
-                                        fixtureId,
-                                        { advancing: teamId },
-                                        true,
-                                    )
+                                onChange={(fixtureId, patch, immediate) =>
+                                    updatePick(fixtureId, patch, immediate)
                                 }
                                 onCommit={flush}
                             />
@@ -919,16 +985,18 @@ function KnockoutStep({
     phasesByKey,
     picks,
     canEdit,
-    onScore,
-    onAdvance,
+    onChange,
     onCommit,
 }: {
     phaseKeys: string[];
     phasesByKey: Record<string, PredictBracketPhase>;
     picks: KnockoutPicks;
     canEdit: boolean;
-    onScore: (fixtureId: number, side: 'home' | 'away', value: string) => void;
-    onAdvance: (fixtureId: number, teamId: number | null) => void;
+    onChange: (
+        fixtureId: number,
+        patch: Partial<KnockoutPick>,
+        immediate?: boolean,
+    ) => void;
     onCommit: () => void;
 }) {
     return (
@@ -959,11 +1027,12 @@ function KnockoutStep({
                                     }
                                     canEdit={canEdit}
                                     isFinal={fixture.phase_key === 'final'}
-                                    onScore={(side, value) =>
-                                        onScore(fixture.fixture_id, side, value)
-                                    }
-                                    onAdvance={(teamId) =>
-                                        onAdvance(fixture.fixture_id, teamId)
+                                    onChange={(patch, immediate) =>
+                                        onChange(
+                                            fixture.fixture_id,
+                                            patch,
+                                            immediate,
+                                        )
                                     }
                                     onCommit={onCommit}
                                 />
