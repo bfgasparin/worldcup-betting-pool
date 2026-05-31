@@ -8,10 +8,13 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
+    /* Type — Fredoka (display) × Plus Jakarta Sans (body) */
     --font-sans:
-        'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
+        'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif,
         'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
         'Noto Color Emoji';
+    --font-display:
+        'Fredoka', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
 
     --radius-lg: var(--radius);
     --radius-md: calc(var(--radius) - 2px);
@@ -59,103 +62,110 @@
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-ring: var(--sidebar-ring);
+
+    /* Brand constants — identical in light & dark (the spectrum of the pitch) */
+    --color-pitch: #0fa968;
+    --color-pitch-deep: #0a6b49;
+    --color-grass: #36d98a;
+    --color-grass-soft: #c9f4dd;
+    --color-gold: #ffc23c;
+    --color-amber: #ff9f1c;
+    --color-coral: #ff5a5f;
+    --color-ink: #0b1410;
+    --color-ink-2: #11201a;
+    --color-ink-3: #1b2e26;
 }
 
 :root {
-    /* FF&A Betting Pool — vivid pitch-green primary + gold/amber accent */
-    --background: oklch(0.985 0.004 145);
-    --foreground: oklch(0.17 0.03 155);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.17 0.03 155);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.17 0.03 155);
-    --primary: oklch(0.6 0.2 150);
-    --primary-foreground: oklch(0.99 0.01 145);
-    --secondary: oklch(0.95 0.025 150);
-    --secondary-foreground: oklch(0.32 0.09 152);
-    --muted: oklch(0.96 0.012 150);
-    --muted-foreground: oklch(0.5 0.03 152);
-    --accent: oklch(0.81 0.18 85);
-    --accent-foreground: oklch(0.26 0.07 80);
-    --destructive: oklch(0.577 0.245 27.325);
-    --destructive-foreground: oklch(0.985 0.01 145);
-    --border: oklch(0.9 0.015 150);
-    --input: oklch(0.9 0.015 150);
-    --ring: oklch(0.6 0.2 150);
-    --chart-1: oklch(0.6 0.2 150);
-    --chart-2: oklch(0.81 0.18 85);
-    --chart-3: oklch(0.6 0.13 200);
-    --chart-4: oklch(0.68 0.18 35);
-    --chart-5: oklch(0.5 0.16 300);
+    /* FF&A Betting Pool — pitch-green + trophy-gold on warm paper (exact brand hex) */
+    --background: #fafbf8; /* paper */
+    --foreground: #0b1410; /* ink */
+    --card: #ffffff;
+    --card-foreground: #0b1410;
+    --popover: #ffffff;
+    --popover-foreground: #0b1410;
+    --primary: #0fa968; /* pitch */
+    --primary-foreground: #ffffff;
+    --secondary: #eef2ec; /* paper-2 */
+    --secondary-foreground: #11422f;
+    --muted: #f1f5ef;
+    --muted-foreground: #6a766f;
+    --accent: #ffc23c; /* gold */
+    --accent-foreground: #3a2600;
+    --destructive: #ff5a5f; /* whistle coral — live / alerts */
+    --destructive-foreground: #ffffff;
+    --border: #e4eae5; /* line */
+    --input: #e4eae5;
+    --ring: #0fa968;
+    --chart-1: #0fa968;
+    --chart-2: #ffc23c;
+    --chart-3: #2bb3c9;
+    --chart-4: #ff9f1c;
+    --chart-5: #7c6cf0;
     --radius: 0.75rem;
-    --sidebar: oklch(0.97 0.012 150);
-    --sidebar-foreground: oklch(0.17 0.03 155);
-    --sidebar-primary: oklch(0.6 0.2 150);
-    --sidebar-primary-foreground: oklch(0.99 0.01 145);
-    --sidebar-accent: oklch(0.92 0.045 150);
-    --sidebar-accent-foreground: oklch(0.32 0.09 152);
-    --sidebar-border: oklch(0.9 0.015 150);
-    --sidebar-ring: oklch(0.6 0.2 150);
+    --sidebar: #f3f6f1;
+    --sidebar-foreground: #0b1410;
+    --sidebar-primary: #0fa968;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #e3efe8;
+    --sidebar-accent-foreground: #11422f;
+    --sidebar-border: #e4eae5;
+    --sidebar-ring: #0fa968;
 
-    /* Brand gradients + glows (stadium energy) */
-    --gradient-brand: linear-gradient(135deg, var(--primary), var(--accent));
-    --gradient-pitch: linear-gradient(
-        165deg,
-        oklch(0.64 0.19 150),
-        oklch(0.42 0.13 156)
-    );
-    --glow-primary:
-        0 1px 0 color-mix(in oklch, var(--primary) 35%, transparent),
-        0 22px 50px -18px color-mix(in oklch, var(--primary) 55%, transparent);
-    --glow-accent: 0 22px 50px -18px
-        color-mix(in oklch, var(--accent) 55%, transparent);
+    /* Signature gradients (focused — no rainbow) */
+    --g-pitch: linear-gradient(135deg, #16c07a 0%, #0a6b49 100%);
+    --g-gold: linear-gradient(135deg, #ffd15c 0%, #ff9f1c 100%);
+    --g-night: linear-gradient(160deg, #16271f 0%, #0b1410 70%);
+    --gradient-brand: var(--g-pitch);
+
+    /* Shadows */
+    --sh-sm: 0 2px 8px rgba(11, 20, 16, 0.06);
+    --sh-md: 0 14px 32px rgba(11, 20, 16, 0.1);
+    --sh-lg: 0 34px 72px rgba(11, 20, 16, 0.18);
+    --glow-primary: 0 18px 46px -12px rgba(15, 169, 104, 0.55);
+    --glow-accent: 0 18px 40px -10px rgba(255, 159, 28, 0.5);
 }
 
 .dark {
-    /* Premium deep pitch with glowing green + gold accents */
-    --background: oklch(0.17 0.02 155);
-    --foreground: oklch(0.97 0.01 145);
-    --card: oklch(0.22 0.025 155);
-    --card-foreground: oklch(0.97 0.01 145);
-    --popover: oklch(0.2 0.025 155);
-    --popover-foreground: oklch(0.97 0.01 145);
-    --primary: oklch(0.74 0.21 150);
-    --primary-foreground: oklch(0.15 0.03 155);
-    --secondary: oklch(0.28 0.035 155);
-    --secondary-foreground: oklch(0.97 0.01 145);
-    --muted: oklch(0.28 0.025 155);
-    --muted-foreground: oklch(0.72 0.03 150);
-    --accent: oklch(0.84 0.19 85);
-    --accent-foreground: oklch(0.2 0.05 80);
-    --destructive: oklch(0.55 0.2 27);
-    --destructive-foreground: oklch(0.97 0.01 145);
-    --border: oklch(0.3 0.03 155);
-    --input: oklch(0.32 0.03 155);
-    --ring: oklch(0.74 0.21 150);
-    --chart-1: oklch(0.74 0.21 150);
-    --chart-2: oklch(0.84 0.19 85);
-    --chart-3: oklch(0.68 0.14 200);
-    --chart-4: oklch(0.7 0.19 35);
-    --chart-5: oklch(0.62 0.18 300);
-    --sidebar: oklch(0.2 0.025 155);
-    --sidebar-foreground: oklch(0.97 0.01 145);
-    --sidebar-primary: oklch(0.74 0.21 150);
-    --sidebar-primary-foreground: oklch(0.15 0.03 155);
-    --sidebar-accent: oklch(0.3 0.045 152);
-    --sidebar-accent-foreground: oklch(0.97 0.01 145);
-    --sidebar-border: oklch(0.3 0.03 155);
-    --sidebar-ring: oklch(0.74 0.21 150);
+    /* Premium deep "night" pitch with glowing grass + gold */
+    --background: #0b1410; /* ink */
+    --foreground: #f4f8f5;
+    --card: #13201a;
+    --card-foreground: #f4f8f5;
+    --popover: #11201a;
+    --popover-foreground: #f4f8f5;
+    --primary: #2fd189; /* brighter grass for dark surfaces */
+    --primary-foreground: #04130c;
+    --secondary: #1b2e26;
+    --secondary-foreground: #e7f3ec;
+    --muted: #1b2e26;
+    --muted-foreground: #93a69c;
+    --accent: #ffc645; /* gold */
+    --accent-foreground: #2a1c00;
+    --destructive: #ff6b6f;
+    --destructive-foreground: #ffffff;
+    --border: rgba(255, 255, 255, 0.1);
+    --input: rgba(255, 255, 255, 0.14);
+    --ring: #2fd189;
+    --chart-1: #2fd189;
+    --chart-2: #ffc645;
+    --chart-3: #4cc6da;
+    --chart-4: #ff9f1c;
+    --chart-5: #9a8cff;
+    --sidebar: #0e1813;
+    --sidebar-foreground: #f4f8f5;
+    --sidebar-primary: #2fd189;
+    --sidebar-primary-foreground: #04130c;
+    --sidebar-accent: #1b2e26;
+    --sidebar-accent-foreground: #e7f3ec;
+    --sidebar-border: rgba(255, 255, 255, 0.1);
+    --sidebar-ring: #2fd189;
 
-    --gradient-pitch: linear-gradient(
-        165deg,
-        oklch(0.34 0.1 152),
-        oklch(0.2 0.05 156)
-    );
-    --glow-primary:
-        0 1px 0 color-mix(in oklch, var(--primary) 40%, transparent),
-        0 24px 55px -18px color-mix(in oklch, var(--primary) 60%, transparent);
-    --glow-accent: 0 24px 55px -18px
-        color-mix(in oklch, var(--accent) 55%, transparent);
+    --sh-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+    --sh-md: 0 14px 32px rgba(0, 0, 0, 0.5);
+    --sh-lg: 0 34px 72px rgba(0, 0, 0, 0.6);
+    --glow-primary: 0 18px 46px -12px rgba(47, 209, 137, 0.5);
+    --glow-accent: 0 18px 40px -10px rgba(255, 198, 69, 0.45);
 }
 
 @layer base {
@@ -166,35 +176,115 @@
     body {
         @apply bg-background text-foreground;
     }
+
+    /* Display type — Fredoka — for headlines, scorelines & the wordmark */
+    h1,
+    h2,
+    h3,
+    h4 {
+        font-family: var(--font-display);
+        font-weight: 600;
+        line-height: 1.04;
+        letter-spacing: -0.01em;
+    }
 }
 
 @layer components {
-    /* Clipped gradient text for vibrant headlines */
+    /* Brand hero/banner surface — follows the theme. Light: a soft pitch-tinted paper
+       gradient; dark: the rich "night" gradient. Text uses var(--foreground) in both. */
+    .hero {
+        position: relative;
+        isolation: isolate;
+        background: linear-gradient(
+            160deg,
+            color-mix(in oklch, var(--primary) 12%, var(--card)) 0%,
+            var(--card) 72%
+        );
+        color: var(--foreground);
+    }
+
+    .dark .hero {
+        background: var(--g-night);
+    }
+
+    /* Faint pitch field-markings (centre circle + halfway line) for hero panels */
+    .hero-lines {
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        overflow: hidden;
+        pointer-events: none;
+        opacity: 0.5;
+    }
+
+    .hero-lines::before {
+        content: '';
+        position: absolute;
+        right: -160px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 520px;
+        height: 520px;
+        border: 2px solid color-mix(in oklch, var(--primary) 22%, transparent);
+        border-radius: 50%;
+    }
+
+    .hero-lines::after {
+        content: '';
+        position: absolute;
+        right: 80px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: color-mix(in oklch, var(--primary) 18%, transparent);
+    }
+
+    /* Pitch-gradient-clipped headline text (gold uses the solid `text-gold` utility) */
+    .text-grad,
     .text-gradient-brand {
-        background-image: var(--gradient-brand);
+        background-image: var(--g-pitch);
         -webkit-background-clip: text;
         background-clip: text;
         color: transparent;
     }
 
     .bg-brand-gradient {
-        background-image: var(--gradient-brand);
+        background-image: var(--g-pitch);
     }
 
-    /* Deep pitch field with subtle mowed stripes */
-    .bg-pitch {
-        background-color: var(--background);
-        background-image:
-            linear-gradient(
-                180deg,
-                color-mix(in oklch, var(--primary) 14%, transparent),
-                transparent 55%
-            ),
-            repeating-linear-gradient(
-                90deg,
-                color-mix(in oklch, var(--primary) 4%, transparent) 0 84px,
-                color-mix(in oklch, var(--primary) 7%, transparent) 84px 168px
-            );
+    .bg-gold-gradient {
+        background-image: var(--g-gold);
+    }
+
+    /* Glossy team-badge squircle — used for the app icon / brand mark */
+    .app-icon {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        background: var(--g-pitch);
+    }
+
+    /* Gold variant of the glossy badge (points / wins) — overrides the pitch fill */
+    .app-icon--gold {
+        background: var(--g-gold);
+    }
+
+    .app-icon::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+            160deg,
+            rgba(255, 255, 255, 0.4),
+            rgba(255, 255, 255, 0) 48%
+        );
+    }
+
+    .app-icon > * {
+        position: relative;
+        z-index: 1;
     }
 
     .shadow-glow {
@@ -209,9 +299,6 @@
     .card-elevated {
         border: 1px solid var(--border);
         background-color: var(--card);
-        box-shadow:
-            0 1px 2px color-mix(in oklch, var(--foreground) 8%, transparent),
-            0 16px 36px -24px
-                color-mix(in oklch, var(--foreground) 45%, transparent);
+        box-shadow: var(--sh-sm);
     }
 }

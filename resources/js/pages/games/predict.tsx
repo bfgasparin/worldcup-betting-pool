@@ -10,9 +10,9 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Flag } from '@/components/flag';
-import { Badge } from '@/components/ui/badge';
+import { ScoreStepper } from '@/components/score-stepper';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { chipVariants } from '@/components/ui/chip';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 import games from '@/routes/games';
@@ -54,6 +54,13 @@ function teamName(
     fallback: string | null = null,
 ): string {
     return team?.name ?? fallback ?? 'TBD';
+}
+
+function teamShort(
+    team: TeamRef | null,
+    fallback: string | null = null,
+): string {
+    return team?.code ?? team?.name ?? fallback ?? 'TBD';
 }
 
 function toScore(value: number | null): string {
@@ -155,41 +162,10 @@ function reconcilePicks(
     return changed ? next : picks;
 }
 
-function ScoreInput({
-    value,
-    onChange,
-    onCommit,
-    disabled,
-    label,
-}: {
-    value: string;
-    onChange: (value: string) => void;
-    onCommit?: () => void;
-    disabled: boolean;
-    label: string;
-}) {
-    return (
-        <Input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            max={99}
-            aria-label={label}
-            value={value}
-            disabled={disabled}
-            onChange={(event) =>
-                onChange(event.target.value.replace(/[^0-9]/g, '').slice(0, 2))
-            }
-            onBlur={onCommit}
-            className="h-9 w-12 px-0 text-center tabular-nums"
-        />
-    );
-}
-
 const FORM_STYLES: Record<string, string> = {
-    W: 'bg-emerald-500',
+    W: 'bg-primary',
     D: 'bg-zinc-400',
-    L: 'bg-rose-500',
+    L: 'bg-destructive',
 };
 
 function FormGuide({ form }: { form: string[] }) {
@@ -217,7 +193,7 @@ function FormGuide({ form }: { form: string[] }) {
 
 function GroupStandingsTable({ standings }: { standings: StandingRow[] }) {
     return (
-        <div className="overflow-x-auto border-t border-border/60 pt-2">
+        <div className="overflow-x-auto border-t border-border pt-2">
             <table className="w-full text-[0.7rem] whitespace-nowrap">
                 <thead>
                     <tr className="text-muted-foreground [&>th]:px-1 [&>th]:font-medium">
@@ -260,11 +236,11 @@ function GroupStandingsTable({ standings }: { standings: StandingRow[] }) {
                         <tr
                             key={row.team?.id ?? row.rank}
                             className={cn(
-                                'border-t border-border/30 [&>td]:px-1 [&>td]:py-0.5 [&>td]:text-center [&>td]:tabular-nums',
+                                'border-t border-border/50 [&>td]:px-1 [&>td]:py-0.5 [&>td]:text-center [&>td]:tabular-nums',
                                 row.rank <= 2 &&
-                                    'bg-emerald-500/5 font-semibold text-foreground',
+                                    'bg-primary/[0.06] font-semibold text-foreground',
                                 row.rank === 3 &&
-                                    'bg-amber-500/5 text-foreground/80',
+                                    'bg-accent/10 text-foreground/80',
                                 row.rank > 3 && 'text-muted-foreground',
                             )}
                         >
@@ -300,6 +276,53 @@ function GroupStandingsTable({ standings }: { standings: StandingRow[] }) {
     );
 }
 
+/**
+ * Scoring rules for the current step, read from the tournament's scoring_config. Rendered as
+ * subtle pills on the dark header.
+ */
+function ScoringLegend({
+    config,
+    step,
+}: {
+    config: Record<string, Record<string, number>>;
+    step: number;
+}) {
+    const rules =
+        step === 0
+            ? [
+                  { label: 'Exact score', points: config.group?.exact_score },
+                  {
+                      label: 'Right result',
+                      points: config.group?.correct_outcome_wrong_goals,
+                  },
+              ]
+            : [
+                  {
+                      label: 'Team advances',
+                      points: config.knockout?.team_reaches_phase,
+                  },
+                  { label: 'Champion', points: config.knockout?.champion },
+              ];
+
+    return (
+        <div className="flex flex-wrap gap-2">
+            {rules
+                .filter((rule) => rule.points != null)
+                .map((rule) => (
+                    <span
+                        key={rule.label}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground"
+                    >
+                        {rule.label}
+                        <b className="font-display text-primary">
+                            +{rule.points}
+                        </b>
+                    </span>
+                ))}
+        </div>
+    );
+}
+
 function GroupCard({
     group,
     scores,
@@ -314,14 +337,14 @@ function GroupCard({
     onCommit: () => void;
 }) {
     return (
-        <div className="card-elevated overflow-hidden rounded-2xl">
+        <div className="card-elevated overflow-hidden rounded-3xl">
             <div className="bg-brand-gradient px-5 py-3">
-                <h3 className="text-sm font-black tracking-wide text-primary-foreground uppercase">
+                <h3 className="font-display text-sm font-semibold tracking-wide text-white uppercase">
                     Group {group.name}
                 </h3>
             </div>
             <div className="flex flex-col gap-4 p-5">
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-3">
                     {group.fixtures.map((fixture: PredictGroupFixture) => {
                         const score = scores[fixture.fixture_id] ?? {
                             home: '',
@@ -333,14 +356,14 @@ function GroupCard({
                                 key={fixture.fixture_id}
                                 className="grid grid-cols-[1fr_auto_1fr] items-center gap-2"
                             >
-                                <span className="flex min-w-0 items-center justify-end gap-1.5 text-sm text-muted-foreground">
+                                <span className="flex min-w-0 items-center justify-end gap-1.5 text-sm font-medium">
                                     <span className="truncate">
-                                        {teamName(fixture.home)}
+                                        {teamShort(fixture.home)}
                                     </span>
                                     <Flag team={fixture.home} />
                                 </span>
-                                <div className="flex items-center gap-1">
-                                    <ScoreInput
+                                <div className="flex items-center gap-1.5">
+                                    <ScoreStepper
                                         value={score.home}
                                         disabled={!canEdit}
                                         label={`${teamName(fixture.home)} goals`}
@@ -353,10 +376,10 @@ function GroupCard({
                                         }
                                         onCommit={onCommit}
                                     />
-                                    <span className="text-muted-foreground">
+                                    <span className="font-display text-muted-foreground">
                                         –
                                     </span>
-                                    <ScoreInput
+                                    <ScoreStepper
                                         value={score.away}
                                         disabled={!canEdit}
                                         label={`${teamName(fixture.away)} goals`}
@@ -370,10 +393,10 @@ function GroupCard({
                                         onCommit={onCommit}
                                     />
                                 </div>
-                                <span className="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
+                                <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
                                     <Flag team={fixture.away} />
                                     <span className="truncate">
-                                        {teamName(fixture.away)}
+                                        {teamShort(fixture.away)}
                                     </span>
                                 </span>
                             </div>
@@ -407,7 +430,7 @@ function SlotRow({
                 {team && <Flag team={team} />}
                 <span className="truncate">{label}</span>
             </span>
-            <ScoreInput
+            <ScoreStepper
                 value={value}
                 disabled={disabled}
                 label={`${label} goals`}
@@ -468,7 +491,7 @@ function KnockoutCard({
     return (
         <div
             className={cn(
-                'flex w-64 flex-col gap-2 rounded-xl p-3.5 text-sm',
+                'flex w-72 flex-col gap-2.5 rounded-2xl p-4 text-sm',
                 isFinal
                     ? 'shadow-glow-accent border border-accent/40 bg-card'
                     : 'card-elevated',
@@ -482,7 +505,7 @@ function KnockoutCard({
                 onChange={(value) => handleScore('home', value)}
                 onCommit={onCommit}
             />
-            <div className="border-t border-border/50" />
+            <div className="border-t border-border" />
             <SlotRow
                 label={teamName(fixture.away, fixture.away_label)}
                 team={fixture.away}
@@ -540,7 +563,7 @@ function KnockoutCard({
                     <span className="text-[0.65rem] font-semibold tracking-wide text-muted-foreground uppercase">
                         Advances
                     </span>
-                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-pitch-deep dark:text-primary">
                         <Flag team={winnerTeam} />
                         {winnerTeam?.code ?? winnerTeam?.name}
                     </span>
@@ -566,8 +589,7 @@ function SaveStatus({ status }: { status: SaveStatusValue }) {
     if (status === 'saved') {
         return (
             <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Check className="size-3.5 text-emerald-600" /> All changes
-                saved
+                <Check className="size-3.5 text-primary" /> All changes saved
             </span>
         );
     }
@@ -828,21 +850,21 @@ export default function Predict({
         <>
             <Head title={`Predict — ${game.name}`} />
             <div className="flex h-full flex-1 flex-col gap-6 p-4">
-                <header className="bg-pitch relative overflow-hidden rounded-2xl border border-primary/20 p-6">
-                    <div className="pointer-events-none absolute -top-16 -right-10 size-56 rounded-full bg-accent/20 blur-3xl" />
+                <header className="hero relative overflow-hidden rounded-3xl border border-border p-6 sm:p-8">
+                    <div className="hero-lines" />
                     <div className="relative flex flex-col gap-3">
                         <div className="flex flex-wrap items-center gap-3">
-                            <Badge className="bg-brand-gradient border-0 text-primary-foreground capitalize shadow">
+                            <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground capitalize">
                                 {game.status.replace('_', ' ')}
-                            </Badge>
+                            </span>
                             <Link
                                 href={games.show(game.slug)}
-                                className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+                                className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                             >
                                 ← Back to tournament
                             </Link>
                         </div>
-                        <h1 className="text-gradient-brand text-3xl font-black tracking-tight sm:text-4xl">
+                        <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
                             My Predictions
                         </h1>
                         <p className="text-sm text-muted-foreground">
@@ -854,11 +876,17 @@ export default function Predict({
                                 {dates}
                             </span>
                         )}
+                        <div className="mt-1">
+                            <ScoringLegend
+                                config={game.scoring_config}
+                                step={step}
+                            />
+                        </div>
                     </div>
                 </header>
 
                 {!canEdit && (
-                    <div className="flex items-center gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
+                    <div className="flex items-center gap-3 rounded-2xl border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
                         <Lock className="size-4 shrink-0" />
                         <span>
                             Predictions are locked — the tournament has started,
@@ -874,12 +902,10 @@ export default function Predict({
                             <button
                                 type="button"
                                 onClick={() => goToStep(index)}
-                                className={cn(
-                                    'rounded-full px-3 py-1.5 text-xs font-semibold transition',
-                                    index === step
-                                        ? 'bg-brand-gradient text-primary-foreground shadow'
-                                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/70',
-                                )}
+                                className={chipVariants({
+                                    variant:
+                                        index === step ? 'active' : 'default',
+                                })}
                             >
                                 {index + 1}. {title}
                             </button>
@@ -889,7 +915,7 @@ export default function Predict({
 
                 <section className="flex flex-1 flex-col gap-4">
                     {step === 0 ? (
-                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                             {groups.map((group) => (
                                 <GroupCard
                                     key={group.name}
@@ -918,7 +944,7 @@ export default function Predict({
                     )}
                 </section>
 
-                <footer className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-border/60 bg-background/80 py-4 backdrop-blur">
+                <footer className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-border bg-background/80 py-4 backdrop-blur">
                     <Button
                         type="button"
                         variant="outline"
@@ -931,7 +957,7 @@ export default function Predict({
                     {canEdit && <SaveStatus status={saveStatus} />}
 
                     {isLastStep ? (
-                        <Button asChild>
+                        <Button variant="gold" asChild>
                             <Link href={games.show(game.slug)}>Finish</Link>
                         </Button>
                     ) : (
@@ -951,8 +977,8 @@ export default function Predict({
 
 function ThirdsPanel({ thirds }: { thirds: ThirdRanking[] | null }) {
     return (
-        <div className="card-elevated flex flex-col gap-2 rounded-xl p-4">
-            <h3 className="text-xs font-bold tracking-wide text-primary uppercase">
+        <div className="card-elevated flex flex-col gap-2 rounded-2xl p-4">
+            <h3 className="font-display text-xs font-bold tracking-wide text-primary uppercase">
                 Best third-placed teams
             </h3>
             {thirds === null ? (
@@ -1010,7 +1036,7 @@ function KnockoutStep({
 
                 return (
                     <div key={key} className="flex flex-col gap-3">
-                        <h2 className="text-xs font-bold tracking-wide text-primary uppercase">
+                        <h2 className="font-display text-xs font-bold tracking-wide text-primary uppercase">
                             {phase.phase_name}
                         </h2>
                         <div className="flex flex-wrap gap-3">

@@ -12,8 +12,13 @@ export default defineConfig({
             input: ['resources/css/app.css', 'resources/js/app.tsx'],
             refresh: true,
             fonts: [
-                bunny('Instrument Sans', {
-                    weights: [400, 500, 600],
+                // Display — playful, rounded headlines, wordmark & scorelines
+                bunny('Fredoka', {
+                    weights: [400, 500, 600, 700],
+                }),
+                // Body — crisp copy, labels & tabular scoreboard figures
+                bunny('Plus Jakarta Sans', {
+                    weights: [400, 500, 600, 700, 800],
                 }),
             ],
         }),

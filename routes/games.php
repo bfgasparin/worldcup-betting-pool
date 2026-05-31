@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['auth'])->group(function () {
     Route::get('games', [GameController::class, 'index'])->name('games.index');
     Route::get('games/{tournament:slug}', [GameController::class, 'show'])->name('games.show');
+    Route::get('games/{tournament:slug}/leaderboard', [GameController::class, 'leaderboard'])->name('games.leaderboard');
 
     Route::get('games/{tournament:slug}/predict', [PredictionController::class, 'edit'])->name('games.predict.edit');
     Route::put('games/{tournament:slug}/predict/group', [PredictionController::class, 'updateGroupStage'])->name('games.predict.group');

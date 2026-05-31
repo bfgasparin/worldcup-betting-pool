@@ -65,6 +65,29 @@ export interface GameDetail extends GameSummary {
     scoring_config: Record<string, Record<string, number>>;
 }
 
+// --- Pool table / leaderboard ---
+
+export interface LeaderboardEntryRow {
+    rank: number;
+    name: string;
+    initials: string;
+    points: number | null;
+    is_me: boolean;
+}
+
+export interface PoolSummary {
+    participants: number;
+    has_scores: boolean;
+    me: LeaderboardEntryRow | null;
+    top: LeaderboardEntryRow[];
+}
+
+export interface LeaderboardPageProps {
+    game: GameSummary;
+    rows: LeaderboardEntryRow[];
+    has_scores: boolean;
+}
+
 // --- Prediction wizard ---
 
 export interface StandingRow {
@@ -132,6 +155,7 @@ export interface PredictGameDetail {
     ends_on: string | null;
     predictions_lock_at: string | null;
     can_edit: boolean;
+    scoring_config: Record<string, Record<string, number>>;
 }
 
 export interface PredictPageProps {

@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Entry;
+use App\Models\Tournament;
 use App\Models\User;
 use Database\Seeders\WorldCup2026Seeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -61,6 +63,79 @@ class GameControllerTest extends TestCase
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->whereNot('groups.0.fixtures.0.home', null)
                 ->whereNot('groups.0.fixtures.0.away', null)
+            );
+    }
+
+    public function test_show_includes_the_pool_summary(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+        $tournament = Tournament::firstOrFail();
+        $user = User::factory()->create();
+        Entry::factory()->for($tournament)->for($user)->create();
+
+        $this->actingAs($user);
+
+        $this->get(route('games.show', $tournament->slug))
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('pool.participants', 1)
+                ->where('pool.has_scores', false)
+                ->where('pool.me.is_me', true)
+                ->where('pool.me.points', null)
+                ->has('pool.top', 1)
+            );
+    }
+
+    public function test_guests_are_redirected_from_the_leaderboard(): void
+    {
+        $this->get(route('games.leaderboard', 'world-cup-2026'))
+            ->assertRedirect(route('login'));
+    }
+
+    public function test_leaderboard_lists_pool_participants_without_scores(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+        $tournament = Tournament::firstOrFail();
+        Entry::factory()->count(2)->for($tournament)->create();
+        $me = User::factory()->create();
+        Entry::factory()->for($tournament)->for($me)->create();
+
+        $this->actingAs($me);
+
+        $this->get(route('games.leaderboard', $tournament->slug))
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->component('games/leaderboard')
+                ->where('game.slug', $tournament->slug)
+                ->where('has_scores', false)
+                ->has('rows', 3)
+            );
+    }
+
+    public function test_leaderboard_ranks_entries_by_total_points(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+        $tournament = Tournament::firstOrFail();
+
+        Entry::factory()->for($tournament)
+            ->for(User::factory()->create(['name' => 'Top Scorer']))
+            ->create(['total_points' => 120]);
+
+        $me = User::factory()->create(['name' => 'Runner Up']);
+        Entry::factory()->for($tournament)->for($me)->create(['total_points' => 40]);
+
+        $this->actingAs($me);
+
+        $this->get(route('games.leaderboard', $tournament->slug))
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('has_scores', true)
+                ->where('rows.0.rank', 1)
+                ->where('rows.0.name', 'Top Scorer')
+                ->where('rows.0.points', 120)
+                ->where('rows.1.rank', 2)
+                ->where('rows.1.name', 'You')
+                ->where('rows.1.is_me', true)
             );
     }
 }

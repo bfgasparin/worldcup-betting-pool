@@ -72,6 +72,7 @@ class PredictionController extends Controller
                 'ends_on' => $tournament->ends_on?->toDateString(),
                 'predictions_lock_at' => $tournament->predictions_lock_at?->toIso8601String(),
                 'can_edit' => $canEdit,
+                'scoring_config' => $tournament->scoring_config,
             ],
             'groups' => $tournament->groups->map(
                 fn (Group $group): array => $this->mapGroup($group, $bracket, $groupPredictions, $teamsById),

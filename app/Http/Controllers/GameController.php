@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Entry;
 use App\Models\Fixture;
 use App\Models\Group;
 use App\Models\Team;
 use App\Models\Tournament;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -22,12 +24,7 @@ class GameController extends Controller
             ->orderByDesc('starts_on')
             ->get()
             ->map(fn (Tournament $tournament): array => [
-                'slug' => $tournament->slug,
-                'name' => $tournament->name,
-                'sport' => $tournament->sport->value,
-                'status' => $tournament->status->value,
-                'starts_on' => $tournament->starts_on?->toDateString(),
-                'ends_on' => $tournament->ends_on?->toDateString(),
+                ...$this->gameHeader($tournament),
                 'groups_count' => $tournament->groups_count,
                 'fixtures_count' => $tournament->fixtures_count,
             ]);
@@ -36,9 +33,10 @@ class GameController extends Controller
     }
 
     /**
-     * Show a single game's structure: groups, fixtures and the knockout bracket.
+     * Show a single game's structure: groups, fixtures and the knockout bracket, plus the
+     * viewer's pool standing for the dashboard banner.
      */
-    public function show(Tournament $tournament): Response
+    public function show(Request $request, Tournament $tournament): Response
     {
         $tournament->load([
             'groups.teams',
@@ -53,17 +51,101 @@ class GameController extends Controller
 
         return Inertia::render('games/show', [
             'game' => [
-                'slug' => $tournament->slug,
-                'name' => $tournament->name,
-                'sport' => $tournament->sport->value,
-                'status' => $tournament->status->value,
-                'starts_on' => $tournament->starts_on?->toDateString(),
-                'ends_on' => $tournament->ends_on?->toDateString(),
+                ...$this->gameHeader($tournament),
                 'scoring_config' => $tournament->scoring_config,
             ],
             'groups' => $tournament->groups->map(fn (Group $group): array => $this->mapGroup($group)),
             'bracket' => $this->mapBracket($tournament->knockoutFixtures),
+            'pool' => $this->poolSummary($tournament, $request->user()->id),
         ]);
+    }
+
+    /**
+     * The full pool table — every entry ranked by total points (unscored entries last).
+     * Until results land, points are null and the page leads with an explainer state.
+     */
+    public function leaderboard(Request $request, Tournament $tournament): Response
+    {
+        $rows = $this->rankedEntries($tournament, $request->user()->id);
+
+        return Inertia::render('games/leaderboard', [
+            'game' => $this->gameHeader($tournament),
+            'rows' => $rows->all(),
+            'has_scores' => $rows->contains(fn (array $row): bool => $row['points'] !== null),
+        ]);
+    }
+
+    /**
+     * Rank a tournament's entries by total points, marking the current user's row.
+     *
+     * @return Collection<int, array{rank: int, name: string, initials: string, points: ?int, is_me: bool}>
+     */
+    private function rankedEntries(Tournament $tournament, int $userId): Collection
+    {
+        return $tournament->entries()
+            ->with('user')
+            ->orderBy('id')
+            ->get()
+            // Stable sort keeps the id order above for entries tied on points (nulls last).
+            ->sortByDesc(fn (Entry $entry): int => $entry->total_points ?? PHP_INT_MIN)
+            ->values()
+            ->map(fn (Entry $entry, int $index): array => [
+                'rank' => $index + 1,
+                'name' => $entry->user_id === $userId ? 'You' : ($entry->user->name ?? 'Player'),
+                'initials' => $this->initials($entry->user->name ?? ''),
+                'points' => $entry->total_points,
+                'is_me' => $entry->user_id === $userId,
+            ]);
+    }
+
+    /**
+     * A compact pool snapshot for the tournament dashboard: the viewer's standing plus the
+     * top of the table.
+     *
+     * @return array{participants: int, has_scores: bool, me: ?array<string, mixed>, top: list<array<string, mixed>>}
+     */
+    private function poolSummary(Tournament $tournament, int $userId): array
+    {
+        $rows = $this->rankedEntries($tournament, $userId);
+
+        return [
+            'participants' => $rows->count(),
+            'has_scores' => $rows->contains(fn (array $row): bool => $row['points'] !== null),
+            'me' => $rows->firstWhere('is_me', true),
+            'top' => $rows->take(4)->values()->all(),
+        ];
+    }
+
+    /**
+     * Up to two initials from a display name (e.g. "Marina Jones" -> "MJ").
+     */
+    private function initials(string $name): string
+    {
+        $parts = array_values(array_filter(preg_split('/\s+/', trim($name)) ?: []));
+
+        $letters = collect($parts)
+            ->take(2)
+            ->map(fn (string $part): string => mb_substr($part, 0, 1))
+            ->implode('');
+
+        return mb_strtoupper($letters) ?: '?';
+    }
+
+    /**
+     * Shared header fields for a tournament across the games screens.
+     *
+     * @return array{slug: string, name: string, sport: string, status: string, starts_on: ?string, ends_on: ?string}
+     */
+    private function gameHeader(Tournament $tournament): array
+    {
+        return [
+            'slug' => $tournament->slug,
+            'name' => $tournament->name,
+            'sport' => $tournament->sport->value,
+            'status' => $tournament->status->value,
+            'starts_on' => $tournament->starts_on?->toDateString(),
+            'ends_on' => $tournament->ends_on?->toDateString(),
+        ];
     }
 
     /**

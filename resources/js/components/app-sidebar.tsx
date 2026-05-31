@@ -40,7 +40,7 @@ export function AppSidebar() {
 
             <SidebarContent>
                 {game ? (
-                    <NavTournament name={game.name} />
+                    <NavTournament slug={game.slug} name={game.name} />
                 ) : (
                     <SidebarGroup className="px-2 py-0">
                         <SidebarMenu>
