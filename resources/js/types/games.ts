@@ -45,6 +45,8 @@ export interface GroupView {
     name: string;
     teams: GroupTeam[];
     fixtures: GroupFixture[];
+    /** Official live group table, computed from real match results. */
+    standings: StandingRow[];
 }
 
 export interface BracketFixture {
