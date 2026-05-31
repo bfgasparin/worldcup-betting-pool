@@ -1,5 +1,11 @@
 import { Link } from '@inertiajs/react';
-import { ChevronLeft, Network, Users } from 'lucide-react';
+import {
+    ChevronLeft,
+    LayoutDashboard,
+    ListOrdered,
+    PencilLine,
+} from 'lucide-react';
+import type { ComponentType } from 'react';
 import {
     SidebarGroup,
     SidebarGroupLabel,
@@ -7,28 +13,47 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { index as games } from '@/routes/games';
+import games from '@/routes/games';
 
-const sections = [
-    { title: 'Groups', href: '#groups', icon: Users },
-    { title: 'Bracket', href: '#bracket', icon: Network },
-];
+interface NavItem {
+    title: string;
+    href: string;
+    icon: ComponentType<{ className?: string }>;
+}
 
-export function NavTournament({ name }: { name: string }) {
+export function NavTournament({ slug, name }: { slug: string; name: string }) {
+    const items: NavItem[] = [
+        {
+            title: 'Overview',
+            href: games.show(slug).url,
+            icon: LayoutDashboard,
+        },
+        {
+            title: 'Predict',
+            href: games.predict.edit(slug).url,
+            icon: PencilLine,
+        },
+        {
+            title: 'Pool table',
+            href: games.leaderboard(slug).url,
+            icon: ListOrdered,
+        },
+    ];
+
     return (
         <SidebarGroup className="px-2 py-0">
             <SidebarGroupLabel className="truncate">{name}</SidebarGroupLabel>
             <SidebarMenu>
-                {sections.map((section) => (
-                    <SidebarMenuItem key={section.title}>
+                {items.map((item) => (
+                    <SidebarMenuItem key={item.title}>
                         <SidebarMenuButton
                             asChild
-                            tooltip={{ children: section.title }}
+                            tooltip={{ children: item.title }}
                         >
-                            <a href={section.href}>
-                                <section.icon />
-                                <span>{section.title}</span>
-                            </a>
+                            <Link href={item.href} prefetch>
+                                <item.icon />
+                                <span>{item.title}</span>
+                            </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 ))}
@@ -37,7 +62,7 @@ export function NavTournament({ name }: { name: string }) {
                         asChild
                         tooltip={{ children: 'All tournaments' }}
                     >
-                        <Link href={games()} prefetch>
+                        <Link href={games.index()} prefetch>
                             <ChevronLeft />
                             <span>All tournaments</span>
                         </Link>

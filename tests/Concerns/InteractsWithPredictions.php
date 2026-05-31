@@ -14,43 +14,54 @@ use App\Services\Predictions\BracketResolver;
 trait InteractsWithPredictions
 {
     /**
-     * A score map (by fixture order within a group) that resolves to the seed order:
-     * position 1 wins the group, position 2 is runner-up, 3 third, 4 last.
+     * A position-based result rule that resolves a group to seed order: the better-seeded team
+     * (lower group position) wins every match 1–0, so position 1 wins the group, 2 is
+     * runner-up, 3 third, 4 last — independent of the actual fixture pairings/order.
      *
-     * @return list<array{int, int}>
+     * @return callable(int, int): array{int, int}
      */
-    protected function seedOrderScores(): array
+    protected function seedOrderScores(): callable
     {
-        return [[1, 0], [1, 0], [1, 0], [0, 1], [0, 1], [1, 0]];
+        return fn (int $homePosition, int $awayPosition): array => $homePosition < $awayPosition
+            ? [1, 0]
+            : [0, 1];
     }
 
     /**
-     * Predict the six fixtures of one group (ordered by match number).
+     * Predict the six fixtures of one group by applying a result rule to each fixture's two
+     * group positions (1–4): rule($homePosition, $awayPosition) => [homeGoals, awayGoals].
      *
-     * @param  list<array{int, int}>  $scores
+     * @param  callable(int, int): array{int, int}  $rule
      */
-    protected function predictGroup(Entry $entry, Tournament $tournament, string $groupName, array $scores): void
+    protected function predictGroup(Entry $entry, Tournament $tournament, string $groupName, callable $rule): void
     {
         $group = $tournament->groups()->where('name', $groupName)->firstOrFail();
-        $fixtures = $group->fixtures()->orderBy('match_number')->get();
+        $positions = $group->teams()->get()->mapWithKeys(
+            fn ($team) => [$team->id => $team->pivot->position],
+        );
 
-        foreach ($scores as $index => [$home, $away]) {
+        foreach ($group->fixtures()->orderBy('match_number')->get() as $fixture) {
+            [$home, $away] = $rule(
+                $positions[$fixture->home_team_id],
+                $positions[$fixture->away_team_id],
+            );
+
             GroupPrediction::updateOrCreate(
-                ['entry_id' => $entry->id, 'fixture_id' => $fixtures[$index]->id],
+                ['entry_id' => $entry->id, 'fixture_id' => $fixture->id],
                 ['home_goals' => $home, 'away_goals' => $away],
             );
         }
     }
 
     /**
-     * Apply the same score map to every group of the tournament.
+     * Apply the same result rule to every group of the tournament.
      *
-     * @param  list<array{int, int}>  $scores
+     * @param  callable(int, int): array{int, int}  $rule
      */
-    protected function predictAllGroups(Entry $entry, Tournament $tournament, array $scores): void
+    protected function predictAllGroups(Entry $entry, Tournament $tournament, callable $rule): void
     {
         foreach ($tournament->groups()->orderBy('sort_order')->get() as $group) {
-            $this->predictGroup($entry, $tournament, $group->name, $scores);
+            $this->predictGroup($entry, $tournament, $group->name, $rule);
         }
     }
 

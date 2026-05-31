@@ -20,7 +20,11 @@ class TeamFactory extends Factory
     {
         return [
             'name' => fake()->unique()->country(),
-            'code' => Str::upper(fake()->unique()->lexify('???')),
+            // A synthetic 3-char code with a digit in the middle (e.g. "A7Q"). Real team codes
+            // are all-letter ISO codes, so a digit guarantees this never collides with a seeded
+            // code on the shared unique `code` column — fake()->unique() only dedupes within the
+            // Faker instance, not against rows the seeder already inserted.
+            'code' => Str::upper(fake()->unique()->bothify('?#?')),
             'is_placeholder' => false,
         ];
     }

@@ -78,8 +78,19 @@ class BracketResolverTest extends TestCase
     public function test_ranks_eight_best_thirds_by_record_then_group_order(): void
     {
         $this->predictAllGroups($this->entry, $this->tournament, $this->seedOrderScores());
-        // Boost group L's third by a big win over its 4th, so it outranks the (otherwise tied) thirds.
-        $this->predictGroup($this->entry, $this->tournament, 'L', [[1, 0], [5, 0], [1, 0], [0, 1], [0, 1], [1, 0]]);
+        // Boost group L's third (position 3) with a big win over its 4th, so it outranks the
+        // (otherwise tied) thirds; the rest of the group stays in seed order.
+        $this->predictGroup($this->entry, $this->tournament, 'L', function (int $home, int $away): array {
+            if ($home === 3 && $away === 4) {
+                return [5, 0];
+            }
+
+            if ($home === 4 && $away === 3) {
+                return [0, 5];
+            }
+
+            return $home < $away ? [1, 0] : [0, 1];
+        });
 
         $ranked = $this->resolver->resolve($this->entry)->rankedThirds;
 
@@ -145,8 +156,15 @@ class BracketResolverTest extends TestCase
         $this->assertSame($oldGroupAWinner, $this->prediction('R32-7')->advancing_team_id);
         $this->assertSame($oldGroupAWinner, $this->prediction('R16-4')->predicted_home_team_id);
 
-        // Flip group A so position 2 wins the group and the old winner drops to runner-up.
-        $this->predictGroup($this->entry, $this->tournament, 'A', [[0, 1], [1, 0], [1, 0], [0, 1], [0, 1], [1, 0]]);
+        // Flip group A so position 2 wins the group and the old winner (position 1) drops to
+        // runner-up: position 2 beats position 1; otherwise the better seed wins.
+        $this->predictGroup($this->entry, $this->tournament, 'A', function (int $home, int $away): array {
+            $winner = (min($home, $away) === 1 && max($home, $away) === 2)
+                ? 2
+                : min($home, $away);
+
+            return $winner === $home ? [1, 0] : [0, 1];
+        });
         $this->resolver->persist($this->entry);
 
         $r32_7 = $this->prediction('R32-7');

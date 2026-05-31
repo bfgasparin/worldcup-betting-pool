@@ -135,6 +135,39 @@ class WorldCup2026SeederTest extends TestCase
         $this->assertSame(75, $match90->awayFeeder->match_number);
     }
 
+    public function test_it_seeds_official_kick_off_times_and_venues(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+
+        // Every fixture carries a venue + IANA timezone.
+        $this->assertSame(0, Fixture::whereNull('venue')->count());
+        $this->assertSame(0, Fixture::whereNull('venue_timezone')->count());
+        $this->assertSame(0, Fixture::whereNull('kicks_off_at')->count());
+
+        // The opener — Mexico v South Africa, 3 p.m. ET (19:00 UTC) at Mexico City.
+        $opener = Fixture::where('match_number', 1)->firstOrFail();
+        $this->assertSame('2026-06-11T19:00:00+00:00', $opener->kicks_off_at->toIso8601String());
+        $this->assertSame('Mexico City Stadium', $opener->venue);
+        $this->assertSame('America/Mexico_City', $opener->venue_timezone);
+        $this->assertSame('MEX', $opener->homeTeam->code);
+        $this->assertSame('RSA', $opener->awayTeam->code);
+
+        // A late-ET kick-off stays correct across timezones: midnight ET on Jun 13 in Vancouver
+        // is really 9 p.m. local on Jun 12.
+        $vancouver = Fixture::where('match_number', 20)->firstOrFail();
+        $this->assertSame('2026-06-13T04:00:00+00:00', $vancouver->kicks_off_at->toIso8601String());
+        $this->assertSame(
+            '2026-06-12 21:00',
+            $vancouver->kicks_off_at->copy()->setTimezone('America/Vancouver')->format('Y-m-d H:i'),
+        );
+
+        // The Final — 3 p.m. ET on Jul 19 (19:00 UTC) at MetLife / New York New Jersey.
+        $final = Fixture::where('match_number', 104)->firstOrFail();
+        $this->assertSame('2026-07-19T19:00:00+00:00', $final->kicks_off_at->toIso8601String());
+        $this->assertSame('New York New Jersey Stadium', $final->venue);
+        $this->assertSame('America/New_York', $final->venue_timezone);
+    }
+
     private function teamAt(Tournament $tournament, string $group, int $position): Team
     {
         return $tournament->groups()->where('name', $group)->firstOrFail()

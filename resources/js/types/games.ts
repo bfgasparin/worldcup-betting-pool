@@ -35,6 +35,10 @@ export interface GroupFixture {
     home_goals: number | null;
     away_goals: number | null;
     kicks_off_at: string | null;
+    venue: string | null;
+    venue_timezone: string | null;
+    /** The viewer's own predicted scoreline, if they've made one. */
+    prediction: { home_goals: number; away_goals: number } | null;
 }
 
 export interface GroupView {
@@ -52,6 +56,9 @@ export interface BracketFixture {
     away_label: string | null;
     home_goals: number | null;
     away_goals: number | null;
+    kicks_off_at: string | null;
+    venue: string | null;
+    venue_timezone: string | null;
 }
 
 export interface BracketPhase {
@@ -63,6 +70,29 @@ export interface BracketPhase {
 
 export interface GameDetail extends GameSummary {
     scoring_config: Record<string, Record<string, number>>;
+}
+
+// --- Pool table / leaderboard ---
+
+export interface LeaderboardEntryRow {
+    rank: number;
+    name: string;
+    initials: string;
+    points: number | null;
+    is_me: boolean;
+}
+
+export interface PoolSummary {
+    participants: number;
+    has_scores: boolean;
+    me: LeaderboardEntryRow | null;
+    top: LeaderboardEntryRow[];
+}
+
+export interface LeaderboardPageProps {
+    game: GameSummary;
+    rows: LeaderboardEntryRow[];
+    has_scores: boolean;
 }
 
 // --- Prediction wizard ---
@@ -88,6 +118,9 @@ export interface PredictGroupFixture {
     away: TeamRef | null;
     home_goals: number | null;
     away_goals: number | null;
+    kicks_off_at: string | null;
+    venue: string | null;
+    venue_timezone: string | null;
 }
 
 export interface PredictGroup {
@@ -132,6 +165,7 @@ export interface PredictGameDetail {
     ends_on: string | null;
     predictions_lock_at: string | null;
     can_edit: boolean;
+    scoring_config: Record<string, Record<string, number>>;
 }
 
 export interface PredictPageProps {
