@@ -1,9 +1,4 @@
-export type GameStatus =
-    | 'draft'
-    | 'open'
-    | 'locked'
-    | 'in_progress'
-    | 'completed';
+export type GameStatus = 'upcoming' | 'in_progress' | 'completed';
 
 export interface GameSummary {
     slug: string;
@@ -72,6 +67,8 @@ export interface BracketPhase {
 
 export interface GameDetail extends GameSummary {
     scoring_config: Record<string, Record<string, number>>;
+    /** Lifecycle statuses this tournament may transition into (admin only). */
+    allowed_transitions: GameStatus[];
 }
 
 // --- Pool table / leaderboard ---

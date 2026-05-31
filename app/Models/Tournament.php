@@ -6,6 +6,7 @@ use App\Enums\PhaseType;
 use App\Enums\ScoringStrategy;
 use App\Enums\Sport;
 use App\Enums\TournamentStatus;
+use App\Events\TournamentStatusChanged;
 use Database\Factories\TournamentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -47,14 +48,34 @@ class Tournament extends Model
     }
 
     /**
-     * Whether the tournament still accepts prediction edits: it must be open (or a draft
-     * not yet published) and the predictions lock time must be in the future.
+     * Whether the tournament still accepts prediction edits. This is driven by the
+     * prediction window alone and is intentionally independent of the lifecycle
+     * {@see TournamentStatus}, which describes where the tournament is in its life.
      */
     public function acceptsPredictions(): bool
     {
-        return in_array($this->status, [TournamentStatus::Open, TournamentStatus::Draft], true)
-            && $this->predictions_lock_at !== null
-            && now()->lessThan($this->predictions_lock_at);
+        return $this->predictions_lock_at !== null && now()->lessThan($this->predictions_lock_at);
+    }
+
+    /**
+     * Move the tournament to a new lifecycle status, guarding against illegal
+     * transitions and announcing the change for downstream listeners.
+     *
+     * @throws \InvalidArgumentException when the transition is not allowed
+     */
+    public function transitionTo(TournamentStatus $to): void
+    {
+        if (! $this->status->canTransitionTo($to)) {
+            throw new \InvalidArgumentException(
+                "Cannot transition tournament from [{$this->status->value}] to [{$to->value}].",
+            );
+        }
+
+        $from = $this->status;
+
+        $this->update(['status' => $to]);
+
+        event(new TournamentStatusChanged($this, $from, $to));
     }
 
     /**

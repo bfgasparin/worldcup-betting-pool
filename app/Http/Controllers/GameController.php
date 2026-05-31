@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\TournamentStatus;
 use App\Models\Entry;
 use App\Models\Fixture;
 use App\Models\Group;
@@ -60,6 +61,10 @@ class GameController extends Controller
             'game' => [
                 ...$this->gameHeader($tournament),
                 'scoring_config' => $tournament->scoring_config,
+                'allowed_transitions' => array_map(
+                    fn (TournamentStatus $status): string => $status->value,
+                    $tournament->status->allowedTransitions(),
+                ),
             ],
             'groups' => $tournament->groups->map(
                 fn (Group $group): array => $this->mapGroup($group, $groupPredictions),

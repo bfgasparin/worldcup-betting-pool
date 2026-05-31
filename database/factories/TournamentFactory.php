@@ -27,7 +27,7 @@ class TournamentFactory extends Factory
             'slug' => Str::slug($name),
             'name' => Str::title($name),
             'sport' => Sport::Soccer,
-            'status' => TournamentStatus::Open,
+            'status' => TournamentStatus::Upcoming,
             'scoring_strategy' => ScoringStrategy::WorldCupStandard,
             'scoring_config' => [
                 'group' => [
@@ -46,5 +46,21 @@ class TournamentFactory extends Factory
             'starts_on' => '2026-06-11',
             'ends_on' => '2026-07-19',
         ];
+    }
+
+    /**
+     * A tournament that is currently underway.
+     */
+    public function inProgress(): static
+    {
+        return $this->state(['status' => TournamentStatus::InProgress]);
+    }
+
+    /**
+     * A tournament that has finished.
+     */
+    public function completed(): static
+    {
+        return $this->state(['status' => TournamentStatus::Completed]);
     }
 }
