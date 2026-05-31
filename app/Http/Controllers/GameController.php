@@ -121,7 +121,7 @@ class GameController extends Controller
     }
 
     /**
-     * @return array{id: int, name: string, code: ?string, is_placeholder: bool}|null
+     * @return array{id: int, name: string, code: ?string, is_placeholder: bool, flag_url: string}|null
      */
     private function teamRef(?Team $team): ?array
     {
@@ -134,6 +134,7 @@ class GameController extends Controller
             'name' => $team->name,
             'code' => $team->code,
             'is_placeholder' => $team->is_placeholder,
+            'flag_url' => $team->flag_url,
         ];
     }
 }

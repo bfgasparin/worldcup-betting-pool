@@ -15,18 +15,20 @@ use Illuminate\Support\Facades\DB;
  * knockout teams.
  *
  * It computes group standings, ranks the eight best third-placed teams, resolves the
- * Round-of-32 placeholder labels ("Winner Group A", "Runner-up Group B", "3rd Place N")
+ * Round-of-32 placeholder labels ("Winner Group A", "Runner-up Group B", "3rd Group A/B/C/D/F")
  * and cascades winners/losers through the feeder tree (R16 -> QF -> SF -> third place /
  * final) based on the user's "who advances" picks.
  *
- * Determinism note: FIFA breaks unresolvable ties (and assigns third-placed teams to
- * specific slots) via lookup tables and a drawing of lots. This engine is intentionally
- * deterministic instead — group seed position and group sort order are the final
- * tie-breakers, and "3rd Place N" maps positionally to the N-th best third per the
- * seeded bracket structure. Scoring is out of scope here.
+ * Third-placed teams are slotted via the official FIFA allocation ({@see ThirdPlaceAllocation}):
+ * the eight qualifying thirds map to fixed Round-of-32 slots so a third never meets the winner
+ * of its own group. Determinism note: where FIFA would break unresolvable ties by a drawing of
+ * lots, this engine instead uses group seed position and group sort order as the final
+ * tie-breakers. Scoring is out of scope here.
  */
 class BracketResolver
 {
+    public function __construct(private readonly ThirdPlaceAllocation $allocation = new ThirdPlaceAllocation) {}
+
     /**
      * Resolve the full bracket for an entry from its currently saved predictions.
      */
@@ -58,6 +60,7 @@ class BracketResolver
         }
 
         $rankedThirds = $this->rankThirds($standings, $tournament->groups);
+        $thirdsByMatchNumber = $this->assignThirds($standings, $rankedThirds);
 
         $resolved = [];
         $ordered = $tournament->knockoutFixtures
@@ -66,8 +69,8 @@ class BracketResolver
 
         foreach ($ordered as $fixture) {
             $resolved[$fixture->id] = [
-                'home' => $this->resolveSlot('home', $fixture, $standings, $rankedThirds, $resolved, $knockoutPredictions),
-                'away' => $this->resolveSlot('away', $fixture, $standings, $rankedThirds, $resolved, $knockoutPredictions),
+                'home' => $this->resolveSlot('home', $fixture, $standings, $thirdsByMatchNumber, $resolved, $knockoutPredictions),
+                'away' => $this->resolveSlot('away', $fixture, $standings, $thirdsByMatchNumber, $resolved, $knockoutPredictions),
             ];
         }
 
@@ -184,22 +187,70 @@ class BracketResolver
     }
 
     /**
+     * Resolve which third-placed team fills each third-place Round-of-32 slot, keyed by the
+     * slot's match number, via the official allocation table. Null until every group is
+     * complete (the whole eight-group combination must be known to look the slotting up).
+     *
+     * @param  array<string, GroupStandings>  $standings
+     * @param  list<int>|null  $rankedThirds  the eight qualifying third team ids
+     * @return array<int, int>|null match number => team id
+     */
+    private function assignThirds(array $standings, ?array $rankedThirds): ?array
+    {
+        if ($rankedThirds === null) {
+            return null;
+        }
+
+        $qualifying = array_flip($rankedThirds);
+        $thirdTeamByGroup = [];
+        $qualifyingGroups = [];
+
+        foreach ($standings as $name => $groupStandings) {
+            $third = $groupStandings->thirdStanding();
+
+            if ($third === null) {
+                return null;
+            }
+
+            $thirdTeamByGroup[$name] = $third->teamId;
+
+            if (isset($qualifying[$third->teamId])) {
+                $qualifyingGroups[] = $name;
+            }
+        }
+
+        $assignment = $this->allocation->assign($qualifyingGroups);
+
+        if ($assignment === null) {
+            return null;
+        }
+
+        $thirdsByMatchNumber = [];
+
+        foreach ($assignment as $matchNumber => $groupLetter) {
+            $thirdsByMatchNumber[$matchNumber] = $thirdTeamByGroup[$groupLetter];
+        }
+
+        return $thirdsByMatchNumber;
+    }
+
+    /**
      * Resolve one side of a knockout fixture to a team id, or null when it cannot be
      * determined yet from the current predictions.
      *
      * @param  array<string, GroupStandings>  $standings
-     * @param  list<int>|null  $rankedThirds
+     * @param  array<int, int>|null  $thirdsByMatchNumber  match number => third-placed team id
      * @param  array<int, array{home: ?int, away: ?int}>  $resolved  already-resolved feeders
      * @param  Collection<int, KnockoutPrediction>  $knockoutPredictions
      */
-    private function resolveSlot(string $side, Fixture $fixture, array $standings, ?array $rankedThirds, array $resolved, $knockoutPredictions): ?int
+    private function resolveSlot(string $side, Fixture $fixture, array $standings, ?array $thirdsByMatchNumber, array $resolved, $knockoutPredictions): ?int
     {
         $feederId = $side === 'home' ? $fixture->home_feeder_fixture_id : $fixture->away_feeder_fixture_id;
 
         if ($feederId === null) {
             $label = $side === 'home' ? $fixture->home_placeholder_label : $fixture->away_placeholder_label;
 
-            return $this->resolveLabel($label, $standings, $rankedThirds);
+            return $this->resolveLabel($label, $standings, $thirdsByMatchNumber, $fixture->match_number);
         }
 
         $feeder = $resolved[$feederId] ?? null;
@@ -225,12 +276,14 @@ class BracketResolver
     }
 
     /**
-     * Map a Round-of-32 placeholder label to a resolved team id, or null when unknown.
+     * Map a Round-of-32 placeholder label to a resolved team id, or null when unknown. The
+     * third-place slot ("3rd Group …") is resolved from the fixture's match number via the
+     * official allocation; the label itself only documents the eligible groups.
      *
      * @param  array<string, GroupStandings>  $standings
-     * @param  list<int>|null  $rankedThirds
+     * @param  array<int, int>|null  $thirdsByMatchNumber  match number => third-placed team id
      */
-    private function resolveLabel(?string $label, array $standings, ?array $rankedThirds): ?int
+    private function resolveLabel(?string $label, array $standings, ?array $thirdsByMatchNumber, int $matchNumber): ?int
     {
         if ($label === null) {
             return null;
@@ -244,8 +297,8 @@ class BracketResolver
             return ($standings[$matches[1]] ?? null)?->runnerUp();
         }
 
-        if (preg_match('/^3rd Place ([1-8])$/', $label, $matches)) {
-            return $rankedThirds[(int) $matches[1] - 1] ?? null;
+        if (str_starts_with($label, '3rd Group ')) {
+            return $thirdsByMatchNumber[$matchNumber] ?? null;
         }
 
         return null;

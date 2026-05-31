@@ -1,6 +1,8 @@
 import { Head, Link } from '@inertiajs/react';
 import { CalendarDays, PencilLine } from 'lucide-react';
+import { Flag } from '@/components/flag';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import games from '@/routes/games';
 import type {
     BracketFixture,
@@ -48,14 +50,18 @@ function GroupCard({ group }: { group: GroupView }) {
                             key={team.id}
                             className="flex items-center justify-between gap-2"
                         >
-                            <span
-                                className={
-                                    team.is_placeholder
-                                        ? 'text-muted-foreground italic'
-                                        : 'font-medium'
-                                }
-                            >
-                                {team.name}
+                            <span className="flex min-w-0 items-center gap-2">
+                                <Flag team={team} />
+                                <span
+                                    className={cn(
+                                        'truncate',
+                                        team.is_placeholder
+                                            ? 'text-muted-foreground italic'
+                                            : 'font-medium',
+                                    )}
+                                >
+                                    {team.name}
+                                </span>
                             </span>
                             {team.code && (
                                 <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[0.65rem] font-semibold text-secondary-foreground">
@@ -72,15 +78,21 @@ function GroupCard({ group }: { group: GroupView }) {
                             key={fixture.match_number}
                             className="grid grid-cols-[1fr_auto_1fr] items-center gap-2"
                         >
-                            <span className="truncate text-right text-muted-foreground">
-                                {teamName(fixture.home, null)}
+                            <span className="flex min-w-0 items-center justify-end gap-1.5 text-muted-foreground">
+                                <span className="truncate">
+                                    {teamName(fixture.home, null)}
+                                </span>
+                                <Flag team={fixture.home} />
                             </span>
                             <Score
                                 home={fixture.home_goals}
                                 away={fixture.away_goals}
                             />
-                            <span className="truncate text-muted-foreground">
-                                {teamName(fixture.away, null)}
+                            <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                                <Flag team={fixture.away} />
+                                <span className="truncate">
+                                    {teamName(fixture.away, null)}
+                                </span>
                             </span>
                         </div>
                     ))}
@@ -106,8 +118,11 @@ function BracketSlot({
             }
         >
             <div className="flex items-center justify-between gap-2">
-                <span className="truncate font-medium">
-                    {teamName(fixture.home, fixture.home_label)}
+                <span className="flex min-w-0 items-center gap-1.5 font-medium">
+                    {fixture.home && <Flag team={fixture.home} />}
+                    <span className="truncate">
+                        {teamName(fixture.home, fixture.home_label)}
+                    </span>
                 </span>
                 {fixture.home_goals !== null && (
                     <span className="font-bold tabular-nums">
@@ -117,8 +132,11 @@ function BracketSlot({
             </div>
             <div className="my-1.5 border-t border-border/50" />
             <div className="flex items-center justify-between gap-2">
-                <span className="truncate font-medium">
-                    {teamName(fixture.away, fixture.away_label)}
+                <span className="flex min-w-0 items-center gap-1.5 font-medium">
+                    {fixture.away && <Flag team={fixture.away} />}
+                    <span className="truncate">
+                        {teamName(fixture.away, fixture.away_label)}
+                    </span>
                 </span>
                 {fixture.away_goals !== null && (
                     <span className="font-bold tabular-nums">

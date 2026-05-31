@@ -21,6 +21,7 @@ export interface TeamRef {
     name: string;
     code: string | null;
     is_placeholder: boolean;
+    flag_url: string;
 }
 
 export interface GroupTeam extends TeamRef {
@@ -77,6 +78,7 @@ export interface StandingRow {
     goals_against: number;
     goal_difference: number;
     points: number;
+    form: string[];
 }
 
 export interface PredictGroupFixture {

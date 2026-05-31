@@ -54,6 +54,22 @@ class GroupStandingsTest extends TestCase
         );
     }
 
+    public function test_head_to_head_outranks_a_better_overall_goal_difference(): void
+    {
+        [$group, $entry, $teams] = $this->makeGroup();
+
+        // T1 & T2 both finish on 6pts. T2 has the far better overall GD (+9 vs +1) from big
+        // wins over T3/T4, but T1 beat T2 in their meeting, so the 2026 rules rank T1 first.
+        $this->predict($entry, $group, [[1, 0], [1, 0], [1, 0], [0, 5], [1, 0], [5, 0]]);
+
+        $ordered = $this->orderedTeamIds($group, $entry);
+
+        $this->assertSame(
+            [$teams[1]->id, $teams[2]->id, $teams[3]->id, $teams[4]->id],
+            $ordered,
+        );
+    }
+
     public function test_breaks_ties_by_group_seed_position_when_everything_equal(): void
     {
         [$group, $entry, $teams] = $this->makeGroup();

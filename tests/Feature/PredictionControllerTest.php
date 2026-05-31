@@ -48,6 +48,8 @@ class PredictionControllerTest extends TestCase
                 ->where('game.can_edit', true)
                 ->has('groups', 12)
                 ->has('groups.0.standings', 4)
+                ->where('groups.0.teams.0.flag_url', '/flags/MEX.svg')
+                ->has('groups.0.standings.0.form')
                 ->has('bracket', 6)
                 ->where('bracket.0.phase_key', 'round_of_32')
                 ->has('bracket.0.fixtures', 16)
@@ -94,10 +96,10 @@ class PredictionControllerTest extends TestCase
             'away_goals' => 0,
         ]);
 
-        // Winner Group A (R32-1 home) is now resolved to group A's first seed.
+        // Winner Group A (R32-7 / match 79 home) is now resolved to group A's first seed.
         $this->assertDatabaseHas('knockout_predictions', [
             'entry_id' => $entry->id,
-            'fixture_id' => $this->knockoutFixture($this->tournament, 'R32-1')->id,
+            'fixture_id' => $this->knockoutFixture($this->tournament, 'R32-7')->id,
             'predicted_home_team_id' => $this->groupTeamId('A', 1),
         ]);
     }
@@ -137,8 +139,8 @@ class PredictionControllerTest extends TestCase
         $this->predictAllGroups($entry, $this->tournament, $this->seedOrderScores());
         (new BracketResolver)->persist($entry);
 
-        $r32 = $this->knockoutFixture($this->tournament, 'R32-1'); // Group A winner vs Group A third
-        $notInMatch = $this->groupTeamId('B', 1);
+        $r32 = $this->knockoutFixture($this->tournament, 'R32-1'); // Runner-up Group A vs Runner-up Group B
+        $notInMatch = $this->groupTeamId('B', 1); // a group winner, in neither slot
 
         $payload = ['predictions' => [[
             'fixture_id' => $r32->id,

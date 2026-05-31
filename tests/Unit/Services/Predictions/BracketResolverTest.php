@@ -41,15 +41,38 @@ class BracketResolverTest extends TestCase
 
         $resolved = $this->resolver->resolve($this->entry)->resolved;
 
-        $r32_1 = $this->knockoutFixture($this->tournament, 'R32-1');   // Winner Group A vs 3rd Place 1
-        $r32_13 = $this->knockoutFixture($this->tournament, 'R32-13'); // Runner-up Group A vs Runner-up Group B
+        $r32_1 = $this->knockoutFixture($this->tournament, 'R32-1'); // M73: Runner-up Group A vs Runner-up Group B
+        $r32_7 = $this->knockoutFixture($this->tournament, 'R32-7'); // M79: Winner Group A vs 3rd Group C/E/F/H/I
 
-        // Winner Group A == position 1; Runner-up == position 2; 3rd Place 1 == Group A's third
-        // (all thirds tie, so the group sort order makes A the first-ranked third).
-        $this->assertSame($this->groupTeam('A', 1)->id, $resolved[$r32_1->id]['home']);
-        $this->assertSame($this->groupTeam('A', 3)->id, $resolved[$r32_1->id]['away']);
-        $this->assertSame($this->groupTeam('A', 2)->id, $resolved[$r32_13->id]['home']);
-        $this->assertSame($this->groupTeam('B', 2)->id, $resolved[$r32_13->id]['away']);
+        // Runner-up == position 2; Winner == position 1. With all thirds tied, A–H qualify by
+        // group order and the official table sends group H's third into the M79 slot.
+        $this->assertSame($this->groupTeam('A', 2)->id, $resolved[$r32_1->id]['home']);
+        $this->assertSame($this->groupTeam('B', 2)->id, $resolved[$r32_1->id]['away']);
+        $this->assertSame($this->groupTeam('A', 1)->id, $resolved[$r32_7->id]['home']);
+        $this->assertSame($this->groupTeam('H', 3)->id, $resolved[$r32_7->id]['away']);
+    }
+
+    public function test_a_third_never_meets_the_winner_of_its_own_group(): void
+    {
+        $this->predictAllGroups($this->entry, $this->tournament, $this->seedOrderScores());
+
+        $resolved = $this->resolver->resolve($this->entry)->resolved;
+        $teamGroup = $this->tournament->groups()->with('teams')->get()
+            ->flatMap(fn ($group) => $group->teams->map(fn ($team) => [$team->id, $group->name]))
+            ->mapWithKeys(fn ($pair) => [$pair[0] => $pair[1]]);
+
+        foreach ($this->tournament->knockoutFixtures()->where('match_number', '<=', 88)->get() as $fixture) {
+            $home = $resolved[$fixture->id]['home'];
+            $away = $resolved[$fixture->id]['away'];
+
+            if ($home !== null && $away !== null) {
+                $this->assertNotSame(
+                    $teamGroup[$home],
+                    $teamGroup[$away],
+                    "Match {$fixture->match_number} pairs two teams from the same group.",
+                );
+            }
+        }
     }
 
     public function test_ranks_eight_best_thirds_by_record_then_group_order(): void
@@ -77,9 +100,10 @@ class BracketResolverTest extends TestCase
 
         $final = $this->prediction('F');
 
-        // Home advances all the way down slot 1 -> Group A winner; the other half -> Group I winner.
-        $this->assertSame($this->groupTeam('A', 1)->id, $final->predicted_home_team_id);
-        $this->assertSame($this->groupTeam('I', 1)->id, $final->predicted_away_team_id);
+        // Following the home side down the official bracket: SF-1's half resolves to the Group E
+        // winner and SF-2's half to the Group C winner.
+        $this->assertSame($this->groupTeam('E', 1)->id, $final->predicted_home_team_id);
+        $this->assertSame($this->groupTeam('C', 1)->id, $final->predicted_away_team_id);
     }
 
     public function test_third_place_play_off_uses_the_semifinal_losers(): void
@@ -89,9 +113,10 @@ class BracketResolverTest extends TestCase
 
         $thirdPlace = $this->prediction('TP');
 
-        // With every home team advancing, the SF losers are the SF away slots.
-        $this->assertSame($this->groupTeam('E', 1)->id, $thirdPlace->predicted_home_team_id);
-        $this->assertSame($this->groupTeam('A', 2)->id, $thirdPlace->predicted_away_team_id);
+        // With every home team advancing, the SF losers are the SF away slots: the Group K
+        // runner-up (SF-1 away) and the Group J winner (SF-2 away).
+        $this->assertSame($this->groupTeam('K', 2)->id, $thirdPlace->predicted_home_team_id);
+        $this->assertSame($this->groupTeam('J', 1)->id, $thirdPlace->predicted_away_team_id);
     }
 
     public function test_round_of_32_is_unresolved_when_groups_are_incomplete(): void
@@ -101,13 +126,13 @@ class BracketResolverTest extends TestCase
 
         $bracket = $this->resolver->resolve($this->entry);
 
-        $r32_1 = $this->knockoutFixture($this->tournament, 'R32-1'); // Winner Group A vs 3rd Place 1
-        $r32_2 = $this->knockoutFixture($this->tournament, 'R32-2'); // Winner Group B vs 3rd Place 2
+        $r32_7 = $this->knockoutFixture($this->tournament, 'R32-7'); // M79: Winner Group A vs 3rd Group …
+        $r32_2 = $this->knockoutFixture($this->tournament, 'R32-2'); // M74: Winner Group E vs 3rd Group …
 
         $this->assertNull($bracket->rankedThirds); // thirds need every group complete
-        $this->assertSame($this->groupTeam('A', 1)->id, $bracket->resolved[$r32_1->id]['home']);
-        $this->assertNull($bracket->resolved[$r32_1->id]['away']); // 3rd Place 1 unknown
-        $this->assertNull($bracket->resolved[$r32_2->id]['home']); // Group B not predicted
+        $this->assertSame($this->groupTeam('A', 1)->id, $bracket->resolved[$r32_7->id]['home']);
+        $this->assertNull($bracket->resolved[$r32_7->id]['away']); // the third slot is unknown
+        $this->assertNull($bracket->resolved[$r32_2->id]['home']); // Group E not predicted
     }
 
     public function test_cascade_invalidation_clears_stale_downstream_picks(): void
@@ -115,25 +140,26 @@ class BracketResolverTest extends TestCase
         $this->predictAllGroups($this->entry, $this->tournament, $this->seedOrderScores());
         $this->advanceAllHome($this->entry, $this->resolver);
 
+        // R32-7 (M79) is the Group A winner's slot; with home advancing it feeds R16-4 (M92).
         $oldGroupAWinner = $this->groupTeam('A', 1)->id;
-        $this->assertSame($oldGroupAWinner, $this->prediction('F')->predicted_home_team_id);
+        $this->assertSame($oldGroupAWinner, $this->prediction('R32-7')->advancing_team_id);
+        $this->assertSame($oldGroupAWinner, $this->prediction('R16-4')->predicted_home_team_id);
 
         // Flip group A so position 2 wins the group and the old winner drops to runner-up.
         $this->predictGroup($this->entry, $this->tournament, 'A', [[0, 1], [1, 0], [1, 0], [0, 1], [0, 1], [1, 0]]);
         $this->resolver->persist($this->entry);
 
-        $r32_1 = $this->prediction('R32-1');
-        $this->assertSame($this->groupTeam('A', 2)->id, $r32_1->predicted_home_team_id); // new winner
-        $this->assertNull($r32_1->advancing_team_id);   // stale pick cleared
-        $this->assertNull($r32_1->home_goals);          // and its score
+        $r32_7 = $this->prediction('R32-7');
+        $this->assertSame($this->groupTeam('A', 2)->id, $r32_7->predicted_home_team_id); // new winner
+        $this->assertNull($r32_7->advancing_team_id);   // stale pick cleared
+        $this->assertNull($r32_7->home_goals);          // and its score
 
-        // The whole downstream chain that depended on the old winner is cleared too.
-        $this->assertNull($this->prediction('R16-1')->advancing_team_id);
-        $this->assertNull($this->prediction('F')->advancing_team_id);
-        $this->assertNull($this->prediction('F')->predicted_home_team_id);
+        // The downstream slot it fed is cleared too (no team advances into it any more).
+        $this->assertNull($this->prediction('R16-4')->advancing_team_id);
+        $this->assertNull($this->prediction('R16-4')->predicted_home_team_id);
 
-        // A chain untouched by group A keeps its pick.
-        $this->assertSame($this->groupTeam('E', 1)->id, $this->prediction('R32-5')->advancing_team_id);
+        // A chain untouched by group A keeps its pick (R32-13 = M85 = Winner Group B).
+        $this->assertSame($this->groupTeam('B', 1)->id, $this->prediction('R32-13')->advancing_team_id);
     }
 
     public function test_persist_writes_predicted_teams_and_is_idempotent(): void
@@ -141,13 +167,13 @@ class BracketResolverTest extends TestCase
         $this->predictAllGroups($this->entry, $this->tournament, $this->seedOrderScores());
 
         $this->resolver->persist($this->entry);
-        $first = $this->prediction('R32-1');
+        $first = $this->prediction('R32-7');
 
         $this->assertSame(32, $this->entry->knockoutPredictions()->count());
         $this->assertSame($this->groupTeam('A', 1)->id, $first->predicted_home_team_id);
 
         $this->resolver->persist($this->entry);
-        $second = $this->prediction('R32-1');
+        $second = $this->prediction('R32-7');
 
         $this->assertSame(32, $this->entry->knockoutPredictions()->count());
         $this->assertSame($first->predicted_home_team_id, $second->predicted_home_team_id);
@@ -158,7 +184,7 @@ class BracketResolverTest extends TestCase
     {
         $this->predictGroup($this->entry, $this->tournament, 'A', $this->seedOrderScores());
         $resolvedBefore = $this->resolver->resolve($this->entry)->resolved;
-        $r32_1 = $this->knockoutFixture($this->tournament, 'R32-1');
+        $r32_7 = $this->knockoutFixture($this->tournament, 'R32-7'); // M79: Winner Group A vs 3rd …
 
         // Record an official result that contradicts the prediction on a group A fixture.
         $group = $this->tournament->groups()->where('name', 'A')->firstOrFail();
@@ -169,10 +195,10 @@ class BracketResolverTest extends TestCase
         $resolvedAfter = $this->resolver->resolve($this->entry)->resolved;
 
         $this->assertSame(
-            $resolvedBefore[$r32_1->id]['home'],
-            $resolvedAfter[$r32_1->id]['home'],
+            $resolvedBefore[$r32_7->id]['home'],
+            $resolvedAfter[$r32_7->id]['home'],
         );
-        $this->assertSame($this->groupTeam('A', 1)->id, $resolvedAfter[$r32_1->id]['home']);
+        $this->assertSame($this->groupTeam('A', 1)->id, $resolvedAfter[$r32_7->id]['home']);
     }
 
     private function groupTeam(string $groupName, int $position): Team

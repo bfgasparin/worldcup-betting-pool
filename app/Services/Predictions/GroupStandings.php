@@ -10,10 +10,11 @@ use App\Models\Team;
 /**
  * Computes the ranked standings for one group from a user's predicted group scores.
  *
- * Ranking follows FIFA-style tie-breaking, made fully deterministic (no drawing of
- * lots): points -> goal difference -> goals for -> head-to-head mini-table among the
- * still-tied teams (points -> GD -> GF) -> group seed position (the group_team pivot
- * position, which is unique within a group and therefore guarantees a total order).
+ * Ranking follows the official FIFA World Cup 2026 group tie-breaking order, made fully
+ * deterministic (no fair-play score, FIFA ranking or drawing of lots): points -> head-to-head
+ * among the level teams (points -> goal difference -> goals for, re-applied to any still-level
+ * subset) -> overall goal difference -> overall goals for -> group seed position (the
+ * group_team pivot position, which is unique within a group and so guarantees a total order).
  */
 class GroupStandings
 {
@@ -72,7 +73,8 @@ class GroupStandings
     {
         $teams = array_values($this->standings);
 
-        usort($teams, fn (TeamStanding $a, TeamStanding $b): int => $this->compareOverall($a, $b));
+        // Overall points come first; everything else only separates teams level on points.
+        usort($teams, fn (TeamStanding $a, TeamStanding $b): int => $b->points() <=> $a->points());
 
         $result = [];
         $count = count($teams);
@@ -81,17 +83,13 @@ class GroupStandings
         while ($index < $count) {
             $end = $index;
 
-            while ($end + 1 < $count && $this->compareOverall($teams[$end], $teams[$end + 1]) === 0) {
+            while ($end + 1 < $count && $teams[$end]->points() === $teams[$end + 1]->points()) {
                 $end++;
             }
 
             $cluster = array_slice($teams, $index, $end - $index + 1);
 
-            if (count($cluster) > 1) {
-                $cluster = $this->breakTiesByHeadToHead($cluster);
-            }
-
-            foreach ($cluster as $standing) {
+            foreach ($this->rankTiedOnPoints($cluster) as $standing) {
                 $result[] = $standing;
             }
 
@@ -141,28 +139,64 @@ class GroupStandings
     }
 
     /**
-     * Compare two teams by overall points, then goal difference, then goals for.
-     * Returns 0 when all three are equal (i.e. they belong to the same tie cluster).
-     */
-    private function compareOverall(TeamStanding $a, TeamStanding $b): int
-    {
-        return ($b->points() <=> $a->points())
-            ?: ($b->goalDifference() <=> $a->goalDifference())
-            ?: ($b->goalsFor <=> $a->goalsFor);
-    }
-
-    /**
-     * Re-order a cluster of teams tied on overall points/GD/GF using a head-to-head
-     * mini-table built only from matches between the tied teams, then the seed position.
+     * Order a set of teams level on points. Head-to-head results among them (points -> GD ->
+     * GF) come first and are re-applied to any subset that stays level; teams that head-to-head
+     * cannot separate at all fall through to overall GD -> GF -> seed position.
      *
      * @param  list<TeamStanding>  $cluster
      * @return list<TeamStanding>
      */
-    private function breakTiesByHeadToHead(array $cluster): array
+    private function rankTiedOnPoints(array $cluster): array
+    {
+        if (count($cluster) <= 1) {
+            return $cluster;
+        }
+
+        $mini = $this->headToHeadTable($cluster);
+
+        usort($cluster, function (TeamStanding $a, TeamStanding $b) use ($mini): int {
+            return ($mini[$b->teamId]->points() <=> $mini[$a->teamId]->points())
+                ?: ($mini[$b->teamId]->goalDifference() <=> $mini[$a->teamId]->goalDifference())
+                ?: ($mini[$b->teamId]->goalsFor <=> $mini[$a->teamId]->goalsFor);
+        });
+
+        $result = [];
+        $count = count($cluster);
+        $index = 0;
+
+        while ($index < $count) {
+            $end = $index;
+
+            while ($end + 1 < $count && $this->sameHeadToHead($mini, $cluster[$end], $cluster[$end + 1])) {
+                $end++;
+            }
+
+            $subset = array_slice($cluster, $index, $end - $index + 1);
+
+            // Head-to-head separated nobody in this cluster -> overall GD/GF/seed. Otherwise
+            // re-apply head-to-head to the still-level subset (recomputed among its members).
+            $ranked = count($subset) === $count
+                ? $this->rankByOverall($subset)
+                : $this->rankTiedOnPoints($subset);
+
+            $result = array_merge($result, $ranked);
+
+            $index = $end + 1;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Build a head-to-head mini-table from only the matches played between the given teams.
+     *
+     * @param  list<TeamStanding>  $cluster
+     * @return array<int, TeamStanding>
+     */
+    private function headToHeadTable(array $cluster): array
     {
         $ids = array_map(fn (TeamStanding $standing): int => $standing->teamId, $cluster);
 
-        /** @var array<int, TeamStanding> $mini */
         $mini = [];
         foreach ($cluster as $standing) {
             $mini[$standing->teamId] = new TeamStanding($standing->teamId, $standing->position);
@@ -183,17 +217,36 @@ class GroupStandings
             $mini[$fixture->away_team_id]->record($prediction->away_goals, $prediction->home_goals);
         }
 
-        usort($cluster, function (TeamStanding $a, TeamStanding $b) use ($mini): int {
-            $miniA = $mini[$a->teamId];
-            $miniB = $mini[$b->teamId];
+        return $mini;
+    }
 
-            return ($miniB->points() <=> $miniA->points())
-                ?: ($miniB->goalDifference() <=> $miniA->goalDifference())
-                ?: ($miniB->goalsFor <=> $miniA->goalsFor)
+    /**
+     * Whether two teams are level on every head-to-head metric (points -> GD -> GF).
+     *
+     * @param  array<int, TeamStanding>  $mini
+     */
+    private function sameHeadToHead(array $mini, TeamStanding $a, TeamStanding $b): bool
+    {
+        return $mini[$a->teamId]->points() === $mini[$b->teamId]->points()
+            && $mini[$a->teamId]->goalDifference() === $mini[$b->teamId]->goalDifference()
+            && $mini[$a->teamId]->goalsFor === $mini[$b->teamId]->goalsFor;
+    }
+
+    /**
+     * Order teams that head-to-head cannot separate: overall GD -> overall GF -> seed position.
+     *
+     * @param  list<TeamStanding>  $subset
+     * @return list<TeamStanding>
+     */
+    private function rankByOverall(array $subset): array
+    {
+        usort($subset, function (TeamStanding $a, TeamStanding $b): int {
+            return ($b->goalDifference() <=> $a->goalDifference())
+                ?: ($b->goalsFor <=> $a->goalsFor)
                 ?: ($a->position <=> $b->position);
         });
 
-        return $cluster;
+        return $subset;
     }
 
     /**

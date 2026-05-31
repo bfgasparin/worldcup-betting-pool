@@ -18,6 +18,13 @@ class TeamStanding
 
     public int $goalsAgainst = 0;
 
+    /**
+     * Ordered match outcomes ('W' | 'D' | 'L') for the team's "form" guide.
+     *
+     * @var list<string>
+     */
+    public array $results = [];
+
     public function __construct(
         public readonly int $teamId,
         public readonly int $position,
@@ -33,10 +40,13 @@ class TeamStanding
 
         if ($goalsFor > $goalsAgainst) {
             $this->won++;
+            $this->results[] = 'W';
         } elseif ($goalsFor === $goalsAgainst) {
             $this->drawn++;
+            $this->results[] = 'D';
         } else {
             $this->lost++;
+            $this->results[] = 'L';
         }
     }
 

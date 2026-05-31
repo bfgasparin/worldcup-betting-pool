@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Database\Factories\TeamFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -24,6 +25,20 @@ class Team extends Model
         return [
             'is_placeholder' => 'boolean',
         ];
+    }
+
+    /**
+     * The public URL of the team's flag SVG, with a generic fallback for unknown qualifiers.
+     *
+     * @return Attribute<string, never>
+     */
+    protected function flagUrl(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): string => $this->code !== null
+                ? '/flags/'.strtoupper($this->code).'.svg'
+                : '/flags/_placeholder.svg',
+        );
     }
 
     /**

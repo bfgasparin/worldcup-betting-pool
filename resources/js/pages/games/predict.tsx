@@ -9,6 +9,7 @@ import {
     Lock,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Flag } from '@/components/flag';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -157,47 +158,117 @@ function ScoreInput({
     );
 }
 
+const FORM_STYLES: Record<string, string> = {
+    W: 'bg-emerald-500',
+    D: 'bg-zinc-400',
+    L: 'bg-rose-500',
+};
+
+function FormGuide({ form }: { form: string[] }) {
+    if (form.length === 0) {
+        return <span className="text-muted-foreground">—</span>;
+    }
+
+    return (
+        <span className="inline-flex items-center gap-0.5">
+            {form.map((result, index) => (
+                <span
+                    key={index}
+                    title={result}
+                    className={cn(
+                        'inline-flex size-3.5 items-center justify-center rounded-[3px] text-[0.55rem] font-bold text-white',
+                        FORM_STYLES[result] ?? 'bg-zinc-400',
+                    )}
+                >
+                    {result}
+                </span>
+            ))}
+        </span>
+    );
+}
+
 function GroupStandingsTable({ standings }: { standings: StandingRow[] }) {
     return (
-        <table className="w-full border-t border-border/60 pt-2 text-xs">
-            <thead>
-                <tr className="text-muted-foreground">
-                    <th className="w-5 text-left font-medium">#</th>
-                    <th className="text-left font-medium">Team</th>
-                    <th className="w-8 text-center font-medium">Pld</th>
-                    <th className="w-8 text-center font-medium">GD</th>
-                    <th className="w-8 text-center font-medium">Pts</th>
-                </tr>
-            </thead>
-            <tbody>
-                {standings.map((row) => (
-                    <tr
-                        key={row.team?.id ?? row.rank}
-                        className={cn(
-                            'border-t border-border/30',
-                            row.rank <= 2 && 'font-semibold text-foreground',
-                            row.rank > 2 && 'text-muted-foreground',
-                        )}
-                    >
-                        <td className="py-0.5">{row.rank}</td>
-                        <td className="truncate py-0.5">
-                            {row.team?.name ?? '—'}
-                        </td>
-                        <td className="py-0.5 text-center tabular-nums">
-                            {row.played}
-                        </td>
-                        <td className="py-0.5 text-center tabular-nums">
-                            {row.goal_difference > 0
-                                ? `+${row.goal_difference}`
-                                : row.goal_difference}
-                        </td>
-                        <td className="py-0.5 text-center tabular-nums">
-                            {row.points}
-                        </td>
+        <div className="overflow-x-auto border-t border-border/60 pt-2">
+            <table className="w-full text-[0.7rem] whitespace-nowrap">
+                <thead>
+                    <tr className="text-muted-foreground [&>th]:px-1 [&>th]:font-medium">
+                        <th className="w-4 text-left">#</th>
+                        <th className="text-left">Team</th>
+                        <th className="text-center" title="Played">
+                            P
+                        </th>
+                        <th className="text-center" title="Won">
+                            W
+                        </th>
+                        <th className="text-center" title="Drawn">
+                            D
+                        </th>
+                        <th className="text-center" title="Lost">
+                            L
+                        </th>
+                        <th className="text-center" title="Goals for">
+                            GF
+                        </th>
+                        <th className="text-center" title="Goals against">
+                            GA
+                        </th>
+                        <th className="text-center" title="Goal difference">
+                            GD
+                        </th>
+                        <th className="text-center" title="Points">
+                            Pts
+                        </th>
+                        <th
+                            className="text-left"
+                            title="Form (most recent last)"
+                        >
+                            Form
+                        </th>
                     </tr>
-                ))}
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    {standings.map((row) => (
+                        <tr
+                            key={row.team?.id ?? row.rank}
+                            className={cn(
+                                'border-t border-border/30 [&>td]:px-1 [&>td]:py-0.5 [&>td]:text-center [&>td]:tabular-nums',
+                                row.rank <= 2 &&
+                                    'bg-emerald-500/5 font-semibold text-foreground',
+                                row.rank === 3 &&
+                                    'bg-amber-500/5 text-foreground/80',
+                                row.rank > 3 && 'text-muted-foreground',
+                            )}
+                        >
+                            <td>{row.rank}</td>
+                            <td className="!text-left">
+                                <span className="flex items-center gap-1.5">
+                                    <Flag team={row.team} />
+                                    <span className="truncate">
+                                        {row.team?.name ?? '—'}
+                                    </span>
+                                </span>
+                            </td>
+                            <td>{row.played}</td>
+                            <td>{row.won}</td>
+                            <td>{row.drawn}</td>
+                            <td>{row.lost}</td>
+                            <td>{row.goals_for}</td>
+                            <td>{row.goals_against}</td>
+                            <td>
+                                {row.goal_difference > 0
+                                    ? `+${row.goal_difference}`
+                                    : row.goal_difference}
+                            </td>
+                            <td className="font-semibold">{row.points}</td>
+                            <td className="!text-left">
+                                <FormGuide form={row.form} />
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
     );
 }
 
@@ -234,8 +305,11 @@ function GroupCard({
                                 key={fixture.fixture_id}
                                 className="grid grid-cols-[1fr_auto_1fr] items-center gap-2"
                             >
-                                <span className="truncate text-right text-sm text-muted-foreground">
-                                    {teamName(fixture.home)}
+                                <span className="flex min-w-0 items-center justify-end gap-1.5 text-sm text-muted-foreground">
+                                    <span className="truncate">
+                                        {teamName(fixture.home)}
+                                    </span>
+                                    <Flag team={fixture.home} />
                                 </span>
                                 <div className="flex items-center gap-1">
                                     <ScoreInput
@@ -268,8 +342,11 @@ function GroupCard({
                                         onCommit={onCommit}
                                     />
                                 </div>
-                                <span className="truncate text-sm text-muted-foreground">
-                                    {teamName(fixture.away)}
+                                <span className="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
+                                    <Flag team={fixture.away} />
+                                    <span className="truncate">
+                                        {teamName(fixture.away)}
+                                    </span>
                                 </span>
                             </div>
                         );
@@ -283,12 +360,14 @@ function GroupCard({
 
 function SlotRow({
     label,
+    team,
     value,
     disabled,
     onChange,
     onCommit,
 }: {
     label: string;
+    team: TeamRef | null;
     value: string;
     disabled: boolean;
     onChange: (value: string) => void;
@@ -296,7 +375,10 @@ function SlotRow({
 }) {
     return (
         <div className="flex items-center justify-between gap-2">
-            <span className="truncate font-medium">{label}</span>
+            <span className="flex min-w-0 items-center gap-1.5 font-medium">
+                {team && <Flag team={team} />}
+                <span className="truncate">{label}</span>
+            </span>
             <ScoreInput
                 value={value}
                 disabled={disabled}
@@ -338,6 +420,7 @@ function KnockoutCard({
         >
             <SlotRow
                 label={teamName(fixture.home, fixture.home_label)}
+                team={fixture.home}
                 value={pick.home}
                 disabled={!canEdit || !resolved}
                 onChange={(value) => onScore('home', value)}
@@ -346,6 +429,7 @@ function KnockoutCard({
             <div className="border-t border-border/50" />
             <SlotRow
                 label={teamName(fixture.away, fixture.away_label)}
+                team={fixture.away}
                 value={pick.away}
                 disabled={!canEdit || !resolved}
                 onChange={(value) => onScore('away', value)}
@@ -370,14 +454,16 @@ function KnockoutCard({
                     >
                         <ToggleGroupItem
                             value={String(fixture.home!.id)}
-                            className="flex-1 text-xs"
+                            className="flex-1 gap-1 text-xs"
                         >
+                            <Flag team={fixture.home} />
                             {fixture.home!.code ?? fixture.home!.name}
                         </ToggleGroupItem>
                         <ToggleGroupItem
                             value={String(fixture.away!.id)}
-                            className="flex-1 text-xs"
+                            className="flex-1 gap-1 text-xs"
                         >
+                            <Flag team={fixture.away} />
                             {fixture.away!.code ?? fixture.away!.name}
                         </ToggleGroupItem>
                     </ToggleGroup>
@@ -818,6 +904,7 @@ function ThirdsPanel({ thirds }: { thirds: ThirdRanking[] | null }) {
                             <span className="text-muted-foreground">
                                 {entry.rank}.
                             </span>
+                            <Flag team={entry.team} />
                             {entry.team?.name ?? 'TBD'}
                         </li>
                     ))}
