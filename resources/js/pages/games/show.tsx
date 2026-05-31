@@ -5,19 +5,25 @@ import {
     ListOrdered,
     PencilLine,
 } from 'lucide-react';
-import { Flag } from '@/components/flag';
+import { useState } from 'react';
+import {
+    FinalCard,
+    GroupFixtureCard,
+    KnockoutSlotCard,
+    PhaseMeta,
+    PhaseTabs,
+    phaseDateRange,
+} from '@/components/fixtures';
+import type { Phase } from '@/components/fixtures';
 import { LeaderboardRow } from '@/components/leaderboard-row';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import games from '@/routes/games';
 import type {
-    BracketFixture,
     BracketPhase,
     GameDetail,
-    GroupFixture,
     GroupView,
     PoolSummary,
-    TeamRef,
 } from '@/types/games';
 
 interface GameShowProps {
@@ -25,10 +31,6 @@ interface GameShowProps {
     groups: GroupView[];
     bracket: BracketPhase[];
     pool: PoolSummary;
-}
-
-function teamName(team: TeamRef | null, fallback: string | null): string {
-    return team?.name ?? fallback ?? 'TBD';
 }
 
 function greeting(): string {
@@ -43,18 +45,6 @@ function greeting(): string {
     }
 
     return 'Good evening';
-}
-
-function Score({ home, away }: { home: number | null; away: number | null }) {
-    if (home === null || away === null) {
-        return <span className="text-muted-foreground tabular-nums">–</span>;
-    }
-
-    return (
-        <span className="font-display font-semibold tabular-nums">
-            {home}–{away}
-        </span>
-    );
 }
 
 function PoolStat({
@@ -208,117 +198,127 @@ function PoolPreview({ game, pool }: { game: GameDetail; pool: PoolSummary }) {
     );
 }
 
-function GroupCard({ group }: { group: GroupView }) {
-    return (
-        <div className="card-elevated overflow-hidden rounded-3xl">
-            <div className="bg-brand-gradient px-5 py-3">
-                <h3 className="font-display text-sm font-semibold tracking-wide text-white uppercase">
-                    Group {group.name}
-                </h3>
-            </div>
-            <div className="flex flex-col gap-4 p-5">
-                <ul className="flex flex-col gap-2 text-sm">
-                    {group.teams.map((team) => (
-                        <li
-                            key={team.id}
-                            className="flex items-center justify-between gap-2"
-                        >
-                            <span className="flex min-w-0 items-center gap-2">
-                                <Flag team={team} />
-                                <span
-                                    className={cn(
-                                        'truncate',
-                                        team.is_placeholder
-                                            ? 'text-muted-foreground italic'
-                                            : 'font-medium',
-                                    )}
-                                >
-                                    {team.name}
-                                </span>
-                            </span>
-                            {team.code && (
-                                <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[0.65rem] font-semibold text-secondary-foreground">
-                                    {team.code}
-                                </span>
-                            )}
-                        </li>
-                    ))}
-                </ul>
+function metaLine(count: number, prefix: string, range: string | null): string {
+    const label = `${count} ${count === 1 ? 'match' : 'matches'}`;
 
-                <div className="flex flex-col gap-1.5 border-t border-border pt-3 text-sm">
-                    {group.fixtures.map((fixture: GroupFixture) => (
-                        <div
-                            key={fixture.match_number}
-                            className="grid grid-cols-[1fr_auto_1fr] items-center gap-2"
-                        >
-                            <span className="flex min-w-0 items-center justify-end gap-1.5 text-muted-foreground">
-                                <span className="truncate">
-                                    {teamName(fixture.home, null)}
-                                </span>
-                                <Flag team={fixture.home} />
-                            </span>
-                            <Score
-                                home={fixture.home_goals}
-                                away={fixture.away_goals}
-                            />
-                            <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
-                                <Flag team={fixture.away} />
-                                <span className="truncate">
-                                    {teamName(fixture.away, null)}
-                                </span>
-                            </span>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
+    return [prefix, label, range].filter(Boolean).join(' · ');
 }
 
-function BracketSlot({
-    fixture,
-    isFinal,
+/** The phase-tabbed Fixtures view: group cards, knockout slot cards, and the Final card. */
+function FixturesView({
+    groups,
+    bracket,
 }: {
-    fixture: BracketFixture;
-    isFinal: boolean;
+    groups: GroupView[];
+    bracket: BracketPhase[];
 }) {
+    const groupMatches = groups.reduce((n, g) => n + g.fixtures.length, 0);
+    const groupFixtures = groups.flatMap((g) => g.fixtures);
+
+    const koPhases = bracket.filter(
+        (p) => p.phase_key !== 'final' && p.phase_key !== 'third_place',
+    );
+    const finalPhase = bracket.find((p) => p.phase_key === 'final');
+    const thirdPhase = bracket.find((p) => p.phase_key === 'third_place');
+    const finalFixtures = [
+        ...(finalPhase?.fixtures ?? []),
+        ...(thirdPhase?.fixtures ?? []),
+    ];
+
+    const phases: Phase[] = [
+        { id: 'gs', label: 'Group Stage', count: groupMatches },
+        ...koPhases.map((p) => ({
+            id: p.phase_key,
+            label: p.phase_name,
+            count: p.fixtures.length,
+        })),
+        ...(finalFixtures.length > 0
+            ? [{ id: 'final', label: 'Final', count: finalFixtures.length }]
+            : []),
+    ];
+
+    const [active, setActive] = useState('gs');
+
     return (
-        <div
-            className={cn(
-                'w-56 rounded-2xl p-3.5 text-sm',
-                isFinal
-                    ? 'shadow-glow-accent border border-accent/40 bg-card'
-                    : 'card-elevated',
+        <section className="flex flex-col gap-6">
+            <PhaseTabs phases={phases} active={active} onSelect={setActive} />
+
+            {active === 'gs' && (
+                <div>
+                    <PhaseMeta
+                        title="Group Stage"
+                        meta={metaLine(
+                            groupMatches,
+                            `${groups.length} groups`,
+                            phaseDateRange(groupFixtures),
+                        )}
+                    />
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                        {groups.map((group) => (
+                            <GroupFixtureCard
+                                key={group.name}
+                                name={group.name}
+                                teams={group.teams}
+                                fixtures={group.fixtures}
+                            />
+                        ))}
+                    </div>
+                </div>
             )}
-        >
-            <div className="flex items-center justify-between gap-2">
-                <span className="flex min-w-0 items-center gap-1.5 font-medium">
-                    {fixture.home && <Flag team={fixture.home} />}
-                    <span className="truncate">
-                        {teamName(fixture.home, fixture.home_label)}
-                    </span>
-                </span>
-                {fixture.home_goals !== null && (
-                    <span className="font-display font-semibold tabular-nums">
-                        {fixture.home_goals}
-                    </span>
-                )}
-            </div>
-            <div className="my-1.5 border-t border-border" />
-            <div className="flex items-center justify-between gap-2">
-                <span className="flex min-w-0 items-center gap-1.5 font-medium">
-                    {fixture.away && <Flag team={fixture.away} />}
-                    <span className="truncate">
-                        {teamName(fixture.away, fixture.away_label)}
-                    </span>
-                </span>
-                {fixture.away_goals !== null && (
-                    <span className="font-display font-semibold tabular-nums">
-                        {fixture.away_goals}
-                    </span>
-                )}
-            </div>
-        </div>
+
+            {koPhases.map(
+                (phase) =>
+                    active === phase.phase_key && (
+                        <div key={phase.phase_key}>
+                            <PhaseMeta
+                                title={phase.phase_name}
+                                meta={metaLine(
+                                    phase.fixtures.length,
+                                    '',
+                                    phaseDateRange(phase.fixtures),
+                                )}
+                            />
+                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                                {phase.fixtures.map((fixture) => (
+                                    <KnockoutSlotCard
+                                        key={fixture.match_number}
+                                        fixture={fixture}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    ),
+            )}
+
+            {active === 'final' && (
+                <div>
+                    <PhaseMeta
+                        title="Final & Third Place"
+                        meta={metaLine(
+                            finalFixtures.length,
+                            '',
+                            phaseDateRange(finalFixtures),
+                        )}
+                    />
+                    <div className="flex flex-col gap-4">
+                        {finalPhase?.fixtures.map((fixture) => (
+                            <FinalCard
+                                key={fixture.match_number}
+                                fixture={fixture}
+                            />
+                        ))}
+                        {thirdPhase?.fixtures.map((fixture) => (
+                            <div
+                                key={fixture.match_number}
+                                className="mx-auto w-full max-w-xl"
+                            >
+                                <KnockoutSlotCard fixture={fixture} />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </section>
     );
 }
 
@@ -339,51 +339,7 @@ export default function GameShow({
 
                 <PoolPreview game={game} pool={pool} />
 
-                <section
-                    id="groups"
-                    className="flex scroll-mt-20 flex-col gap-4"
-                >
-                    <h2 className="font-display text-xl font-semibold tracking-tight">
-                        Groups
-                    </h2>
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                        {groups.map((group) => (
-                            <GroupCard key={group.name} group={group} />
-                        ))}
-                    </div>
-                </section>
-
-                <section
-                    id="bracket"
-                    className="flex scroll-mt-20 flex-col gap-4"
-                >
-                    <h2 className="font-display text-xl font-semibold tracking-tight">
-                        Bracket
-                    </h2>
-                    <div className="flex gap-6 overflow-x-auto pb-4">
-                        {bracket.map((phase) => (
-                            <div
-                                key={phase.phase_key}
-                                className="flex flex-col gap-3"
-                            >
-                                <h3 className="font-display text-xs font-bold tracking-wide text-primary uppercase">
-                                    {phase.phase_name}
-                                </h3>
-                                <div className="flex flex-col gap-3">
-                                    {phase.fixtures.map((fixture) => (
-                                        <BracketSlot
-                                            key={fixture.match_number}
-                                            fixture={fixture}
-                                            isFinal={
-                                                phase.phase_key === 'final'
-                                            }
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </section>
+                <FixturesView groups={groups} bracket={bracket} />
             </div>
         </>
     );

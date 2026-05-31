@@ -171,6 +171,9 @@ class PredictionController extends Controller
                     'away' => $this->teamRef($teamsById->get($fixture->away_team_id)),
                     'home_goals' => $prediction?->home_goals,
                     'away_goals' => $prediction?->away_goals,
+                    'kicks_off_at' => $fixture->kicks_off_at?->toIso8601String(),
+                    'venue' => $fixture->venue,
+                    'venue_timezone' => $fixture->venue_timezone,
                 ];
             })->all(),
             'standings' => collect($standings->ordered())

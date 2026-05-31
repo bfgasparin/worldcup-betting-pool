@@ -35,6 +35,10 @@ export interface GroupFixture {
     home_goals: number | null;
     away_goals: number | null;
     kicks_off_at: string | null;
+    venue: string | null;
+    venue_timezone: string | null;
+    /** The viewer's own predicted scoreline, if they've made one. */
+    prediction: { home_goals: number; away_goals: number } | null;
 }
 
 export interface GroupView {
@@ -52,6 +56,9 @@ export interface BracketFixture {
     away_label: string | null;
     home_goals: number | null;
     away_goals: number | null;
+    kicks_off_at: string | null;
+    venue: string | null;
+    venue_timezone: string | null;
 }
 
 export interface BracketPhase {
@@ -111,6 +118,9 @@ export interface PredictGroupFixture {
     away: TeamRef | null;
     home_goals: number | null;
     away_goals: number | null;
+    kicks_off_at: string | null;
+    venue: string | null;
+    venue_timezone: string | null;
 }
 
 export interface PredictGroup {

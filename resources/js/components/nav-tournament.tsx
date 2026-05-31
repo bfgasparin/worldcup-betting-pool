@@ -3,9 +3,7 @@ import {
     ChevronLeft,
     LayoutDashboard,
     ListOrdered,
-    Network,
     PencilLine,
-    Users,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 import {
@@ -21,33 +19,24 @@ interface NavItem {
     title: string;
     href: string;
     icon: ComponentType<{ className?: string }>;
-    /** Internal Inertia route (prefetched) vs. an in-page anchor. */
-    route?: boolean;
 }
 
 export function NavTournament({ slug, name }: { slug: string; name: string }) {
-    const showUrl = games.show(slug).url;
-
     const items: NavItem[] = [
         {
             title: 'Overview',
-            href: showUrl,
+            href: games.show(slug).url,
             icon: LayoutDashboard,
-            route: true,
         },
         {
             title: 'Predict',
             href: games.predict.edit(slug).url,
             icon: PencilLine,
-            route: true,
         },
-        { title: 'Groups', href: `${showUrl}#groups`, icon: Users },
-        { title: 'Bracket', href: `${showUrl}#bracket`, icon: Network },
         {
             title: 'Pool table',
             href: games.leaderboard(slug).url,
             icon: ListOrdered,
-            route: true,
         },
     ];
 
@@ -61,17 +50,10 @@ export function NavTournament({ slug, name }: { slug: string; name: string }) {
                             asChild
                             tooltip={{ children: item.title }}
                         >
-                            {item.route ? (
-                                <Link href={item.href} prefetch>
-                                    <item.icon />
-                                    <span>{item.title}</span>
-                                </Link>
-                            ) : (
-                                <a href={item.href}>
-                                    <item.icon />
-                                    <span>{item.title}</span>
-                                </a>
-                            )}
+                            <Link href={item.href} prefetch>
+                                <item.icon />
+                                <span>{item.title}</span>
+                            </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 ))}

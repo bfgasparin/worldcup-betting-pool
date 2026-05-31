@@ -76,13 +76,15 @@ class PredictionControllerTest extends TestCase
     public function test_saving_group_predictions_persists_and_recomputes_the_round_of_32(): void
     {
         $fixtures = $this->groupFixtures('A');
-        $scores = $this->seedOrderScores();
+        $rule = $this->seedOrderScores();
+        $positions = $this->tournament->groups()->where('name', 'A')->firstOrFail()
+            ->teams()->get()->mapWithKeys(fn ($team) => [$team->id => $team->pivot->position]);
 
-        $payload = ['predictions' => $fixtures->map(fn (Fixture $fixture, int $index): array => [
-            'fixture_id' => $fixture->id,
-            'home_goals' => $scores[$index][0],
-            'away_goals' => $scores[$index][1],
-        ])->all()];
+        $payload = ['predictions' => $fixtures->map(function (Fixture $fixture) use ($rule, $positions): array {
+            [$home, $away] = $rule($positions[$fixture->home_team_id], $positions[$fixture->away_team_id]);
+
+            return ['fixture_id' => $fixture->id, 'home_goals' => $home, 'away_goals' => $away];
+        })->all()];
 
         $this->actingAs($this->user)
             ->put(route('games.predict.group', 'world-cup-2026'), $payload)

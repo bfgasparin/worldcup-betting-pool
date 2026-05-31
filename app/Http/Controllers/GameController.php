@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Entry;
 use App\Models\Fixture;
 use App\Models\Group;
+use App\Models\GroupPrediction;
 use App\Models\Team;
 use App\Models\Tournament;
 use Illuminate\Http\Request;
@@ -49,12 +50,18 @@ class GameController extends Controller
             'knockoutFixtures.awayTeam',
         ]);
 
+        // The viewer's own group-stage picks, so each fixture can show its predicted scoreline.
+        $entry = $tournament->entries()->where('user_id', $request->user()->id)->first();
+        $groupPredictions = $entry?->groupPredictions->keyBy('fixture_id') ?? collect();
+
         return Inertia::render('games/show', [
             'game' => [
                 ...$this->gameHeader($tournament),
                 'scoring_config' => $tournament->scoring_config,
             ],
-            'groups' => $tournament->groups->map(fn (Group $group): array => $this->mapGroup($group)),
+            'groups' => $tournament->groups->map(
+                fn (Group $group): array => $this->mapGroup($group, $groupPredictions),
+            ),
             'bracket' => $this->mapBracket($tournament->knockoutFixtures),
             'pool' => $this->poolSummary($tournament, $request->user()->id),
         ]);
@@ -149,9 +156,10 @@ class GameController extends Controller
     }
 
     /**
+     * @param  Collection<int, GroupPrediction>  $predictions
      * @return array{name: string, teams: list<array<string, mixed>>, fixtures: list<array<string, mixed>>}
      */
-    private function mapGroup(Group $group): array
+    private function mapGroup(Group $group, Collection $predictions): array
     {
         return [
             'name' => $group->name,
@@ -161,14 +169,23 @@ class GameController extends Controller
                     'position' => $team->pivot->position,
                 ])
                 ->all(),
-            'fixtures' => $group->fixtures->map(fn (Fixture $fixture): array => [
-                'match_number' => $fixture->match_number,
-                'home' => $this->teamRef($fixture->homeTeam),
-                'away' => $this->teamRef($fixture->awayTeam),
-                'home_goals' => $fixture->home_goals,
-                'away_goals' => $fixture->away_goals,
-                'kicks_off_at' => $fixture->kicks_off_at?->toIso8601String(),
-            ])->all(),
+            'fixtures' => $group->fixtures->map(function (Fixture $fixture) use ($predictions): array {
+                $prediction = $predictions->get($fixture->id);
+
+                return [
+                    'match_number' => $fixture->match_number,
+                    'home' => $this->teamRef($fixture->homeTeam),
+                    'away' => $this->teamRef($fixture->awayTeam),
+                    'home_goals' => $fixture->home_goals,
+                    'away_goals' => $fixture->away_goals,
+                    'kicks_off_at' => $fixture->kicks_off_at?->toIso8601String(),
+                    'venue' => $fixture->venue,
+                    'venue_timezone' => $fixture->venue_timezone,
+                    'prediction' => $prediction !== null && $prediction->home_goals !== null && $prediction->away_goals !== null
+                        ? ['home_goals' => $prediction->home_goals, 'away_goals' => $prediction->away_goals]
+                        : null,
+                ];
+            })->all(),
         ];
     }
 
@@ -195,6 +212,9 @@ class GameController extends Controller
                     'away_label' => $fixture->awayTeam?->name ?? $fixture->away_placeholder_label,
                     'home_goals' => $fixture->home_goals,
                     'away_goals' => $fixture->away_goals,
+                    'kicks_off_at' => $fixture->kicks_off_at?->toIso8601String(),
+                    'venue' => $fixture->venue,
+                    'venue_timezone' => $fixture->venue_timezone,
                 ])->all(),
             ])
             ->sortBy('sort_order')

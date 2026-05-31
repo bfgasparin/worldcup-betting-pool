@@ -30,6 +30,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'away_goals',
     'winner_team_id',
     'kicks_off_at',
+    'venue',
+    'venue_timezone',
     'status',
 ])]
 class Fixture extends Model
