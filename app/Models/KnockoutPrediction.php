@@ -31,8 +31,11 @@ class KnockoutPrediction extends Model
     protected function casts(): array
     {
         return [
+            'predicted_home_team_id' => 'integer',
+            'predicted_away_team_id' => 'integer',
             'home_goals' => 'integer',
             'away_goals' => 'integer',
+            'advancing_team_id' => 'integer',
             'points_awarded' => 'integer',
         ];
     }

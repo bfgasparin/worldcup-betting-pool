@@ -86,14 +86,59 @@ class WorldCup2026SeederTest extends TestCase
         $this->assertSame(PhaseType::Knockout, $thirdPlace->phase->type);
     }
 
-    public function test_it_seeds_placeholder_and_real_teams(): void
+    public function test_it_seeds_the_completed_draw_with_real_teams(): void
     {
         $this->seed(WorldCup2026Seeder::class);
 
-        $this->assertSame(2, Team::where('is_placeholder', true)->count());
+        // The 2026 draw is complete: every one of the 48 teams is a real qualifier.
+        $this->assertSame(0, Team::where('is_placeholder', true)->count());
 
         $brazil = Team::where('code', 'BRA')->firstOrFail();
         $this->assertFalse($brazil->is_placeholder);
+
+        // Hosts sit in their predetermined groups at seed position 1.
+        $tournament = Tournament::where('slug', 'world-cup-2026')->firstOrFail();
+        $this->assertSame('MEX', $this->teamAt($tournament, 'A', 1)->code);
+        $this->assertSame('CAN', $this->teamAt($tournament, 'B', 1)->code);
+        $this->assertSame('USA', $this->teamAt($tournament, 'D', 1)->code);
+    }
+
+    public function test_round_of_32_slots_use_the_official_third_place_labels(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+
+        $thirdSlots = Fixture::where('bracket_slot', 'like', 'R32-%')
+            ->where('away_placeholder_label', 'like', '3rd Group %')
+            ->get();
+
+        // Exactly eight Round-of-32 matches take a third-placed team.
+        $this->assertCount(8, $thirdSlots);
+
+        $match74 = Fixture::where('match_number', 74)->firstOrFail();
+        $this->assertSame('Winner Group E', $match74->home_placeholder_label);
+        $this->assertSame('3rd Group A/B/C/D/F', $match74->away_placeholder_label);
+    }
+
+    public function test_round_of_16_feeders_follow_the_official_bracket(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+
+        // Match 89 (R16-1) is fed by the winners of matches 74 (R32-2) and 77 (R32-5).
+        $match89 = Fixture::where('match_number', 89)->firstOrFail();
+        $this->assertSame(74, $match89->homeFeeder->match_number);
+        $this->assertSame(77, $match89->awayFeeder->match_number);
+        $this->assertSame(FeederOutcome::Winner, $match89->home_feeder_outcome);
+
+        // Match 90 (R16-2) is fed by the winners of matches 73 and 75.
+        $match90 = Fixture::where('match_number', 90)->firstOrFail();
+        $this->assertSame(73, $match90->homeFeeder->match_number);
+        $this->assertSame(75, $match90->awayFeeder->match_number);
+    }
+
+    private function teamAt(Tournament $tournament, string $group, int $position): Team
+    {
+        return $tournament->groups()->where('name', $group)->firstOrFail()
+            ->teams()->wherePivot('position', $position)->firstOrFail();
     }
 
     public function test_it_is_idempotent(): void
