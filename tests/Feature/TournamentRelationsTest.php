@@ -73,10 +73,9 @@ class TournamentRelationsTest extends TestCase
         $this->assertCount(2, $entry->groupPredictions);
     }
 
-    public function test_accepts_predictions_when_open_and_before_the_lock_time(): void
+    public function test_accepts_predictions_before_the_lock_time(): void
     {
         $tournament = Tournament::factory()->create([
-            'status' => TournamentStatus::Open,
             'predictions_lock_at' => now()->addDay(),
         ]);
 
@@ -86,22 +85,27 @@ class TournamentRelationsTest extends TestCase
     public function test_does_not_accept_predictions_after_the_lock_time(): void
     {
         $tournament = Tournament::factory()->create([
-            'status' => TournamentStatus::Open,
             'predictions_lock_at' => now()->subMinute(),
         ]);
 
         $this->assertFalse($tournament->acceptsPredictions());
     }
 
-    public function test_does_not_accept_predictions_once_the_tournament_has_progressed(): void
+    public function test_prediction_window_is_independent_of_lifecycle_status(): void
     {
-        foreach ([TournamentStatus::Locked, TournamentStatus::InProgress, TournamentStatus::Completed] as $status) {
-            $tournament = Tournament::factory()->create([
+        // The prediction window alone decides; the lifecycle status must not affect it.
+        foreach (TournamentStatus::cases() as $status) {
+            $open = Tournament::factory()->create([
                 'status' => $status,
                 'predictions_lock_at' => now()->addWeek(),
             ]);
+            $this->assertTrue($open->acceptsPredictions());
 
-            $this->assertFalse($tournament->acceptsPredictions());
+            $closed = Tournament::factory()->create([
+                'status' => $status,
+                'predictions_lock_at' => now()->subMinute(),
+            ]);
+            $this->assertFalse($closed->acceptsPredictions());
         }
     }
 }

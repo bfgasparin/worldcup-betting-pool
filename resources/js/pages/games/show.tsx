@@ -1,4 +1,4 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     ArrowRight,
     CalendarDays,
@@ -23,6 +23,7 @@ import games from '@/routes/games';
 import type {
     BracketPhase,
     GameDetail,
+    GameStatus,
     GroupView,
     PoolSummary,
 } from '@/types/games';
@@ -74,14 +75,67 @@ function PoolStat({
     );
 }
 
+const STATUS_LABELS: Record<GameStatus, string> = {
+    upcoming: 'Upcoming',
+    in_progress: 'In Progress',
+    completed: 'Completed',
+};
+
+function AdminStatusControl({ game }: { game: GameDetail }) {
+    const [submitting, setSubmitting] = useState<GameStatus | null>(null);
+    const [errors, setErrors] = useState<Record<string, string>>({});
+
+    const advance = (status: GameStatus) => {
+        setSubmitting(status);
+        router.patch(
+            games.status.update(game.slug).url,
+            { status },
+            {
+                preserveScroll: true,
+                onError: (formErrors) => setErrors(formErrors),
+                onSuccess: () => setErrors({}),
+                onFinish: () => setSubmitting(null),
+            },
+        );
+    };
+
+    return (
+        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl border border-dashed border-border bg-card/60 p-3">
+            <span className="font-display text-[11px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
+                Admin
+            </span>
+            {game.allowed_transitions.map((status) => (
+                <Button
+                    key={status}
+                    size="sm"
+                    variant="outline"
+                    disabled={submitting !== null}
+                    onClick={() => advance(status)}
+                >
+                    {submitting === status
+                        ? 'Saving…'
+                        : `Set ${STATUS_LABELS[status]}`}
+                </Button>
+            ))}
+            {errors.status && (
+                <span className="text-xs text-destructive">
+                    {errors.status}
+                </span>
+            )}
+        </div>
+    );
+}
+
 function DashboardBanner({
     game,
     pool,
     name,
+    isAdmin,
 }: {
     game: GameDetail;
     pool: PoolSummary;
     name: string;
+    isAdmin: boolean;
 }) {
     const dates = game.starts_on
         ? game.ends_on
@@ -116,6 +170,7 @@ function DashboardBanner({
                                 </span>
                             )}
                         </div>
+                        {isAdmin && <AdminStatusControl game={game} />}
                     </div>
                 </div>
 
@@ -338,7 +393,12 @@ export default function GameShow({
         <>
             <Head title={game.name} />
             <div className="flex h-full flex-1 flex-col gap-10 p-4">
-                <DashboardBanner game={game} pool={pool} name={name} />
+                <DashboardBanner
+                    game={game}
+                    pool={pool}
+                    name={name}
+                    isAdmin={auth.isAdmin}
+                />
 
                 <PoolPreview game={game} pool={pool} />
 

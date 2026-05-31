@@ -31,4 +31,12 @@ class User extends Authenticatable implements PasskeyUser
             'password' => 'hashed',
         ];
     }
+
+    /**
+     * Whether this user is an application administrator.
+     */
+    public function isAdmin(): bool
+    {
+        return in_array($this->email, config('admin.emails', []), true);
+    }
 }

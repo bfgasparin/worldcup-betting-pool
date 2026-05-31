@@ -250,7 +250,7 @@ class WorldCup2026Seeder extends Seeder
             [
                 'name' => 'World Cup 2026',
                 'sport' => Sport::Soccer,
-                'status' => TournamentStatus::Open,
+                'status' => TournamentStatus::Upcoming,
                 'scoring_strategy' => ScoringStrategy::WorldCupStandard,
                 'scoring_config' => [
                     'group' => [
