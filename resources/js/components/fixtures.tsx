@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Flag } from '@/components/flag';
+import { useDisplayTimeZone } from '@/hooks/use-timezone';
 import { cn } from '@/lib/utils';
 import type {
     BracketFixture,
@@ -10,29 +11,31 @@ import type {
 
 /* ------------------------------------------------------------------ dates */
 
-/** A kick-off rendered in its venue's local timezone (falls back to UTC). */
-type Timed = { kicks_off_at: string | null; venue_timezone: string | null };
-
+/** All formatters render in the viewer's timezone (`tz` from useDisplayTimeZone). */
 function fmt(
     iso: string,
     options: Intl.DateTimeFormatOptions,
-    tz: string | null,
+    tz: string,
 ): string {
     return new Intl.DateTimeFormat('en-US', {
         ...options,
-        timeZone: tz ?? 'UTC',
+        timeZone: tz,
     }).format(new Date(iso));
 }
 
-export function formatMatchDate(iso: string, tz: string | null = null): string {
+export function formatMatchDate(iso: string, tz: string): string {
     return fmt(iso, { month: 'short', day: 'numeric' }, tz);
 }
 
-export function formatMatchTime(iso: string, tz: string | null = null): string {
-    return fmt(iso, { hour: 'numeric', minute: '2-digit' }, tz);
+export function formatMatchTime(iso: string, tz: string): string {
+    return fmt(
+        iso,
+        { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' },
+        tz,
+    );
 }
 
-export function formatLongDate(iso: string, tz: string | null = null): string {
+export function formatLongDate(iso: string, tz: string): string {
     return fmt(
         iso,
         { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' },
@@ -40,12 +43,13 @@ export function formatLongDate(iso: string, tz: string | null = null): string {
     );
 }
 
-/** A compact range across a phase's kick-offs, e.g. "Jun 11 – 27" or "Jun 28 – Jul 3". */
-export function phaseDateRange(items: Timed[]): string | null {
+/** A compact range across a phase's kick-offs in the viewer's zone, e.g. "Jun 11 – 27". */
+export function phaseDateRange(
+    items: { kicks_off_at: string | null }[],
+    tz: string,
+): string | null {
     const timed = items
-        .filter((i): i is Timed & { kicks_off_at: string } =>
-            Boolean(i.kicks_off_at),
-        )
+        .filter((i): i is { kicks_off_at: string } => Boolean(i.kicks_off_at))
         .sort(
             (a, b) =>
                 new Date(a.kicks_off_at).getTime() -
@@ -56,33 +60,21 @@ export function phaseDateRange(items: Timed[]): string | null {
         return null;
     }
 
-    const first = timed[0];
-    const last = timed[timed.length - 1];
-    const firstDate = formatMatchDate(first.kicks_off_at, first.venue_timezone);
-    const lastDate = formatMatchDate(last.kicks_off_at, last.venue_timezone);
+    const first = timed[0].kicks_off_at;
+    const last = timed[timed.length - 1].kicks_off_at;
+    const firstDate = formatMatchDate(first, tz);
+    const lastDate = formatMatchDate(last, tz);
 
     if (firstDate === lastDate) {
         return firstDate;
     }
 
-    const firstMonth = fmt(
-        first.kicks_off_at,
-        { month: 'short' },
-        first.venue_timezone,
-    );
-    const lastMonth = fmt(
-        last.kicks_off_at,
-        { month: 'short' },
-        last.venue_timezone,
-    );
-    const lastDay = fmt(
-        last.kicks_off_at,
-        { day: 'numeric' },
-        last.venue_timezone,
-    );
+    const sameMonth =
+        fmt(first, { month: 'short' }, tz) ===
+        fmt(last, { month: 'short' }, tz);
 
-    return firstMonth === lastMonth
-        ? `${firstDate} – ${lastDay}`
+    return sameMonth
+        ? `${firstDate} – ${fmt(last, { day: 'numeric' }, tz)}`
         : `${firstDate} – ${lastDate}`;
 }
 
@@ -171,6 +163,8 @@ function MatchRow({
     fixture: GroupFixture;
     matchday: number;
 }) {
+    const tz = useDisplayTimeZone();
+
     return (
         <div className="border-t border-border py-2.5 first:border-t-0">
             <div className="grid grid-cols-[34px_1fr_auto] items-center gap-2">
@@ -211,15 +205,8 @@ function MatchRow({
 
             {fixture.kicks_off_at && (
                 <div className="mt-1.5 truncate pl-[42px] text-xs text-muted-foreground">
-                    {formatMatchDate(
-                        fixture.kicks_off_at,
-                        fixture.venue_timezone,
-                    )}{' '}
-                    ·{' '}
-                    {formatMatchTime(
-                        fixture.kicks_off_at,
-                        fixture.venue_timezone,
-                    )}
+                    {formatMatchDate(fixture.kicks_off_at, tz)} ·{' '}
+                    {formatMatchTime(fixture.kicks_off_at, tz)}
                     {fixture.venue ? ` · ${fixture.venue}` : ''}
                 </div>
             )}
@@ -302,6 +289,8 @@ function KnockoutSlot({
 }
 
 export function KnockoutSlotCard({ fixture }: { fixture: BracketFixture }) {
+    const tz = useDisplayTimeZone();
+
     return (
         <div className="card-elevated rounded-3xl p-5">
             <div className="mb-2 flex items-start justify-between gap-2">
@@ -311,15 +300,8 @@ export function KnockoutSlotCard({ fixture }: { fixture: BracketFixture }) {
                 {fixture.kicks_off_at && (
                     <span className="text-right text-[11px] font-semibold text-muted-foreground">
                         <span className="font-bold tracking-wide uppercase">
-                            {formatMatchDate(
-                                fixture.kicks_off_at,
-                                fixture.venue_timezone,
-                            )}{' '}
-                            ·{' '}
-                            {formatMatchTime(
-                                fixture.kicks_off_at,
-                                fixture.venue_timezone,
-                            )}
+                            {formatMatchDate(fixture.kicks_off_at, tz)} ·{' '}
+                            {formatMatchTime(fixture.kicks_off_at, tz)}
                         </span>
                         {fixture.venue && (
                             <span className="block font-medium normal-case">
@@ -371,6 +353,8 @@ function FinalSlot({
 }
 
 export function FinalCard({ fixture }: { fixture: BracketFixture }) {
+    const tz = useDisplayTimeZone();
+
     return (
         <div className="relative mx-auto max-w-xl overflow-hidden rounded-3xl border border-accent/30 bg-ink p-9 text-center text-white">
             <div className="pointer-events-none absolute -top-20 left-1/2 size-72 -translate-x-1/2 rounded-full bg-gold opacity-20 blur-[110px]" />
@@ -381,15 +365,8 @@ export function FinalCard({ fixture }: { fixture: BracketFixture }) {
                 </h3>
                 {fixture.kicks_off_at && (
                     <div className="mt-1 text-sm font-semibold text-white/60">
-                        {formatLongDate(
-                            fixture.kicks_off_at,
-                            fixture.venue_timezone,
-                        )}{' '}
-                        ·{' '}
-                        {formatMatchTime(
-                            fixture.kicks_off_at,
-                            fixture.venue_timezone,
-                        )}
+                        {formatLongDate(fixture.kicks_off_at, tz)} ·{' '}
+                        {formatMatchTime(fixture.kicks_off_at, tz)}
                         {fixture.venue ? ` · ${fixture.venue}` : ''}
                     </div>
                 )}

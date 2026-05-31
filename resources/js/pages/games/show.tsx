@@ -17,6 +17,7 @@ import {
 import type { Phase } from '@/components/fixtures';
 import { LeaderboardRow } from '@/components/leaderboard-row';
 import { Button } from '@/components/ui/button';
+import { useDisplayTimeZone } from '@/hooks/use-timezone';
 import { cn } from '@/lib/utils';
 import games from '@/routes/games';
 import type {
@@ -212,6 +213,7 @@ function FixturesView({
     groups: GroupView[];
     bracket: BracketPhase[];
 }) {
+    const tz = useDisplayTimeZone();
     const groupMatches = groups.reduce((n, g) => n + g.fixtures.length, 0);
     const groupFixtures = groups.flatMap((g) => g.fixtures);
 
@@ -250,7 +252,7 @@ function FixturesView({
                         meta={metaLine(
                             groupMatches,
                             `${groups.length} groups`,
-                            phaseDateRange(groupFixtures),
+                            phaseDateRange(groupFixtures, tz),
                         )}
                     />
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -275,7 +277,7 @@ function FixturesView({
                                 meta={metaLine(
                                     phase.fixtures.length,
                                     '',
-                                    phaseDateRange(phase.fixtures),
+                                    phaseDateRange(phase.fixtures, tz),
                                 )}
                             />
                             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -297,7 +299,7 @@ function FixturesView({
                         meta={metaLine(
                             finalFixtures.length,
                             '',
-                            phaseDateRange(finalFixtures),
+                            phaseDateRange(finalFixtures, tz),
                         )}
                     />
                     <div className="flex flex-col gap-4">

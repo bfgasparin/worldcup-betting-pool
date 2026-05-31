@@ -21,6 +21,7 @@ import { ScoreStepper } from '@/components/score-stepper';
 import { Button } from '@/components/ui/button';
 import { chipVariants } from '@/components/ui/chip';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { useDisplayTimeZone } from '@/hooks/use-timezone';
 import { cn } from '@/lib/utils';
 import games from '@/routes/games';
 import type {
@@ -343,6 +344,8 @@ function GroupCard({
     onChange: (fixtureId: number, side: 'home' | 'away', value: string) => void;
     onCommit: () => void;
 }) {
+    const tz = useDisplayTimeZone();
+
     return (
         <div className="card-elevated rounded-3xl p-5">
             <div className="mb-3 flex items-center justify-between gap-2">
@@ -436,12 +439,12 @@ function GroupCard({
                                     <div className="pl-[42px] text-[11px] text-muted-foreground">
                                         {formatMatchDate(
                                             fixture.kicks_off_at,
-                                            fixture.venue_timezone,
+                                            tz,
                                         )}{' '}
                                         ·{' '}
                                         {formatMatchTime(
                                             fixture.kicks_off_at,
-                                            fixture.venue_timezone,
+                                            tz,
                                         )}
                                     </div>
                                 )}

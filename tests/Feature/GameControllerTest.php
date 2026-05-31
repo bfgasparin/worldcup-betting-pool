@@ -21,6 +21,18 @@ class GameControllerTest extends TestCase
         $this->get(route('games.index'))->assertRedirect(route('login'));
     }
 
+    public function test_the_timezone_cookie_is_shared_to_the_frontend(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+        $this->actingAs(User::factory()->create());
+
+        $this->withUnencryptedCookie('timezone', 'America/Sao_Paulo')
+            ->get(route('games.index'))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('timezone', 'America/Sao_Paulo')
+            );
+    }
+
     public function test_authenticated_users_see_the_seeded_game_on_the_index(): void
     {
         $this->seed(WorldCup2026Seeder::class);
