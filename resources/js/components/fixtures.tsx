@@ -28,11 +28,8 @@ export function formatMatchDate(iso: string, tz: string): string {
 }
 
 export function formatMatchTime(iso: string, tz: string): string {
-    return fmt(
-        iso,
-        { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' },
-        tz,
-    );
+    // 24-hour, no timezone label (e.g. "16:00") — compact and unambiguous in the viewer's zone.
+    return fmt(iso, { hour: '2-digit', minute: '2-digit', hour12: false }, tz);
 }
 
 export function formatLongDate(iso: string, tz: string): string {
@@ -79,14 +76,6 @@ export function phaseDateRange(
 }
 
 /* ------------------------------------------------------------------ atoms */
-
-export function MatchdayTag({ matchday }: { matchday: number }) {
-    return (
-        <span className="rounded-md bg-secondary px-2 py-1 text-center font-display text-[11px] font-semibold text-muted-foreground">
-            MD{matchday}
-        </span>
-    );
-}
 
 export function GroupBadge({
     name,
@@ -156,60 +145,57 @@ function teamCode(
     return team?.code ?? team?.name ?? fallback ?? 'TBD';
 }
 
-function MatchRow({
-    fixture,
-    matchday,
-}: {
-    fixture: GroupFixture;
-    matchday: number;
-}) {
+/** Display label for a venue — drops the generic " Stadium" suffix (e.g. "Mexico City"). */
+function venueLabel(venue: string): string {
+    return venue.replace(/\s+Stadium$/, '');
+}
+
+function MatchRow({ fixture }: { fixture: GroupFixture }) {
     const tz = useDisplayTimeZone();
 
     return (
-        <div className="border-t border-border py-2.5 first:border-t-0">
-            <div className="grid grid-cols-[34px_1fr_auto] items-center gap-2">
-                <MatchdayTag matchday={matchday} />
-
-                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                    <span className="flex min-w-0 items-center justify-end gap-1.5 text-sm font-bold">
-                        <span className="truncate">
-                            {teamCode(fixture.home)}
-                        </span>
-                        <Flag team={fixture.home} className="h-4 w-6" />
-                    </span>
-                    <span className="text-center font-display text-xs text-muted-foreground">
-                        v
-                    </span>
-                    <span className="flex min-w-0 items-center gap-1.5 text-sm font-bold">
-                        <Flag team={fixture.away} className="h-4 w-6" />
-                        <span className="truncate">
-                            {teamCode(fixture.away)}
-                        </span>
-                    </span>
-                </div>
-
-                <div className="justify-self-end">
-                    {fixture.prediction ? (
-                        <span className="inline-flex items-center gap-1.5 font-display text-sm font-semibold text-pitch-deep tabular-nums dark:text-primary">
-                            <span className="size-1.5 rounded-full bg-primary" />
-                            {fixture.prediction.home_goals}–
-                            {fixture.prediction.away_goals}
-                        </span>
-                    ) : (
-                        <span className="text-sm font-semibold text-muted-foreground">
-                            —
-                        </span>
-                    )}
-                </div>
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-t border-border py-2.5 first:border-t-0">
+            <div className="min-w-0">
+                {fixture.kicks_off_at && (
+                    <div className="font-display text-[11px] font-semibold whitespace-nowrap">
+                        {formatMatchDate(fixture.kicks_off_at, tz)} ·{' '}
+                        {formatMatchTime(fixture.kicks_off_at, tz)}
+                    </div>
+                )}
+                {fixture.venue && (
+                    <div className="truncate text-[11px] text-muted-foreground">
+                        {venueLabel(fixture.venue)}
+                    </div>
+                )}
             </div>
 
-            {fixture.kicks_off_at && (
-                <div className="mt-1.5 truncate pl-[42px] text-xs text-muted-foreground">
-                    {formatMatchDate(fixture.kicks_off_at, tz)} ·{' '}
-                    {formatMatchTime(fixture.kicks_off_at, tz)}
-                    {fixture.venue ? ` · ${fixture.venue}` : ''}
-                </div>
-            )}
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                <span className="flex min-w-0 items-center justify-end gap-1.5 text-sm font-bold">
+                    <span className="truncate">{teamCode(fixture.home)}</span>
+                    <Flag team={fixture.home} className="h-4 w-6" />
+                </span>
+                <span className="text-center font-display text-xs text-muted-foreground">
+                    v
+                </span>
+                <span className="flex min-w-0 items-center gap-1.5 text-sm font-bold">
+                    <Flag team={fixture.away} className="h-4 w-6" />
+                    <span className="truncate">{teamCode(fixture.away)}</span>
+                </span>
+            </div>
+
+            <div className="justify-self-end">
+                {fixture.prediction ? (
+                    <span className="inline-flex items-center gap-1.5 font-display text-sm font-semibold text-pitch-deep tabular-nums dark:text-primary">
+                        <span className="size-1.5 rounded-full bg-primary" />
+                        {fixture.prediction.home_goals}–
+                        {fixture.prediction.away_goals}
+                    </span>
+                ) : (
+                    <span className="text-sm font-semibold text-muted-foreground">
+                        —
+                    </span>
+                )}
+            </div>
         </div>
     );
 }
@@ -244,12 +230,8 @@ export function GroupFixtureCard({
             </div>
 
             <div className="mt-1">
-                {fixtures.map((fixture, index) => (
-                    <MatchRow
-                        key={fixture.match_number}
-                        fixture={fixture}
-                        matchday={Math.floor(index / 2) + 1}
-                    />
+                {fixtures.map((fixture) => (
+                    <MatchRow key={fixture.match_number} fixture={fixture} />
                 ))}
             </div>
         </div>
@@ -305,7 +287,7 @@ export function KnockoutSlotCard({ fixture }: { fixture: BracketFixture }) {
                         </span>
                         {fixture.venue && (
                             <span className="block font-medium normal-case">
-                                {fixture.venue}
+                                {venueLabel(fixture.venue)}
                             </span>
                         )}
                     </span>
@@ -367,7 +349,7 @@ export function FinalCard({ fixture }: { fixture: BracketFixture }) {
                     <div className="mt-1 text-sm font-semibold text-white/60">
                         {formatLongDate(fixture.kicks_off_at, tz)} ·{' '}
                         {formatMatchTime(fixture.kicks_off_at, tz)}
-                        {fixture.venue ? ` · ${fixture.venue}` : ''}
+                        {fixture.venue ? ` · ${venueLabel(fixture.venue)}` : ''}
                     </div>
                 )}
                 <div className="mt-6 flex items-center justify-center gap-6">

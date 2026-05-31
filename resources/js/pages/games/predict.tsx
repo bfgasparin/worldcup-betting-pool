@@ -9,19 +9,12 @@ import {
     Lock,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-    formatMatchDate,
-    formatMatchTime,
-    GroupBadge,
-    MatchdayTag,
-    TeamChip,
-} from '@/components/fixtures';
+import { GroupBadge, TeamChip } from '@/components/fixtures';
 import { Flag } from '@/components/flag';
 import { ScoreStepper } from '@/components/score-stepper';
 import { Button } from '@/components/ui/button';
 import { chipVariants } from '@/components/ui/chip';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { useDisplayTimeZone } from '@/hooks/use-timezone';
 import { cn } from '@/lib/utils';
 import games from '@/routes/games';
 import type {
@@ -344,8 +337,6 @@ function GroupCard({
     onChange: (fixtureId: number, side: 'home' | 'away', value: string) => void;
     onCommit: () => void;
 }) {
-    const tz = useDisplayTimeZone();
-
     return (
         <div className="card-elevated rounded-3xl p-5">
             <div className="mb-3 flex items-center justify-between gap-2">
@@ -367,91 +358,63 @@ function GroupCard({
             </div>
 
             <div className="mt-3 flex flex-col gap-2.5">
-                {group.fixtures.map(
-                    (fixture: PredictGroupFixture, index: number) => {
-                        const score = scores[fixture.fixture_id] ?? {
-                            home: '',
-                            away: '',
-                        };
+                {group.fixtures.map((fixture: PredictGroupFixture) => {
+                    const score = scores[fixture.fixture_id] ?? {
+                        home: '',
+                        away: '',
+                    };
 
-                        return (
-                            <div
-                                key={fixture.fixture_id}
-                                className="flex flex-col gap-1"
-                            >
-                                <div className="grid grid-cols-[34px_1fr] items-center gap-2">
-                                    <MatchdayTag
-                                        matchday={Math.floor(index / 2) + 1}
-                                    />
-                                    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                                        <span className="flex min-w-0 items-center justify-end gap-1.5 text-sm font-bold">
-                                            <span className="truncate">
-                                                {teamShort(fixture.home)}
-                                            </span>
-                                            <Flag
-                                                team={fixture.home}
-                                                className="h-4 w-6"
-                                            />
-                                        </span>
-                                        <div className="flex items-center gap-1.5">
-                                            <ScoreStepper
-                                                value={score.home}
-                                                disabled={!canEdit}
-                                                label={`${teamName(fixture.home)} goals`}
-                                                onChange={(value) =>
-                                                    onChange(
-                                                        fixture.fixture_id,
-                                                        'home',
-                                                        value,
-                                                    )
-                                                }
-                                                onCommit={onCommit}
-                                            />
-                                            <span className="font-display text-muted-foreground">
-                                                –
-                                            </span>
-                                            <ScoreStepper
-                                                value={score.away}
-                                                disabled={!canEdit}
-                                                label={`${teamName(fixture.away)} goals`}
-                                                onChange={(value) =>
-                                                    onChange(
-                                                        fixture.fixture_id,
-                                                        'away',
-                                                        value,
-                                                    )
-                                                }
-                                                onCommit={onCommit}
-                                            />
-                                        </div>
-                                        <span className="flex min-w-0 items-center gap-1.5 text-sm font-bold">
-                                            <Flag
-                                                team={fixture.away}
-                                                className="h-4 w-6"
-                                            />
-                                            <span className="truncate">
-                                                {teamShort(fixture.away)}
-                                            </span>
-                                        </span>
-                                    </div>
-                                </div>
-                                {fixture.kicks_off_at && (
-                                    <div className="pl-[42px] text-[11px] text-muted-foreground">
-                                        {formatMatchDate(
-                                            fixture.kicks_off_at,
-                                            tz,
-                                        )}{' '}
-                                        ·{' '}
-                                        {formatMatchTime(
-                                            fixture.kicks_off_at,
-                                            tz,
-                                        )}
-                                    </div>
-                                )}
+                    return (
+                        <div
+                            key={fixture.fixture_id}
+                            className="grid grid-cols-[1fr_auto_1fr] items-center gap-2"
+                        >
+                            <span className="flex min-w-0 items-center justify-end gap-1.5 text-sm font-bold">
+                                <span className="truncate">
+                                    {teamShort(fixture.home)}
+                                </span>
+                                <Flag team={fixture.home} className="h-4 w-6" />
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                                <ScoreStepper
+                                    value={score.home}
+                                    disabled={!canEdit}
+                                    label={`${teamName(fixture.home)} goals`}
+                                    onChange={(value) =>
+                                        onChange(
+                                            fixture.fixture_id,
+                                            'home',
+                                            value,
+                                        )
+                                    }
+                                    onCommit={onCommit}
+                                />
+                                <span className="font-display text-muted-foreground">
+                                    –
+                                </span>
+                                <ScoreStepper
+                                    value={score.away}
+                                    disabled={!canEdit}
+                                    label={`${teamName(fixture.away)} goals`}
+                                    onChange={(value) =>
+                                        onChange(
+                                            fixture.fixture_id,
+                                            'away',
+                                            value,
+                                        )
+                                    }
+                                    onCommit={onCommit}
+                                />
                             </div>
-                        );
-                    },
-                )}
+                            <span className="flex min-w-0 items-center gap-1.5 text-sm font-bold">
+                                <Flag team={fixture.away} className="h-4 w-6" />
+                                <span className="truncate">
+                                    {teamShort(fixture.away)}
+                                </span>
+                            </span>
+                        </div>
+                    );
+                })}
             </div>
 
             <div className="mt-4">
