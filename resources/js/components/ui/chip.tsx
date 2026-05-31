@@ -12,8 +12,8 @@ const chipVariants = cva(
                 // Resting filter chip
                 default:
                     'border-transparent bg-secondary text-secondary-foreground hover:border-border',
-                // Selected filter chip
-                active: 'border-transparent bg-foreground text-background',
+                // Selected filter chip — deep pitch fill (AA-safe with white text)
+                active: 'border-transparent bg-pitch-deep text-white',
                 // Outline / neutral
                 outline: 'border-border bg-transparent text-foreground',
                 // Points & scoring — gold tint, brand-amber figures

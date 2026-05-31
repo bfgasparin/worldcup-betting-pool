@@ -395,7 +395,7 @@ export function PhaseTabs({
                             className={cn(
                                 'flex shrink-0 items-center gap-2 rounded-full border-[1.5px] px-4 py-2 font-display text-sm font-semibold whitespace-nowrap transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
                                 on
-                                    ? 'border-transparent bg-foreground text-background'
+                                    ? 'border-transparent bg-pitch-deep text-white'
                                     : 'border-transparent bg-secondary text-secondary-foreground hover:border-border',
                             )}
                         >
@@ -404,7 +404,7 @@ export function PhaseTabs({
                                 className={cn(
                                     'font-body text-[11px] font-bold',
                                     on
-                                        ? 'text-background/60'
+                                        ? 'text-white/70'
                                         : 'text-muted-foreground',
                                 )}
                             >

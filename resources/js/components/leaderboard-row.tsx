@@ -14,7 +14,7 @@ const MEDALS: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
 /**
  * Avatar treatment. Podium colours (gold/silver/bronze) only apply once an entry is scored;
- * an unscored roster keeps the neutral brand gradient (or the ink fill for the viewer).
+ * an unscored roster keeps the neutral brand gradient (or the deep-pitch fill for the viewer).
  */
 function avatarGradient(rank: number, scored: boolean, isMe: boolean): string {
     if (scored && rank === 1) {
@@ -30,7 +30,7 @@ function avatarGradient(rank: number, scored: boolean, isMe: boolean): string {
     }
 
     if (isMe) {
-        return 'bg-foreground text-background';
+        return 'bg-pitch-deep text-white';
     }
 
     return 'bg-brand-gradient text-white';

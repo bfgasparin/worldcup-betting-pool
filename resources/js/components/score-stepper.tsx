@@ -81,7 +81,10 @@ export function ScoreStepper({
                 }
                 onBlur={onCommit}
                 className={cn(
-                    'bg-foreground text-center font-display font-semibold text-background tabular-nums caret-primary transition outline-none focus-visible:ring-2 focus-visible:ring-primary/60 disabled:opacity-60',
+                    'border-2 text-center font-display font-semibold text-foreground tabular-nums caret-primary transition outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/30 disabled:opacity-60',
+                    value !== ''
+                        ? 'border-primary/40 bg-primary/[0.05]'
+                        : 'border-border bg-card',
                     s.box,
                 )}
             />
