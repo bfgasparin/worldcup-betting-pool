@@ -277,9 +277,29 @@ function GroupStandingsTable({ standings }: { standings: StandingRow[] }) {
     );
 }
 
+const RULE_LABELS: Record<string, string> = {
+    // group
+    exact_score: 'Exact score',
+    winner_and_one_team_exact_goals: 'Right winner + one team’s goals',
+    correct_outcome_wrong_goals: 'Right result',
+    one_team_exact_goals_wrong_outcome: 'One team’s goals',
+    // knockout
+    team_reaches_phase: 'Team advances',
+    team_goal_count_bonus: 'Goal-count bonus',
+    champion: 'Champion',
+};
+
+/** Turn an unmapped snake_case scoring key into a readable label as a fallback. */
+function humanizeRuleKey(key: string): string {
+    const spaced = key.replace(/_/g, ' ');
+
+    return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
 /**
- * Scoring rules for the current step, read from the tournament's scoring_config. Rendered as
- * subtle pills on the dark header.
+ * Scoring rules for the current step, read from the tournament's scoring_config. Every rule
+ * configured for the current phase is shown, sorted by points descending. Rendered as subtle
+ * pills on the dark header.
  */
 function ScoringLegend({
     config,
@@ -288,22 +308,13 @@ function ScoringLegend({
     config: Record<string, Record<string, number>>;
     step: number;
 }) {
-    const rules =
-        step === 0
-            ? [
-                  { label: 'Exact score', points: config.group?.exact_score },
-                  {
-                      label: 'Right result',
-                      points: config.group?.correct_outcome_wrong_goals,
-                  },
-              ]
-            : [
-                  {
-                      label: 'Team advances',
-                      points: config.knockout?.team_reaches_phase,
-                  },
-                  { label: 'Champion', points: config.knockout?.champion },
-              ];
+    const phaseKey = step === 0 ? 'group' : 'knockout';
+    const rules = Object.entries(config[phaseKey] ?? {})
+        .map(([key, points]) => ({
+            label: RULE_LABELS[key] ?? humanizeRuleKey(key),
+            points,
+        }))
+        .sort((a, b) => b.points - a.points);
 
     return (
         <div className="flex flex-wrap gap-2">
