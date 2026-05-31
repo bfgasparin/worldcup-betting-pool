@@ -131,6 +131,61 @@ class GameControllerTest extends TestCase
             );
     }
 
+    public function test_show_includes_official_group_standings(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+        $this->actingAs(User::factory()->create());
+
+        // Before any match is played the table is seed-ordered with everyone on zero.
+        $this->get(route('games.show', 'world-cup-2026'))
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->has('groups.0.standings', 4)
+                ->where('groups.0.standings.0.rank', 1)
+                ->where('groups.0.standings.0.played', 0)
+                ->where('groups.0.standings.0.points', 0)
+                ->whereNot('groups.0.standings.0.team', null)
+                ->has('groups.0.standings.0.form', 0)
+                ->where('groups.0.standings.3.rank', 4)
+            );
+    }
+
+    public function test_group_standings_reflect_official_results(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+        $tournament = Tournament::firstOrFail();
+        $groupA = $tournament->groups()->where('name', 'A')->firstOrFail();
+
+        $positions = $groupA->teams()->get()->mapWithKeys(
+            fn ($team): array => [$team->id => (int) $team->pivot->position],
+        );
+
+        // Official results: the better-seeded team (lower group position) wins 1–0 every match.
+        foreach ($groupA->fixtures()->get() as $fixture) {
+            $homeWins = $positions[$fixture->home_team_id] < $positions[$fixture->away_team_id];
+
+            $fixture->update([
+                'home_goals' => $homeWins ? 1 : 0,
+                'away_goals' => $homeWins ? 0 : 1,
+            ]);
+        }
+
+        $topTeamId = $positions->search(1, true);
+
+        $this->actingAs(User::factory()->create());
+
+        $this->get(route('games.show', $tournament->slug))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('groups.0.name', 'A')
+                ->where('groups.0.standings.0.rank', 1)
+                ->where('groups.0.standings.0.team.id', $topTeamId)
+                ->where('groups.0.standings.0.played', 3)
+                ->where('groups.0.standings.0.won', 3)
+                ->where('groups.0.standings.0.points', 9)
+                ->where('groups.0.standings.3.points', 0)
+            );
+    }
+
     public function test_the_final_is_seeded_with_its_kick_off_date(): void
     {
         $this->seed(WorldCup2026Seeder::class);

@@ -12,6 +12,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { GroupBadge, TeamChip } from '@/components/fixtures';
 import { Flag } from '@/components/flag';
 import { ScoreStepper } from '@/components/score-stepper';
+import { StandingsTable } from '@/components/standings-table';
 import { Button } from '@/components/ui/button';
 import { chipVariants } from '@/components/ui/chip';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -23,7 +24,6 @@ import type {
     PredictGroup,
     PredictGroupFixture,
     PredictPageProps,
-    StandingRow,
     TeamRef,
     ThirdRanking,
 } from '@/types/games';
@@ -161,120 +161,6 @@ function reconcilePicks(
     }
 
     return changed ? next : picks;
-}
-
-const FORM_STYLES: Record<string, string> = {
-    W: 'bg-primary',
-    D: 'bg-zinc-400',
-    L: 'bg-destructive',
-};
-
-function FormGuide({ form }: { form: string[] }) {
-    if (form.length === 0) {
-        return <span className="text-muted-foreground">—</span>;
-    }
-
-    return (
-        <span className="inline-flex items-center gap-0.5">
-            {form.map((result, index) => (
-                <span
-                    key={index}
-                    title={result}
-                    className={cn(
-                        'inline-flex size-3.5 items-center justify-center rounded-[3px] text-[0.55rem] font-bold text-white',
-                        FORM_STYLES[result] ?? 'bg-zinc-400',
-                    )}
-                >
-                    {result}
-                </span>
-            ))}
-        </span>
-    );
-}
-
-function GroupStandingsTable({ standings }: { standings: StandingRow[] }) {
-    return (
-        <div className="overflow-x-auto border-t border-border pt-2">
-            <table className="w-full text-[0.7rem] whitespace-nowrap">
-                <thead>
-                    <tr className="text-muted-foreground [&>th]:px-1 [&>th]:font-medium">
-                        <th className="w-4 text-left">#</th>
-                        <th className="text-left">Team</th>
-                        <th className="text-center" title="Played">
-                            P
-                        </th>
-                        <th className="text-center" title="Won">
-                            W
-                        </th>
-                        <th className="text-center" title="Drawn">
-                            D
-                        </th>
-                        <th className="text-center" title="Lost">
-                            L
-                        </th>
-                        <th className="text-center" title="Goals for">
-                            GF
-                        </th>
-                        <th className="text-center" title="Goals against">
-                            GA
-                        </th>
-                        <th className="text-center" title="Goal difference">
-                            GD
-                        </th>
-                        <th className="text-center" title="Points">
-                            Pts
-                        </th>
-                        <th
-                            className="text-left"
-                            title="Form (most recent last)"
-                        >
-                            Form
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {standings.map((row) => (
-                        <tr
-                            key={row.team?.id ?? row.rank}
-                            className={cn(
-                                'border-t border-border/50 [&>td]:px-1 [&>td]:py-0.5 [&>td]:text-center [&>td]:tabular-nums',
-                                row.rank <= 2 &&
-                                    'bg-primary/[0.06] font-semibold text-foreground',
-                                row.rank === 3 &&
-                                    'bg-accent/10 text-foreground/80',
-                                row.rank > 3 && 'text-muted-foreground',
-                            )}
-                        >
-                            <td>{row.rank}</td>
-                            <td className="!text-left">
-                                <span className="flex items-center gap-1.5">
-                                    <Flag team={row.team} />
-                                    <span className="truncate">
-                                        {row.team?.name ?? '—'}
-                                    </span>
-                                </span>
-                            </td>
-                            <td>{row.played}</td>
-                            <td>{row.won}</td>
-                            <td>{row.drawn}</td>
-                            <td>{row.lost}</td>
-                            <td>{row.goals_for}</td>
-                            <td>{row.goals_against}</td>
-                            <td>
-                                {row.goal_difference > 0
-                                    ? `+${row.goal_difference}`
-                                    : row.goal_difference}
-                            </td>
-                            <td className="font-semibold">{row.points}</td>
-                            <td className="!text-left">
-                                <FormGuide form={row.form} />
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
-    );
 }
 
 const RULE_LABELS: Record<string, string> = {
@@ -428,8 +314,8 @@ function GroupCard({
                 })}
             </div>
 
-            <div className="mt-4">
-                <GroupStandingsTable standings={group.standings} />
+            <div className="mt-4 border-t border-border pt-2">
+                <StandingsTable standings={group.standings} />
             </div>
         </div>
     );

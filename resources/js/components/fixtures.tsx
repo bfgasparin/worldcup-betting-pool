@@ -1,11 +1,19 @@
+import { ChevronDown } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Flag } from '@/components/flag';
+import { StandingsTable } from '@/components/standings-table';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
 import { cn } from '@/lib/utils';
 import type {
     BracketFixture,
     GroupFixture,
     GroupTeam,
+    StandingRow,
     TeamRef,
 } from '@/types/games';
 
@@ -204,10 +212,13 @@ export function GroupFixtureCard({
     name,
     teams,
     fixtures,
+    standings,
 }: {
     name: string;
     teams: GroupTeam[];
     fixtures: GroupFixture[];
+    /** When provided, a collapsible "Standings" table is shown beneath the fixtures. */
+    standings?: StandingRow[];
 }) {
     return (
         <div className="card-elevated rounded-3xl p-5">
@@ -234,6 +245,18 @@ export function GroupFixtureCard({
                     <MatchRow key={fixture.match_number} fixture={fixture} />
                 ))}
             </div>
+
+            {standings && standings.length > 0 && (
+                <Collapsible className="mt-2">
+                    <CollapsibleTrigger className="flex w-full items-center justify-center gap-1.5 border-t border-border pt-3 font-display text-xs font-semibold tracking-wide text-muted-foreground uppercase transition-colors outline-none hover:text-foreground focus-visible:text-foreground [&[data-state=open]>svg]:rotate-180">
+                        Standings
+                        <ChevronDown className="size-4 transition-transform duration-200" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-2">
+                        <StandingsTable standings={standings} />
+                    </CollapsibleContent>
+                </Collapsible>
+            )}
         </div>
     );
 }

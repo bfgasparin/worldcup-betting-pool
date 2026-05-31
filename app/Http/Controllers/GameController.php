@@ -8,6 +8,8 @@ use App\Models\Group;
 use App\Models\GroupPrediction;
 use App\Models\Team;
 use App\Models\Tournament;
+use App\Services\Predictions\GroupStandings;
+use App\Services\Predictions\TeamStanding;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
@@ -157,7 +159,7 @@ class GameController extends Controller
 
     /**
      * @param  Collection<int, GroupPrediction>  $predictions
-     * @return array{name: string, teams: list<array<string, mixed>>, fixtures: list<array<string, mixed>>}
+     * @return array{name: string, teams: list<array<string, mixed>>, fixtures: list<array<string, mixed>>, standings: list<array<string, mixed>>}
      */
     private function mapGroup(Group $group, Collection $predictions): array
     {
@@ -186,7 +188,47 @@ class GameController extends Controller
                         : null,
                 ];
             })->all(),
+            'standings' => $this->officialStandings($group),
         ];
+    }
+
+    /**
+     * The official live group table — the same FIFA-correct engine used for predicted
+     * standings, fed the real (already-played) fixture scores instead of a user's picks.
+     * Unplayed fixtures are skipped, so the table is seed-ordered before kick-off and
+     * fills in as results land.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function officialStandings(Group $group): array
+    {
+        $results = $group->fixtures
+            ->filter(fn (Fixture $fixture): bool => $fixture->home_goals !== null && $fixture->away_goals !== null)
+            ->mapWithKeys(fn (Fixture $fixture): array => [$fixture->id => new GroupPrediction([
+                'home_goals' => $fixture->home_goals,
+                'away_goals' => $fixture->away_goals,
+            ])])
+            ->all();
+
+        $standings = new GroupStandings($group, $results);
+        $teamsById = $group->teams->keyBy('id');
+
+        return collect($standings->ordered())
+            ->values()
+            ->map(fn (TeamStanding $standing, int $index): array => [
+                'rank' => $index + 1,
+                'team' => $this->teamRef($teamsById->get($standing->teamId)),
+                'played' => $standing->played(),
+                'won' => $standing->won,
+                'drawn' => $standing->drawn,
+                'lost' => $standing->lost,
+                'goals_for' => $standing->goalsFor,
+                'goals_against' => $standing->goalsAgainst,
+                'goal_difference' => $standing->goalDifference(),
+                'points' => $standing->points(),
+                'form' => $standing->results,
+            ])
+            ->all();
     }
 
     /**

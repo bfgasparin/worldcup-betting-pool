@@ -8,7 +8,9 @@ use App\Models\GroupPrediction;
 use App\Models\Team;
 
 /**
- * Computes the ranked standings for one group from a user's predicted group scores.
+ * Computes the ranked standings for one group from a set of group scores — either a user's
+ * predicted scores (the prediction wizard) or the official, already-played results (the
+ * tournament group page). Only fixtures present in the score map are counted.
  *
  * Ranking follows the official FIFA World Cup 2026 group tie-breaking order, made fully
  * deterministic (no fair-play score, FIFA ranking or drawing of lots): points -> head-to-head

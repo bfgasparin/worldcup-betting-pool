@@ -262,6 +262,7 @@ function FixturesView({
                                 name={group.name}
                                 teams={group.teams}
                                 fixtures={group.fixtures}
+                                standings={group.standings}
                             />
                         ))}
                     </div>
