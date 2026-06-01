@@ -83,5 +83,5 @@
 @endsection
 
 @section('footerNote')
-    You're getting this because you're playing <b style="color:#5E6B64;font-weight:700;">{{ $tournamentName }}</b> on FF&amp;A. We only email about your standings.
+    You're getting this because you're playing <b style="color:#5E6B64;font-weight:700;">{{ $tournamentName }}</b> on Brothers Betting Pool. We only email about your standings.
 @endsection

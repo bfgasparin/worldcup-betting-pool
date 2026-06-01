@@ -57,8 +57,7 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
         setSaving(true);
         setSaved(false);
         router.patch(
-            games.scores.proposal({ tournament: slug, fixture: row.fixture_id })
-                .url,
+            games.scores.proposal({ game: slug, fixture: row.fixture_id }).url,
             {
                 home_goals: toNumberOrNull(home),
                 away_goals: toNumberOrNull(away),
@@ -335,8 +334,6 @@ export default function ScoreReview({ game, rows }: ReviewPageProps) {
     );
 }
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Tournaments', href: games.index() },
-];
+const breadcrumbs: BreadcrumbItem[] = [{ title: 'Games', href: games.index() }];
 
 ScoreReview.layout = { breadcrumbs };

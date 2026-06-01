@@ -4,8 +4,8 @@ namespace App\Http\Requests\Tournaments;
 
 use App\Enums\BatchStatus;
 use App\Enums\ProposalStatus;
+use App\Models\Game;
 use App\Models\ScoreBatch;
-use App\Models\Tournament;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -71,14 +71,14 @@ class ApproveScoreBatchRequest extends FormRequest
     }
 
     /**
-     * The tournament's current open batch, if any.
+     * The current open batch for the game's tournament, if any.
      */
     public function openBatch(): ?ScoreBatch
     {
-        /** @var Tournament $tournament */
-        $tournament = $this->route('tournament');
+        /** @var Game $game */
+        $game = $this->route('game');
 
-        return $tournament->scoreBatches()
+        return $game->tournament->scoreBatches()
             ->where('status', BatchStatus::Open)
             ->latest('id')
             ->first();

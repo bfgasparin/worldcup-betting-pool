@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\TournamentStatus;
 use App\Events\TournamentStatusChanged;
+use App\Models\Game;
 use App\Models\Tournament;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -28,10 +29,11 @@ class TransitionTournamentTest extends TestCase
         Event::fake([TournamentStatusChanged::class]);
 
         $tournament = Tournament::factory()->create(['status' => TournamentStatus::Upcoming]);
+        $game = Game::factory()->for($tournament)->create();
 
         $this->actingAs($this->admin())
-            ->patch(route('games.status.update', $tournament), ['status' => 'in_progress'])
-            ->assertRedirect(route('games.show', $tournament));
+            ->patch(route('games.status.update', $game), ['status' => 'in_progress'])
+            ->assertRedirect(route('games.show', $game));
 
         $this->assertSame(TournamentStatus::InProgress, $tournament->fresh()->status);
 
@@ -46,9 +48,10 @@ class TransitionTournamentTest extends TestCase
     public function test_an_illegal_transition_is_rejected(): void
     {
         $tournament = Tournament::factory()->create(['status' => TournamentStatus::Upcoming]);
+        $game = Game::factory()->for($tournament)->create();
 
         $this->actingAs($this->admin())
-            ->patch(route('games.status.update', $tournament), ['status' => 'completed'])
+            ->patch(route('games.status.update', $game), ['status' => 'completed'])
             ->assertSessionHasErrors('status');
 
         $this->assertSame(TournamentStatus::Upcoming, $tournament->fresh()->status);
@@ -57,9 +60,10 @@ class TransitionTournamentTest extends TestCase
     public function test_a_non_admin_is_forbidden(): void
     {
         $tournament = Tournament::factory()->create(['status' => TournamentStatus::Upcoming]);
+        $game = Game::factory()->for($tournament)->create();
 
         $this->actingAs(User::factory()->create())
-            ->patch(route('games.status.update', $tournament), ['status' => 'in_progress'])
+            ->patch(route('games.status.update', $game), ['status' => 'in_progress'])
             ->assertForbidden();
 
         $this->assertSame(TournamentStatus::Upcoming, $tournament->fresh()->status);
@@ -68,17 +72,19 @@ class TransitionTournamentTest extends TestCase
     public function test_a_guest_is_redirected_to_login(): void
     {
         $tournament = Tournament::factory()->create(['status' => TournamentStatus::Upcoming]);
+        $game = Game::factory()->for($tournament)->create();
 
-        $this->patch(route('games.status.update', $tournament), ['status' => 'in_progress'])
+        $this->patch(route('games.status.update', $game), ['status' => 'in_progress'])
             ->assertRedirect(route('login'));
     }
 
     public function test_show_exposes_allowed_transitions_and_admin_flag(): void
     {
         $tournament = Tournament::factory()->create(['status' => TournamentStatus::Upcoming]);
+        $game = Game::factory()->for($tournament)->create();
 
         $this->actingAs($this->admin())
-            ->get(route('games.show', $tournament))
+            ->get(route('games.show', $game))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('game.allowed_transitions', ['in_progress'])
                 ->where('auth.isAdmin', true)
@@ -87,10 +93,10 @@ class TransitionTournamentTest extends TestCase
 
     public function test_non_admin_is_not_flagged_as_admin(): void
     {
-        $tournament = Tournament::factory()->create();
+        $game = Game::factory()->create();
 
         $this->actingAs(User::factory()->create())
-            ->get(route('games.show', $tournament))
+            ->get(route('games.show', $game))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('auth.isAdmin', false)
             );

@@ -5,7 +5,7 @@
     $isUp = $direction === 'up';
     $places = \Illuminate\Support\Str::plural('place', $delta);
 @endphp
-FF&A Betting Pool — Leaderboard update
+Brothers Betting Pool — Leaderboard update
 
 {{ $isUp ? "You climbed to {$rankOrdinal}!" : "You slipped to {$rankOrdinal}" }}
 
@@ -19,4 +19,4 @@ See the full table: {{ $url }}
 
 Predict the next matchday to keep moving.
 
-— FF&A Betting Pool
+— Brothers Betting Pool

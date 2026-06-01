@@ -13,9 +13,11 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Applies an approved batch of proposed scores, end to end and atomically: it writes each
- * (non-rejected) proposal onto its fixture, re-projects the official bracket from the new
- * results, recomputes every entry's points, and snapshots the leaderboard ranks so movement
- * arrows have a baseline. Running it again after a correction simply re-applies and recomputes.
+ * (non-rejected) proposal onto its fixture and re-projects the official bracket from the new
+ * results. The results are shared by every game played over the tournament, so it then cascades
+ * to each game — recomputing its entries' points and snapshotting its leaderboard ranks so
+ * movement arrows have a baseline. Running it again after a correction simply re-applies and
+ * recomputes.
  */
 class ApproveScoreBatch
 {
@@ -29,8 +31,9 @@ class ApproveScoreBatch
     public function approve(ScoreBatch $batch, User $approver): void
     {
         $tournament = $batch->tournament;
+        $games = $tournament->games()->get();
 
-        DB::transaction(function () use ($batch, $tournament, $approver): void {
+        DB::transaction(function () use ($batch, $tournament, $games, $approver): void {
             $proposals = $batch->proposals()
                 ->where('status', '!=', ProposalStatus::Rejected)
                 ->with('fixture')
@@ -47,14 +50,21 @@ class ApproveScoreBatch
                 'approved_by' => $approver->id,
             ]);
 
-            // Fixtures now carry the official results; cascade the bracket, re-score and rank.
+            // Fixtures now carry the official results; cascade the bracket once, then re-score
+            // and rank each game played over this tournament.
             $this->projector->project($tournament);
-            $this->engine->recompute($tournament);
-            $this->snapshotter->snapshot($tournament);
+
+            foreach ($games as $game) {
+                $this->engine->recompute($game);
+                $this->snapshotter->snapshot($game);
+            }
         });
 
-        // Ranks are committed; email players about milestones and significant moves.
-        $this->notifier->notify($tournament);
+        // Ranks are committed; email each game's players about milestones and significant moves.
+        // Kept outside the transaction so a later game's failure can't fire and then roll back.
+        foreach ($games as $game) {
+            $this->notifier->notify($game);
+        }
     }
 
     private function applyToFixture(ScoreProposal $proposal): void

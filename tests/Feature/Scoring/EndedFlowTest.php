@@ -4,6 +4,7 @@ namespace Tests\Feature\Scoring;
 
 use App\Enums\BatchStatus;
 use App\Enums\FixtureStatus;
+use App\Models\Game;
 use App\Models\Tournament;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -24,12 +25,15 @@ class EndedFlowTest extends TestCase
 
     private Tournament $tournament;
 
+    private Game $game;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->seed(WorldCup2026Seeder::class);
         $this->tournament = Tournament::firstOrFail();
+        $this->game = $this->tournament->games()->firstOrFail();
 
         // Let the scheduled fetch propose plausible scores, as it would on local.
         config()->set('scoring.simulated_provider', true);
@@ -58,13 +62,13 @@ class EndedFlowTest extends TestCase
         config()->set('admin.emails', [$admin->email]);
 
         $this->actingAs($admin)
-            ->post(route('games.scores.approve', $this->tournament))
+            ->post(route('games.scores.approve', $this->game))
             ->assertRedirect();
 
         $this->assertSame(
             $endedCount,
             $this->tournament->fixtures()->where('status', FixtureStatus::Finished)->count(),
         );
-        $this->assertGreaterThan(0, $this->tournament->entries()->whereNotNull('total_points')->count());
+        $this->assertGreaterThan(0, $this->game->entries()->whereNotNull('total_points')->count());
     }
 }

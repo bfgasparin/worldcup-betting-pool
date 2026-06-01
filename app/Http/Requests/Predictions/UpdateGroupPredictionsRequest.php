@@ -11,7 +11,7 @@ class UpdateGroupPredictionsRequest extends PredictionRequest
      */
     public function rules(): array
     {
-        $groupFixtureIds = $this->tournament()->groupFixtures()->pluck('id')->all();
+        $groupFixtureIds = $this->game()->tournament->groupFixtures()->pluck('id')->all();
 
         return [
             'predictions' => ['required', 'array'],

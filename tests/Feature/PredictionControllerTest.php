@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Entry;
 use App\Models\Fixture;
+use App\Models\Game;
 use App\Models\Tournament;
 use App\Models\User;
 use App\Services\Predictions\BracketResolver;
@@ -21,6 +22,8 @@ class PredictionControllerTest extends TestCase
 
     private Tournament $tournament;
 
+    private Game $game;
+
     private User $user;
 
     protected function setUp(): void
@@ -29,6 +32,7 @@ class PredictionControllerTest extends TestCase
 
         $this->seed(WorldCup2026Seeder::class);
         $this->tournament = Tournament::firstOrFail();
+        $this->game = $this->tournament->games()->firstOrFail();
         $this->user = User::factory()->create();
     }
 
@@ -62,7 +66,7 @@ class PredictionControllerTest extends TestCase
 
     public function test_predict_page_prefills_existing_predictions(): void
     {
-        $entry = Entry::factory()->for($this->tournament)->for($this->user)->create();
+        $entry = Entry::factory()->for($this->game)->for($this->user)->create();
         $this->predictGroup($entry, $this->tournament, 'A', $this->seedOrderScores());
 
         $this->actingAs($this->user)
@@ -108,7 +112,7 @@ class PredictionControllerTest extends TestCase
 
     public function test_saving_knockout_predictions_persists_scores_and_derives_advancing(): void
     {
-        $entry = Entry::factory()->for($this->tournament)->for($this->user)->create();
+        $entry = Entry::factory()->for($this->game)->for($this->user)->create();
         $this->predictAllGroups($entry, $this->tournament, $this->seedOrderScores());
         (new BracketResolver)->persist($entry);
 
@@ -137,7 +141,7 @@ class PredictionControllerTest extends TestCase
 
     public function test_a_decisive_score_overrides_a_contradictory_advancing_pick(): void
     {
-        $entry = Entry::factory()->for($this->tournament)->for($this->user)->create();
+        $entry = Entry::factory()->for($this->game)->for($this->user)->create();
         $this->predictAllGroups($entry, $this->tournament, $this->seedOrderScores());
         (new BracketResolver)->persist($entry);
 
@@ -165,7 +169,7 @@ class PredictionControllerTest extends TestCase
 
     public function test_a_draw_persists_the_manual_advancing_pick(): void
     {
-        $entry = Entry::factory()->for($this->tournament)->for($this->user)->create();
+        $entry = Entry::factory()->for($this->game)->for($this->user)->create();
         $this->predictAllGroups($entry, $this->tournament, $this->seedOrderScores());
         (new BracketResolver)->persist($entry);
 
@@ -194,7 +198,7 @@ class PredictionControllerTest extends TestCase
 
     public function test_a_draw_requires_a_manual_advancing_pick(): void
     {
-        $entry = Entry::factory()->for($this->tournament)->for($this->user)->create();
+        $entry = Entry::factory()->for($this->game)->for($this->user)->create();
         $this->predictAllGroups($entry, $this->tournament, $this->seedOrderScores());
         (new BracketResolver)->persist($entry);
 
@@ -213,7 +217,7 @@ class PredictionControllerTest extends TestCase
 
     public function test_a_drawn_advancing_team_must_be_one_of_the_resolved_teams(): void
     {
-        $entry = Entry::factory()->for($this->tournament)->for($this->user)->create();
+        $entry = Entry::factory()->for($this->game)->for($this->user)->create();
         $this->predictAllGroups($entry, $this->tournament, $this->seedOrderScores());
         (new BracketResolver)->persist($entry);
 
@@ -264,7 +268,7 @@ class PredictionControllerTest extends TestCase
 
     public function test_saving_is_forbidden_once_predictions_are_locked(): void
     {
-        $this->tournament->update(['predictions_lock_at' => now()->subDay()]);
+        $this->game->update(['predictions_lock_at' => now()->subDay()]);
         $fixture = $this->groupFixtures('A')->first();
 
         $payload = ['predictions' => [[
@@ -282,7 +286,7 @@ class PredictionControllerTest extends TestCase
 
     public function test_locked_tournament_renders_a_read_only_wizard(): void
     {
-        $this->tournament->update(['predictions_lock_at' => now()->subDay()]);
+        $this->game->update(['predictions_lock_at' => now()->subDay()]);
 
         $this->actingAs($this->user)
             ->get(route('games.predict.edit', 'world-cup-2026'))
@@ -298,7 +302,7 @@ class PredictionControllerTest extends TestCase
     public function test_a_user_cannot_change_another_users_predictions(): void
     {
         $other = User::factory()->create();
-        $otherEntry = Entry::factory()->for($this->tournament)->for($other)->create();
+        $otherEntry = Entry::factory()->for($this->game)->for($other)->create();
         $fixture = $this->groupFixtures('A')->first();
         $this->predictGroup($otherEntry, $this->tournament, 'A', $this->seedOrderScores());
 
@@ -328,7 +332,7 @@ class PredictionControllerTest extends TestCase
 
     private function entry(): ?Entry
     {
-        return Entry::where('tournament_id', $this->tournament->id)
+        return Entry::where('game_id', $this->game->id)
             ->where('user_id', $this->user->id)
             ->first();
     }

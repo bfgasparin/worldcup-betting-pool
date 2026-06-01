@@ -3,7 +3,7 @@
 namespace App\Services\Scoring;
 
 use App\Models\Entry;
-use App\Models\Tournament;
+use App\Models\Game;
 use App\Notifications\LeaderboardRankChangedNotification;
 use App\Notifications\TopOfLeaderboardNotification;
 
@@ -19,9 +19,9 @@ class LeaderboardNotifier
      */
     public const int MOVE_THRESHOLD = 2;
 
-    public function notify(Tournament $tournament): void
+    public function notify(Game $game): void
     {
-        $ranked = $tournament->entries()
+        $ranked = $game->entries()
             ->with('user')
             ->whereNotNull('rank')
             ->get()
@@ -47,8 +47,8 @@ class LeaderboardNotifier
                 $runnerUp = $byRank->get(2);
 
                 $user->notify(new TopOfLeaderboardNotification(
-                    $tournament->name,
-                    $tournament->slug,
+                    $game->name,
+                    $game->slug,
                     $entry->total_points,
                     $totalEntries,
                     $runnerUp?->user?->name,
@@ -64,8 +64,8 @@ class LeaderboardNotifier
                 $ahead = $byRank->get($rank - 1);
 
                 $user->notify(new LeaderboardRankChangedNotification(
-                    $tournament->name,
-                    $tournament->slug,
+                    $game->name,
+                    $game->slug,
                     $rank < $previousRank ? 'up' : 'down',
                     $rank,
                     $previousRank,

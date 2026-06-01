@@ -4,6 +4,7 @@ namespace Tests\Feature\Scoring;
 
 use App\Enums\ProposalStatus;
 use App\Models\Fixture;
+use App\Models\Game;
 use App\Models\Team;
 use App\Models\Tournament;
 use App\Models\User;
@@ -20,12 +21,15 @@ class ScoreReviewControllerTest extends TestCase
 
     private Tournament $tournament;
 
+    private Game $game;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->seed(WorldCup2026Seeder::class);
         $this->tournament = Tournament::firstOrFail();
+        $this->game = $this->tournament->games()->firstOrFail();
     }
 
     public function test_an_admin_sees_only_ended_matches_to_review(): void
@@ -33,7 +37,7 @@ class ScoreReviewControllerTest extends TestCase
         $ended = $this->markEnded($this->firstGroupFixture());
 
         $this->actingAs($this->admin())
-            ->get(route('games.scores.review', $this->tournament))
+            ->get(route('games.scores.review', $this->game))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->component('games/scores/review')
                 ->where('game.slug', $this->tournament->slug)
@@ -46,7 +50,7 @@ class ScoreReviewControllerTest extends TestCase
     public function test_a_non_admin_cannot_review(): void
     {
         $this->actingAs(User::factory()->create())
-            ->get(route('games.scores.review', $this->tournament))
+            ->get(route('games.scores.review', $this->game))
             ->assertForbidden();
     }
 
@@ -55,7 +59,7 @@ class ScoreReviewControllerTest extends TestCase
         $fixture = $this->markEnded($this->firstGroupFixture());
 
         $this->actingAs($this->admin())
-            ->patch(route('games.scores.proposal', [$this->tournament, $fixture]), [
+            ->patch(route('games.scores.proposal', [$this->game, $fixture]), [
                 'home_goals' => 2,
                 'away_goals' => 1,
             ])
@@ -74,7 +78,7 @@ class ScoreReviewControllerTest extends TestCase
         $fixture = $this->markEnded($this->firstGroupFixture());
 
         $this->actingAs($this->admin())
-            ->patch(route('games.scores.proposal', [$this->tournament, $fixture]), [
+            ->patch(route('games.scores.proposal', [$this->game, $fixture]), [
                 'home_goals' => 2,
                 'away_goals' => 1,
                 'rejected' => true,
@@ -93,8 +97,8 @@ class ScoreReviewControllerTest extends TestCase
         $fixture = $this->firstGroupFixture();
 
         $this->actingAs($this->admin())
-            ->from(route('games.scores.review', $this->tournament))
-            ->patch(route('games.scores.proposal', [$this->tournament, $fixture]), [
+            ->from(route('games.scores.review', $this->game))
+            ->patch(route('games.scores.proposal', [$this->game, $fixture]), [
                 'home_goals' => 2,
                 'away_goals' => 1,
             ])
@@ -109,7 +113,7 @@ class ScoreReviewControllerTest extends TestCase
         $fixture = $this->endedKnockout($home, $away);
 
         $this->actingAs($this->admin())
-            ->patch(route('games.scores.proposal', [$this->tournament, $fixture]), [
+            ->patch(route('games.scores.proposal', [$this->game, $fixture]), [
                 'home_goals' => 2,
                 'away_goals' => 1,
             ])
@@ -127,7 +131,7 @@ class ScoreReviewControllerTest extends TestCase
         $fixture = $this->endedKnockout($home, $away);
 
         $this->actingAs($this->admin())
-            ->patch(route('games.scores.proposal', [$this->tournament, $fixture]), [
+            ->patch(route('games.scores.proposal', [$this->game, $fixture]), [
                 'home_goals' => 2,
                 'away_goals' => 1,
                 'winner_team_id' => $away->id,
@@ -146,7 +150,7 @@ class ScoreReviewControllerTest extends TestCase
         $fixture = $this->endedKnockout($home, $away);
 
         $this->actingAs($this->admin())
-            ->patch(route('games.scores.proposal', [$this->tournament, $fixture]), [
+            ->patch(route('games.scores.proposal', [$this->game, $fixture]), [
                 'home_goals' => 1,
                 'away_goals' => 1,
                 'winner_team_id' => $away->id,
@@ -165,8 +169,8 @@ class ScoreReviewControllerTest extends TestCase
         $fixture = $this->endedKnockout($home, $away);
 
         $this->actingAs($this->admin())
-            ->from(route('games.scores.review', $this->tournament))
-            ->patch(route('games.scores.proposal', [$this->tournament, $fixture]), [
+            ->from(route('games.scores.review', $this->game))
+            ->patch(route('games.scores.proposal', [$this->game, $fixture]), [
                 'home_goals' => 1,
                 'away_goals' => 1,
             ])
@@ -181,8 +185,8 @@ class ScoreReviewControllerTest extends TestCase
         $fixture = $this->endedKnockout($teams[0], $teams[1]);
 
         $this->actingAs($this->admin())
-            ->from(route('games.scores.review', $this->tournament))
-            ->patch(route('games.scores.proposal', [$this->tournament, $fixture]), [
+            ->from(route('games.scores.review', $this->game))
+            ->patch(route('games.scores.proposal', [$this->game, $fixture]), [
                 'home_goals' => 1,
                 'away_goals' => 1,
                 'winner_team_id' => $teams[2]->id,
@@ -197,7 +201,7 @@ class ScoreReviewControllerTest extends TestCase
         $fixture = $this->markEnded($this->firstGroupFixture());
 
         $this->actingAs($this->admin())
-            ->patch(route('games.scores.proposal', [$this->tournament, $fixture]), [
+            ->patch(route('games.scores.proposal', [$this->game, $fixture]), [
                 'home_goals' => 2,
                 'away_goals' => 1,
                 'winner_team_id' => $fixture->home_team_id,
@@ -216,7 +220,7 @@ class ScoreReviewControllerTest extends TestCase
         $fixture = $this->endedKnockout($home, $away);
 
         $this->actingAs($this->admin())
-            ->patch(route('games.scores.proposal', [$this->tournament, $fixture]), [
+            ->patch(route('games.scores.proposal', [$this->game, $fixture]), [
                 'home_goals' => 1,
             ])
             ->assertRedirect();
@@ -236,7 +240,7 @@ class ScoreReviewControllerTest extends TestCase
         $fixture = $this->markEnded($this->firstKnockoutFixture());
 
         $this->actingAs($this->admin())
-            ->patch(route('games.scores.proposal', [$this->tournament, $fixture]), [
+            ->patch(route('games.scores.proposal', [$this->game, $fixture]), [
                 'home_goals' => 1,
                 'away_goals' => 1,
                 'winner_team_id' => $home->id,

@@ -6,6 +6,7 @@ use App\Http\Requests\Predictions\UpdateGroupPredictionsRequest;
 use App\Http\Requests\Predictions\UpdateKnockoutPredictionsRequest;
 use App\Models\Entry;
 use App\Models\Fixture;
+use App\Models\Game;
 use App\Models\Group;
 use App\Models\GroupPrediction;
 use App\Models\KnockoutPrediction;
@@ -27,17 +28,17 @@ class PredictionController extends Controller
     public function __construct(private readonly BracketResolver $resolver) {}
 
     /**
-     * Show the prediction wizard for a tournament, prefilled with the user's saved picks
+     * Show the prediction wizard for a game, prefilled with the user's saved picks
      * and the bracket teams resolved from their group-stage scores.
      */
-    public function edit(Request $request, Tournament $tournament): Response
+    public function edit(Request $request, Game $game): Response
     {
-        $canEdit = $tournament->acceptsPredictions();
+        $canEdit = $game->acceptsPredictions();
 
-        $entry = $tournament->entries()->where('user_id', $request->user()->id)->first();
+        $entry = $game->entries()->where('user_id', $request->user()->id)->first();
 
         if ($entry === null && $canEdit) {
-            $entry = $tournament->entries()->create([
+            $entry = $game->entries()->create([
                 'user_id' => $request->user()->id,
             ]);
         }
@@ -47,6 +48,7 @@ class PredictionController extends Controller
             $this->resolver->persist($entry);
         }
 
+        $tournament = $game->tournament;
         $tournament->load([
             'groups.teams',
             'groups.fixtures' => fn ($query) => $query->orderBy('match_number'),
@@ -62,15 +64,15 @@ class PredictionController extends Controller
 
         return Inertia::render('games/predict', [
             'game' => [
-                'slug' => $tournament->slug,
-                'name' => $tournament->name,
+                'slug' => $game->slug,
+                'name' => $game->name,
                 'sport' => $tournament->sport->value,
                 'status' => $tournament->status->value,
                 'starts_on' => $tournament->starts_on?->toDateString(),
                 'ends_on' => $tournament->ends_on?->toDateString(),
-                'predictions_lock_at' => $tournament->predictions_lock_at?->toIso8601String(),
+                'predictions_lock_at' => $game->predictions_lock_at?->toIso8601String(),
                 'can_edit' => $canEdit,
-                'scoring_config' => $tournament->scoring_config,
+                'scoring_config' => $game->scoring_config,
             ],
             'groups' => $tournament->groups->map(
                 fn (Group $group): array => $this->mapGroup($group, $bracket, $groupPredictions, $teamsById),
@@ -83,7 +85,7 @@ class PredictionController extends Controller
     /**
      * Save the user's group-stage scores, then recompute the resolved bracket.
      */
-    public function updateGroupStage(UpdateGroupPredictionsRequest $request, Tournament $tournament): RedirectResponse
+    public function updateGroupStage(UpdateGroupPredictionsRequest $request, Game $game): RedirectResponse
     {
         $entry = $request->entry();
 
@@ -98,13 +100,13 @@ class PredictionController extends Controller
 
         $this->resolver->persist($entry);
 
-        return to_route('games.predict.edit', $tournament);
+        return to_route('games.predict.edit', $game);
     }
 
     /**
      * Save the user's knockout scores and advancing picks, then cascade the bracket.
      */
-    public function updateKnockout(UpdateKnockoutPredictionsRequest $request, Tournament $tournament): RedirectResponse
+    public function updateKnockout(UpdateKnockoutPredictionsRequest $request, Game $game): RedirectResponse
     {
         $entry = $request->entry();
 
@@ -123,12 +125,12 @@ class PredictionController extends Controller
 
         $this->resolver->persist($entry);
 
-        return to_route('games.predict.edit', $tournament);
+        return to_route('games.predict.edit', $game);
     }
 
     /**
      * Resolve the bracket for the entry, or an empty read-only bracket when the user has
-     * no entry (e.g. a locked tournament they never entered).
+     * no entry (e.g. a locked game they never entered).
      */
     private function resolveBracket(Tournament $tournament, ?Entry $entry): ResolvedBracket
     {

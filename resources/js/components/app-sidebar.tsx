@@ -47,11 +47,11 @@ export function AppSidebar() {
                             <SidebarMenuItem>
                                 <SidebarMenuButton
                                     asChild
-                                    tooltip={{ children: 'All tournaments' }}
+                                    tooltip={{ children: 'All games' }}
                                 >
                                     <Link href={games()} prefetch>
                                         <ChevronLeft />
-                                        <span>All tournaments</span>
+                                        <span>All games</span>
                                     </Link>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>

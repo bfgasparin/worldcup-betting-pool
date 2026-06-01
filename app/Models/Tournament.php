@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\PhaseType;
-use App\Enums\ScoringStrategy;
 use App\Enums\Sport;
 use App\Enums\TournamentStatus;
 use App\Events\TournamentStatusChanged;
@@ -18,9 +17,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'name',
     'sport',
     'status',
-    'scoring_strategy',
-    'scoring_config',
-    'predictions_lock_at',
     'starts_on',
     'ends_on',
 ])]
@@ -39,34 +35,9 @@ class Tournament extends Model
         return [
             'sport' => Sport::class,
             'status' => TournamentStatus::class,
-            'scoring_strategy' => ScoringStrategy::class,
-            'scoring_config' => 'array',
-            'predictions_lock_at' => 'datetime',
             'starts_on' => 'date',
             'ends_on' => 'date',
         ];
-    }
-
-    /**
-     * Whether the tournament still accepts prediction edits. This is driven by the
-     * prediction window alone and is intentionally independent of the lifecycle
-     * {@see TournamentStatus}, which describes where the tournament is in its life.
-     */
-    public function acceptsPredictions(): bool
-    {
-        return $this->predictions_lock_at !== null && now()->lessThan($this->predictions_lock_at);
-    }
-
-    /**
-     * Whether players predict the whole knockout bracket upfront (teams included), as opposed to
-     * a future between-phases model where knockout teams are known before they are predicted.
-     * When true, a player's predicted knockout teams are worth surfacing so the per-team
-     * placement points (10 per team correctly placed in a match, +5 goal-count bonus) can be
-     * audited; otherwise the predicted teams would just equal the official ones.
-     */
-    public function predictsKnockoutBracket(): bool
-    {
-        return $this->scoring_strategy === ScoringStrategy::WorldCupStandard;
     }
 
     /**
@@ -115,11 +86,14 @@ class Tournament extends Model
     }
 
     /**
-     * @return HasMany<Entry, $this>
+     * The playable games (pools) over this competition. Each game shares the tournament's
+     * structure and official results but owns its own scoring strategy, entries and leaderboard.
+     *
+     * @return HasMany<Game, $this>
      */
-    public function entries(): HasMany
+    public function games(): HasMany
     {
-        return $this->hasMany(Entry::class);
+        return $this->hasMany(Game::class);
     }
 
     /**

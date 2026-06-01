@@ -8,7 +8,7 @@ import AuthLayout from '@/layouts/auth-layout';
 import HubLayout from '@/layouts/hub-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 
-const appName = import.meta.env.VITE_APP_NAME || 'FF&A Betting Pool';
+const appName = import.meta.env.VITE_APP_NAME || 'Brothers Betting Pool';
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),

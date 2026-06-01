@@ -5,6 +5,7 @@ namespace Tests\Feature\Console;
 use App\Enums\FixtureStatus;
 use App\Enums\TournamentStatus;
 use App\Models\Entry;
+use App\Models\Game;
 use App\Models\GroupPrediction;
 use App\Models\Tournament;
 use App\Models\User;
@@ -18,12 +19,15 @@ class SimulateTournamentTest extends TestCase
 
     private Tournament $tournament;
 
+    private Game $game;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->seed(WorldCup2026Seeder::class);
         $this->tournament = Tournament::firstOrFail();
+        $this->game = $this->tournament->games()->firstOrFail();
     }
 
     public function test_it_fails_when_the_tournament_is_missing(): void
@@ -37,9 +41,9 @@ class SimulateTournamentTest extends TestCase
             ->assertSuccessful();
 
         // 3 demo players + the --me user.
-        $this->assertSame(4, $this->tournament->entries()->count());
+        $this->assertSame(4, $this->game->entries()->count());
 
-        $demo = $this->tournament->entries()
+        $demo = $this->game->entries()
             ->whereHas('user', fn ($query) => $query->where('email', 'sim-player-1@ffa.test'))
             ->firstOrFail();
         $this->assertSame(72, $demo->groupPredictions()->count());
@@ -49,17 +53,17 @@ class SimulateTournamentTest extends TestCase
         $this->assertSame(104, $this->tournament->fixtures()->where('status', FixtureStatus::Finished)->count());
         $this->assertNotNull($this->tournament->fixtures()->where('match_number', 104)->value('winner_team_id'));
 
-        $this->tournament->entries->each(function (Entry $entry): void {
+        $this->game->entries->each(function (Entry $entry): void {
             $this->assertNotNull($entry->total_points);
             $this->assertNotNull($entry->rank);
         });
 
         // Predictions are closed and the lifecycle reflects completion.
-        $this->assertTrue($this->tournament->fresh()->predictions_lock_at->isPast());
+        $this->assertTrue($this->game->fresh()->predictions_lock_at->isPast());
         $this->assertSame(TournamentStatus::Completed, $this->tournament->fresh()->status);
 
         // Staged per-round snapshots leave a movement baseline.
-        $this->assertGreaterThan(0, $this->tournament->entries()->whereNotNull('previous_rank')->count());
+        $this->assertGreaterThan(0, $this->game->entries()->whereNotNull('previous_rank')->count());
     }
 
     public function test_through_group_leaves_the_knockout_stage_unplayed(): void
@@ -74,7 +78,7 @@ class SimulateTournamentTest extends TestCase
         $this->assertSame(FixtureStatus::Scheduled, $final->status);
 
         // Group results still score the board.
-        $this->assertNotNull($this->tournament->entries()->first()->total_points);
+        $this->assertNotNull($this->game->entries()->first()->total_points);
     }
 
     public function test_reset_clears_a_prior_simulation(): void
@@ -96,7 +100,7 @@ class SimulateTournamentTest extends TestCase
         $this->artisan('tournament:simulate', ['--players' => 2, '--predict-only' => true])
             ->assertSuccessful();
 
-        $demo = $this->tournament->entries()
+        $demo = $this->game->entries()
             ->whereHas('user', fn ($query) => $query->where('email', 'sim-player-1@ffa.test'))
             ->firstOrFail();
         $this->assertSame(72, $demo->groupPredictions()->count());
@@ -107,7 +111,7 @@ class SimulateTournamentTest extends TestCase
         $this->assertDatabaseCount('score_batches', 0);
 
         // Predictions are locked and the tournament is under way (not completed).
-        $this->assertTrue($this->tournament->fresh()->predictions_lock_at->isPast());
+        $this->assertTrue($this->game->fresh()->predictions_lock_at->isPast());
         $this->assertSame(TournamentStatus::InProgress, $this->tournament->fresh()->status);
     }
 
@@ -141,7 +145,7 @@ class SimulateTournamentTest extends TestCase
     public function test_existing_predictions_are_not_overwritten(): void
     {
         $user = User::factory()->create(['email' => 'keep-me@example.com']);
-        $entry = $this->tournament->entries()->create([
+        $entry = $this->game->entries()->create([
             'user_id' => $user->id,
         ]);
         $fixture = $this->tournament->groupFixtures()->orderBy('match_number')->first();

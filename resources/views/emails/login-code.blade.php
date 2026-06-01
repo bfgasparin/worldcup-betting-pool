@@ -1,6 +1,6 @@
 @extends('emails.layout')
 
-@section('title', 'Your FF&A sign-in code')
+@section('title', 'Your Brothers Betting Pool sign-in code')
 
 @section('preheader', 'Use this code to finish signing in — it expires in ' . $expiresInMinutes . ' minutes.')
 
@@ -28,7 +28,7 @@
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
             <td class="ffa-pad-narrow" align="center" style="padding:14px 48px 0;text-align:center;">
-                <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#5E6B64;">Use the code above to finish signing in to <b style="color:#0D2E23;font-weight:700;">FF&amp;A</b>. It expires in <b style="color:#0D2E23;font-weight:700;">{{ $expiresInMinutes }} minutes</b>.</p>
+                <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#5E6B64;">Use the code above to finish signing in to <b style="color:#0D2E23;font-weight:700;">Brothers Betting Pool</b>. It expires in <b style="color:#0D2E23;font-weight:700;">{{ $expiresInMinutes }} minutes</b>.</p>
             </td>
         </tr>
         <tr>
@@ -40,5 +40,5 @@
 @endsection
 
 @section('footerNote')
-    You're receiving this because a sign-in to FF&amp;A was requested for <b style="color:#5E6B64;font-weight:700;">{{ $email }}</b>. We'll never ask you for this code — keep it to yourself.
+    You're receiving this because a sign-in to Brothers Betting Pool was requested for <b style="color:#5E6B64;font-weight:700;">{{ $email }}</b>. We'll never ask you for this code — keep it to yourself.
 @endsection

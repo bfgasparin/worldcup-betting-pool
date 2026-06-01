@@ -33,7 +33,7 @@ function FormGuide({ form }: { form: string[] }) {
 }
 
 /**
- * A group standings table in the FF&A identity: bold uppercase headers, ink cells with a
+ * A group standings table in the Brothers Betting Pool identity: bold uppercase headers, ink cells with a
  * `font-display` rank, a green tint on the qualifying top two, an amber tint on the
  * best-third (3rd) row, W/D/L form chips, and a qualify/best-third key beneath. Shared by
  * the prediction wizard (projected from a user's picks) and the tournament group page

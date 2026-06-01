@@ -114,7 +114,7 @@ class GameControllerTest extends TestCase
         $this->seed(WorldCup2026Seeder::class);
         $tournament = Tournament::firstOrFail();
         $user = User::factory()->create();
-        $entry = Entry::factory()->for($tournament)->for($user)->create();
+        $entry = Entry::factory()->for($tournament->games()->firstOrFail())->for($user)->create();
         $fixture = $tournament->fixtures()->where('match_number', 1)->firstOrFail();
 
         GroupPrediction::factory()->create([
@@ -162,7 +162,7 @@ class GameControllerTest extends TestCase
         $this->seed(WorldCup2026Seeder::class);
         $tournament = Tournament::firstOrFail();
         $user = User::factory()->create();
-        $entry = Entry::factory()->for($tournament)->for($user)->create();
+        $entry = Entry::factory()->for($tournament->games()->firstOrFail())->for($user)->create();
 
         $fixture = $tournament->knockoutFixtures()->orderBy('match_number')->first();
         [$home, $away] = Team::query()->take(2)->get()->all();
@@ -191,7 +191,7 @@ class GameControllerTest extends TestCase
         $this->seed(WorldCup2026Seeder::class);
         $tournament = Tournament::firstOrFail();
         $user = User::factory()->create();
-        $entry = Entry::factory()->for($tournament)->for($user)->create();
+        $entry = Entry::factory()->for($tournament->games()->firstOrFail())->for($user)->create();
 
         $fixture = $tournament->knockoutFixtures()->orderBy('match_number')->first();
         [$home, $away] = Team::query()->take(2)->get()->all();
@@ -222,11 +222,11 @@ class GameControllerTest extends TestCase
         $tournament = Tournament::firstOrFail();
 
         // A climbed from 2nd to 1st; B slipped from 1st to 2nd.
-        Entry::factory()->for($tournament)
+        Entry::factory()->for($tournament->games()->firstOrFail())
             ->for(User::factory()->create(['name' => 'Climber']))
             ->create(['total_points' => 120, 'rank' => 1, 'previous_rank' => 2]);
         $me = User::factory()->create(['name' => 'Slider']);
-        Entry::factory()->for($tournament)->for($me)
+        Entry::factory()->for($tournament->games()->firstOrFail())->for($me)
             ->create(['total_points' => 40, 'rank' => 2, 'previous_rank' => 1]);
 
         $this->actingAs($me)
@@ -307,7 +307,7 @@ class GameControllerTest extends TestCase
         $this->seed(WorldCup2026Seeder::class);
         $tournament = Tournament::firstOrFail();
         $user = User::factory()->create();
-        Entry::factory()->for($tournament)->for($user)->create();
+        Entry::factory()->for($tournament->games()->firstOrFail())->for($user)->create();
 
         $this->actingAs($user);
 
@@ -332,9 +332,9 @@ class GameControllerTest extends TestCase
     {
         $this->seed(WorldCup2026Seeder::class);
         $tournament = Tournament::firstOrFail();
-        Entry::factory()->count(2)->for($tournament)->create();
+        Entry::factory()->count(2)->for($tournament->games()->firstOrFail())->create();
         $me = User::factory()->create();
-        Entry::factory()->for($tournament)->for($me)->create();
+        Entry::factory()->for($tournament->games()->firstOrFail())->for($me)->create();
 
         $this->actingAs($me);
 
@@ -353,12 +353,12 @@ class GameControllerTest extends TestCase
         $this->seed(WorldCup2026Seeder::class);
         $tournament = Tournament::firstOrFail();
 
-        Entry::factory()->for($tournament)
+        Entry::factory()->for($tournament->games()->firstOrFail())
             ->for(User::factory()->create(['name' => 'Top Scorer']))
             ->create(['total_points' => 120]);
 
         $me = User::factory()->create(['name' => 'Runner Up']);
-        Entry::factory()->for($tournament)->for($me)->create(['total_points' => 40]);
+        Entry::factory()->for($tournament->games()->firstOrFail())->for($me)->create(['total_points' => 40]);
 
         $this->actingAs($me);
 

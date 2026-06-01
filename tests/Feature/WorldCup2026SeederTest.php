@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Enums\FeederOutcome;
 use App\Enums\PhaseType;
+use App\Enums\ScoringStrategy;
 use App\Models\Fixture;
+use App\Models\Game;
 use App\Models\Group;
 use App\Models\Team;
 use App\Models\Tournament;
@@ -24,6 +26,7 @@ class WorldCup2026SeederTest extends TestCase
 
         $this->assertSame('World Cup 2026', $tournament->name);
         $this->assertSame(7, $tournament->phases()->count());
+        $this->assertSame(1, $tournament->games()->count());
         $this->assertSame(12, $tournament->groups()->count());
         $this->assertSame(48, Team::count());
         $this->assertSame(104, $tournament->fixtures()->count());
@@ -214,12 +217,27 @@ class WorldCup2026SeederTest extends TestCase
             ->teams()->wherePivot('position', $position)->firstOrFail();
     }
 
+    public function test_it_seeds_the_ffa_game_over_the_competition(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+
+        $tournament = Tournament::where('slug', 'world-cup-2026')->firstOrFail();
+        $game = Game::where('slug', 'world-cup-2026')->firstOrFail();
+
+        $this->assertTrue($game->tournament->is($tournament));
+        $this->assertSame('World Cup 2026', $game->name);
+        $this->assertSame('FF&A', $game->source);
+        $this->assertSame(ScoringStrategy::WorldCupStandard, $game->scoring_strategy);
+        $this->assertSame(20, $game->scoring_config['group']['exact_score']);
+    }
+
     public function test_it_is_idempotent(): void
     {
         $this->seed(WorldCup2026Seeder::class);
         $this->seed(WorldCup2026Seeder::class);
 
         $this->assertSame(1, Tournament::count());
+        $this->assertSame(1, Game::count());
         $this->assertSame(48, Team::count());
         $this->assertSame(104, Fixture::count());
         $this->assertSame(48, \DB::table('group_team')->count());

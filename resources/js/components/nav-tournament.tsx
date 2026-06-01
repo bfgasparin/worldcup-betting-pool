@@ -60,11 +60,11 @@ export function NavTournament({ slug, name }: { slug: string; name: string }) {
                 <SidebarMenuItem>
                     <SidebarMenuButton
                         asChild
-                        tooltip={{ children: 'All tournaments' }}
+                        tooltip={{ children: 'All games' }}
                     >
                         <Link href={games.index()} prefetch>
                             <ChevronLeft />
-                            <span>All tournaments</span>
+                            <span>All games</span>
                         </Link>
                     </SidebarMenuButton>
                 </SidebarMenuItem>

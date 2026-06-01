@@ -4,6 +4,7 @@ namespace Tests\Unit\Services\Predictions;
 
 use App\Enums\FixtureStatus;
 use App\Models\Entry;
+use App\Models\Game;
 use App\Models\KnockoutPrediction;
 use App\Models\Team;
 use App\Models\Tournament;
@@ -21,6 +22,8 @@ class BracketResolverTest extends TestCase
 
     private Tournament $tournament;
 
+    private Game $game;
+
     private Entry $entry;
 
     private BracketResolver $resolver;
@@ -31,7 +34,8 @@ class BracketResolverTest extends TestCase
 
         $this->seed(WorldCup2026Seeder::class);
         $this->tournament = Tournament::firstOrFail();
-        $this->entry = Entry::factory()->for($this->tournament)->for(User::factory())->create();
+        $this->game = $this->tournament->games()->firstOrFail();
+        $this->entry = Entry::factory()->for($this->game)->for(User::factory())->create();
         $this->resolver = new BracketResolver;
     }
 
