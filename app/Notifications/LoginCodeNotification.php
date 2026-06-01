@@ -28,18 +28,19 @@ class LoginCodeNotification extends Notification
 
     /**
      * Get the mail representation of the notification.
+     *
+     * Renders the branded FF&A email shell (HTML + plain text). The code is
+     * deliberately kept out of the subject so it is not exposed in inbox or
+     * lock-screen previews.
      */
     public function toMail(object $notifiable): MailMessage
     {
-        $appName = config('app.name');
-
         return (new MailMessage)
-            ->subject(__(':app login code', ['app' => $appName]))
-            ->greeting(__('Your login code'))
-            ->line(__('Use the following code to finish signing in. It expires in :minutes minutes.', [
-                'minutes' => SendLoginCode::TTL_MINUTES,
-            ]))
-            ->line($this->code)
-            ->line(__('If you did not request this code, you can safely ignore this email.'));
+            ->subject(__(':app sign-in code', ['app' => config('app.name')]))
+            ->view(['emails.login-code', 'emails.login-code-text'], [
+                'code' => $this->code,
+                'expiresInMinutes' => SendLoginCode::TTL_MINUTES,
+                'email' => $notifiable->routeNotificationFor('mail') ?: $notifiable->email,
+            ]);
     }
 }

@@ -11,8 +11,10 @@ use App\Models\ScoreBatch;
 use App\Models\ScoreProposal;
 use App\Models\Tournament;
 use App\Models\User;
+use App\Notifications\TopOfLeaderboardNotification;
 use Database\Seeders\WorldCup2026Seeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Tests\Concerns\InteractsWithPredictions;
 use Tests\TestCase;
 
@@ -60,6 +62,19 @@ class ApproveScoreBatchTest extends TestCase
         // The batch and its proposals are marked applied.
         $this->assertSame(BatchStatus::Approved, $batch->fresh()->status);
         $this->assertSame(ProposalStatus::Applied, $batch->proposals()->first()->fresh()->status);
+    }
+
+    public function test_approving_a_batch_notifies_the_new_leader(): void
+    {
+        Notification::fake();
+
+        $this->proposeAllGroupResults($this->openBatch());
+
+        $this->actingAs($this->admin())
+            ->post(route('games.scores.approve', $this->tournament));
+
+        // The only entry becomes #1, so its owner receives the milestone email.
+        Notification::assertSentTo($this->entry->user, TopOfLeaderboardNotification::class);
     }
 
     public function test_re_approving_after_a_correction_recomputes_cleanly(): void
