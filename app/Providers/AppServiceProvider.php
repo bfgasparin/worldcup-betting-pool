@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Contracts\ScoreProvider;
 use App\Models\User;
+use App\Services\Scoring\Providers\ManualScoreProvider;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +19,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // The default score source enters nothing automatically; swap this binding for a real
+        // results-API provider once one is available.
+        $this->app->bind(ScoreProvider::class, ManualScoreProvider::class);
     }
 
     /**

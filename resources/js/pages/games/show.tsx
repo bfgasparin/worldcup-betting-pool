@@ -2,6 +2,7 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     ArrowRight,
     CalendarDays,
+    ClipboardCheck,
     ListOrdered,
     PencilLine,
 } from 'lucide-react';
@@ -211,6 +212,14 @@ function DashboardBanner({
                             View pool table
                         </Link>
                     </Button>
+                    {game.can_review_scores && (
+                        <Button asChild variant="outline">
+                            <Link href={games.scores.review(game.slug)}>
+                                <ClipboardCheck className="size-4" />
+                                Review scores
+                            </Link>
+                        </Button>
+                    )}
                 </div>
             </div>
         </header>
@@ -246,6 +255,7 @@ function PoolPreview({ game, pool }: { game: GameDetail; pool: PoolSummary }) {
                             initials: row.initials,
                             points: row.points,
                             isMe: row.is_me,
+                            movement: row.movement,
                         }}
                     />
                 ))}

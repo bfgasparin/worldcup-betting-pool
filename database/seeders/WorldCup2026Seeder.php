@@ -260,7 +260,7 @@ class WorldCup2026Seeder extends Seeder
                         'one_team_exact_goals_wrong_outcome' => 5,
                     ],
                     'knockout' => [
-                        'team_reaches_phase' => 10,
+                        'correct_team' => 10,
                         'team_goal_count_bonus' => 5,
                         'champion' => 30,
                     ],

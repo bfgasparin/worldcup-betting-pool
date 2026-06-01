@@ -1,4 +1,6 @@
+import { MovementArrow } from '@/components/movement-arrow';
 import { cn } from '@/lib/utils';
+import type { RankMovement } from '@/types/games';
 
 export interface LeaderboardEntry {
     rank: number;
@@ -8,6 +10,7 @@ export interface LeaderboardEntry {
     subtitle?: string | null;
     hitRate?: string | null;
     isMe?: boolean;
+    movement?: RankMovement | null;
 }
 
 const MEDALS: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
@@ -102,8 +105,13 @@ export function LeaderboardRow({
                 </span>
             )}
 
-            <div className="text-right font-display text-lg font-semibold tabular-nums">
-                {formatPoints(entry.points)}
+            <div className="flex items-center justify-end gap-2">
+                {entry.movement != null && (
+                    <MovementArrow movement={entry.movement} />
+                )}
+                <span className="text-right font-display text-lg font-semibold tabular-nums">
+                    {formatPoints(entry.points)}
+                </span>
             </div>
         </div>
     );

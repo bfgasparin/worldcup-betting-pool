@@ -33,7 +33,12 @@ export interface GroupFixture {
     venue: string | null;
     venue_timezone: string | null;
     /** The viewer's own predicted scoreline, if they've made one. */
-    prediction: { home_goals: number; away_goals: number } | null;
+    prediction: {
+        home_goals: number;
+        away_goals: number;
+        /** Points earned once the official result is in (null while unscored). */
+        points_awarded: number | null;
+    } | null;
 }
 
 export interface GroupView {
@@ -53,9 +58,23 @@ export interface BracketFixture {
     away_label: string | null;
     home_goals: number | null;
     away_goals: number | null;
+    home_penalties: number | null;
+    away_penalties: number | null;
+    /** The official advancing team once the match is settled. */
+    winner_team_id: number | null;
     kicks_off_at: string | null;
     venue: string | null;
     venue_timezone: string | null;
+    /** The viewer's own pick for this knockout match, if they made one. */
+    prediction: {
+        home_goals: number | null;
+        away_goals: number | null;
+        advancing_team_id: number | null;
+        points_awarded: number | null;
+        /** The teams the viewer predicted for this match (upfront-bracket tournaments only). */
+        predicted_home: TeamRef | null;
+        predicted_away: TeamRef | null;
+    } | null;
 }
 
 export interface BracketPhase {
@@ -69,9 +88,14 @@ export interface GameDetail extends GameSummary {
     scoring_config: Record<string, Record<string, number>>;
     /** Lifecycle statuses this tournament may transition into (admin only). */
     allowed_transitions: GameStatus[];
+    /** Whether the viewer may open the admin score-review screen. */
+    can_review_scores: boolean;
 }
 
 // --- Pool table / leaderboard ---
+
+/** Movement on the pool table since the last approved results, or "new" on first appearance. */
+export type RankMovement = 'up' | 'down' | 'same' | 'new';
 
 export interface LeaderboardEntryRow {
     rank: number;
@@ -79,6 +103,7 @@ export interface LeaderboardEntryRow {
     initials: string;
     points: number | null;
     is_me: boolean;
+    movement: RankMovement | null;
 }
 
 export interface PoolSummary {
