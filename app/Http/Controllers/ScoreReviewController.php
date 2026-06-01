@@ -83,7 +83,7 @@ class ScoreReviewController extends Controller
             [
                 'home_goals' => $validated['home_goals'] ?? null,
                 'away_goals' => $validated['away_goals'] ?? null,
-                'winner_team_id' => $validated['winner_team_id'] ?? null,
+                'winner_team_id' => $request->winnerTeamIdFor(),
                 'home_penalties' => $validated['home_penalties'] ?? null,
                 'away_penalties' => $validated['away_penalties'] ?? null,
                 'status' => ($validated['rejected'] ?? false) ? ProposalStatus::Rejected : ProposalStatus::Edited,

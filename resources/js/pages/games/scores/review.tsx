@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Flag } from '@/components/flag';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import games from '@/routes/games';
 import type { TeamRef } from '@/types/games';
 import type { BreadcrumbItem } from '@/types/navigation';
@@ -74,6 +75,48 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
 
     const rejected = row.proposal?.status === 'rejected';
 
+    // Mirror the prediction flow: who advances is derived from the score. A decisive result picks
+    // the higher-scoring side (shown read-only); only a draw asks the admin to choose.
+    const teamsKnown = row.home !== null && row.away !== null;
+    const bothScored = home !== '' && away !== '';
+    const isDraw = bothScored && Number(home) === Number(away);
+    const decisiveWinnerId =
+        bothScored && !isDraw && teamsKnown
+            ? Number(home) > Number(away)
+                ? row.home!.id
+                : row.away!.id
+            : null;
+    const winnerTeam =
+        decisiveWinnerId === row.home?.id
+            ? row.home
+            : decisiveWinnerId === row.away?.id
+              ? row.away
+              : null;
+
+    const handleScore = (side: 'home' | 'away', value: string): void => {
+        const nextHome = side === 'home' ? value : home;
+        const nextAway = side === 'away' ? value : away;
+
+        if (side === 'home') {
+            setHome(value);
+        } else {
+            setAway(value);
+        }
+
+        if (!row.is_knockout || !teamsKnown) {
+            return;
+        }
+
+        // A draw keeps any existing manual pick; a decisive or incomplete score derives it.
+        if (nextHome === '' || nextAway === '') {
+            setWinner('');
+        } else if (Number(nextHome) > Number(nextAway)) {
+            setWinner(String(row.home!.id));
+        } else if (Number(nextAway) > Number(nextHome)) {
+            setWinner(String(row.away!.id));
+        }
+    };
+
     const stateLabel = row.has_ended
         ? 'Full time'
         : row.status === 'finished'
@@ -108,7 +151,9 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
                     min={0}
                     max={99}
                     value={home}
-                    onChange={(event) => setHome(event.target.value)}
+                    onChange={(event) =>
+                        handleScore('home', event.target.value)
+                    }
                     className="h-9 w-14 text-center"
                     aria-label={`${row.home?.name ?? 'Home'} goals`}
                 />
@@ -118,7 +163,9 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
                     min={0}
                     max={99}
                     value={away}
-                    onChange={(event) => setAway(event.target.value)}
+                    onChange={(event) =>
+                        handleScore('away', event.target.value)
+                    }
                     className="h-9 w-14 text-center"
                     aria-label={`${row.away?.name ?? 'Away'} goals`}
                 />
@@ -129,22 +176,53 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
                     </span>
                 </span>
 
-                {row.is_knockout && (
-                    <select
-                        value={winner}
-                        onChange={(event) => setWinner(event.target.value)}
-                        className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-                        aria-label="Advancing team"
-                    >
-                        <option value="">Advances…</option>
-                        {row.home && (
-                            <option value={row.home.id}>{row.home.name}</option>
-                        )}
-                        {row.away && (
-                            <option value={row.away.id}>{row.away.name}</option>
-                        )}
-                    </select>
-                )}
+                {row.is_knockout &&
+                    (!teamsKnown ? (
+                        <span className="text-xs text-muted-foreground italic">
+                            Teams not set yet.
+                        </span>
+                    ) : !bothScored ? (
+                        <span className="text-xs text-muted-foreground italic">
+                            Enter the score to set who advances.
+                        </span>
+                    ) : isDraw ? (
+                        <div className="flex items-center gap-2">
+                            <span className="text-[0.65rem] font-semibold tracking-wide text-muted-foreground uppercase">
+                                Advances
+                            </span>
+                            <ToggleGroup
+                                type="single"
+                                variant="outline"
+                                size="sm"
+                                value={winner}
+                                onValueChange={(value) => setWinner(value)}
+                                aria-label="Advancing team"
+                            >
+                                <ToggleGroupItem
+                                    value={String(row.home!.id)}
+                                    className="gap-1 text-xs"
+                                >
+                                    <Flag team={row.home} className="h-4 w-6" />
+                                    {row.home!.code ?? row.home!.name}
+                                </ToggleGroupItem>
+                                <ToggleGroupItem
+                                    value={String(row.away!.id)}
+                                    className="gap-1 text-xs"
+                                >
+                                    <Flag team={row.away} className="h-4 w-6" />
+                                    {row.away!.code ?? row.away!.name}
+                                </ToggleGroupItem>
+                            </ToggleGroup>
+                        </div>
+                    ) : (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-pitch-deep dark:text-primary">
+                            <span className="text-[0.65rem] font-semibold tracking-wide text-muted-foreground uppercase">
+                                Advances
+                            </span>
+                            <Flag team={winnerTeam} className="h-4 w-6" />
+                            {winnerTeam?.code ?? winnerTeam?.name}
+                        </span>
+                    ))}
             </div>
 
             <div className="flex items-center gap-2 justify-self-end">
