@@ -20,7 +20,7 @@ class UpdateKnockoutPredictionsRequest extends PredictionRequest
      */
     public function rules(): array
     {
-        $knockoutFixtureIds = $this->tournament()->knockoutFixtures()->pluck('id')->all();
+        $knockoutFixtureIds = $this->game()->tournament->knockoutFixtures()->pluck('id')->all();
 
         return [
             'predictions' => ['required', 'array'],

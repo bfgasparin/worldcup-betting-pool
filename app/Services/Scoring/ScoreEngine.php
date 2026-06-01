@@ -4,13 +4,13 @@ namespace App\Services\Scoring;
 
 use App\Models\Entry;
 use App\Models\Fixture;
-use App\Models\Tournament;
+use App\Models\Game;
 use App\Services\Scoring\Strategies\ScoringRules;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Recomputes points for an entire tournament from the official results currently on its
- * fixtures. It resolves the tournament's scoring strategy, scores every prediction (writing
+ * Recomputes points for an entire game from the official results currently on its tournament's
+ * fixtures. It resolves the game's scoring strategy, scores every prediction (writing
  * `points_awarded` per group/knockout prediction) and rolls them up into `Entry.total_points`.
  *
  * It fully overwrites prior values rather than incrementing, so it is safe to run after every
@@ -22,14 +22,18 @@ class ScoreEngine
 {
     public function __construct(private readonly ScoringRulesFactory $rulesFactory = new ScoringRulesFactory) {}
 
-    public function recompute(Tournament $tournament): void
+    public function recompute(Game $game): void
     {
-        $config = ScoringConfig::fromTournament($tournament);
-        $rules = $this->rulesFactory->make($tournament->scoring_strategy);
+        $config = ScoringConfig::fromGame($game);
+        $rules = $this->rulesFactory->make($game->scoring_strategy);
 
+        // Structure and official results live on the shared tournament; entries on the game.
+        $tournament = $game->tournament;
         $tournament->load([
             'groups.fixtures',
             'knockoutFixtures.phase',
+        ]);
+        $game->load([
             'entries.groupPredictions',
             'entries.knockoutPredictions',
         ]);
@@ -44,8 +48,8 @@ class ScoreEngine
             $fixturesById[$fixture->id] = $fixture;
         }
 
-        DB::transaction(function () use ($tournament, $fixturesById, $rules, $config): void {
-            foreach ($tournament->entries as $entry) {
+        DB::transaction(function () use ($game, $fixturesById, $rules, $config): void {
+            foreach ($game->entries as $entry) {
                 $this->scoreEntry($entry, $fixturesById, $rules, $config);
             }
         });

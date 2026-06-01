@@ -3,12 +3,25 @@ export type GameStatus = 'upcoming' | 'in_progress' | 'completed';
 export interface GameSummary {
     slug: string;
     name: string;
+    /** The group/source that created the game, e.g. "FF&A". */
+    source: string;
     sport: string;
     status: GameStatus;
     starts_on: string | null;
     ends_on: string | null;
     groups_count?: number;
     fixtures_count?: number;
+}
+
+/**
+ * A game as shown on the selection page: the summary plus how it scores, so players can tell
+ * games over the same competition apart.
+ */
+export interface GameListItem extends GameSummary {
+    scoring_strategy: string;
+    scoring_label: string;
+    scoring_description: string;
+    scoring_config: Record<string, Record<string, number>>;
 }
 
 export interface TeamRef {

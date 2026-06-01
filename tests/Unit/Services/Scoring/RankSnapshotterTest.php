@@ -3,7 +3,7 @@
 namespace Tests\Unit\Services\Scoring;
 
 use App\Models\Entry;
-use App\Models\Tournament;
+use App\Models\Game;
 use App\Services\Scoring\RankSnapshotter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -12,7 +12,7 @@ class RankSnapshotterTest extends TestCase
 {
     use RefreshDatabase;
 
-    private Tournament $tournament;
+    private Game $game;
 
     private RankSnapshotter $snapshotter;
 
@@ -20,17 +20,17 @@ class RankSnapshotterTest extends TestCase
     {
         parent::setUp();
 
-        $this->tournament = Tournament::factory()->create();
+        $this->game = Game::factory()->create();
         $this->snapshotter = new RankSnapshotter;
     }
 
     public function test_it_ranks_by_points_with_unscored_entries_last(): void
     {
-        $low = Entry::factory()->for($this->tournament)->create(['total_points' => 50]);
-        $high = Entry::factory()->for($this->tournament)->create(['total_points' => 100]);
-        $unscored = Entry::factory()->for($this->tournament)->create(['total_points' => null]);
+        $low = Entry::factory()->for($this->game)->create(['total_points' => 50]);
+        $high = Entry::factory()->for($this->game)->create(['total_points' => 100]);
+        $unscored = Entry::factory()->for($this->game)->create(['total_points' => null]);
 
-        $this->snapshotter->snapshot($this->tournament);
+        $this->snapshotter->snapshot($this->game);
 
         $this->assertSame(1, $high->fresh()->rank);
         $this->assertSame(2, $low->fresh()->rank);
@@ -41,13 +41,13 @@ class RankSnapshotterTest extends TestCase
 
     public function test_a_second_snapshot_captures_the_previous_rank_for_movement(): void
     {
-        $a = Entry::factory()->for($this->tournament)->create(['total_points' => 50]);
-        $b = Entry::factory()->for($this->tournament)->create(['total_points' => 100]);
+        $a = Entry::factory()->for($this->game)->create(['total_points' => 50]);
+        $b = Entry::factory()->for($this->game)->create(['total_points' => 100]);
 
-        $this->snapshotter->snapshot($this->tournament); // b=1, a=2
+        $this->snapshotter->snapshot($this->game); // b=1, a=2
 
         $a->update(['total_points' => 200]); // a overtakes b
-        $this->snapshotter->snapshot($this->tournament);
+        $this->snapshotter->snapshot($this->game);
 
         $this->assertSame(1, $a->fresh()->rank);
         $this->assertSame(2, $a->fresh()->previous_rank); // moved up
@@ -57,11 +57,11 @@ class RankSnapshotterTest extends TestCase
 
     public function test_a_brand_new_entry_has_no_previous_rank(): void
     {
-        Entry::factory()->for($this->tournament)->create(['total_points' => 100]);
-        $this->snapshotter->snapshot($this->tournament);
+        Entry::factory()->for($this->game)->create(['total_points' => 100]);
+        $this->snapshotter->snapshot($this->game);
 
-        $newcomer = Entry::factory()->for($this->tournament)->create(['total_points' => 75]);
-        $this->snapshotter->snapshot($this->tournament);
+        $newcomer = Entry::factory()->for($this->game)->create(['total_points' => 75]);
+        $this->snapshotter->snapshot($this->game);
 
         $this->assertSame(2, $newcomer->fresh()->rank);
         $this->assertNull($newcomer->fresh()->previous_rank);
@@ -69,10 +69,10 @@ class RankSnapshotterTest extends TestCase
 
     public function test_ties_are_broken_by_id(): void
     {
-        $first = Entry::factory()->for($this->tournament)->create(['total_points' => 80]);
-        $second = Entry::factory()->for($this->tournament)->create(['total_points' => 80]);
+        $first = Entry::factory()->for($this->game)->create(['total_points' => 80]);
+        $second = Entry::factory()->for($this->game)->create(['total_points' => 80]);
 
-        $this->snapshotter->snapshot($this->tournament);
+        $this->snapshotter->snapshot($this->game);
 
         $this->assertSame(1, $first->fresh()->rank);
         $this->assertSame(2, $second->fresh()->rank);

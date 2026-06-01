@@ -9,11 +9,13 @@ use App\Enums\ScoringStrategy;
 use App\Enums\Sport;
 use App\Enums\TournamentStatus;
 use App\Models\Fixture;
+use App\Models\Game;
 use App\Models\Group;
 use App\Models\Phase;
 use App\Models\Team;
 use App\Models\Tournament;
 use App\Services\Predictions\ThirdPlaceAllocation;
+use Database\Factories\GameFactory;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -236,6 +238,7 @@ class WorldCup2026Seeder extends Seeder
     {
         DB::transaction(function () {
             $tournament = $this->seedTournament();
+            $this->seedGame($tournament);
             $phases = $this->seedPhases($tournament);
             $groupTeams = $this->seedGroupsAndTeams($tournament);
             $this->seedGroupFixtures($tournament, $phases[PhaseKey::Group->value], $groupTeams);
@@ -251,6 +254,26 @@ class WorldCup2026Seeder extends Seeder
                 'name' => 'World Cup 2026',
                 'sport' => Sport::Soccer,
                 'status' => TournamentStatus::Upcoming,
+                'starts_on' => '2026-06-11',
+                'ends_on' => '2026-07-19',
+            ],
+        );
+    }
+
+    /**
+     * The first playable game over the competition: the FF&A pool. The competition structure and
+     * official results are shared; this game layers on its own scoring strategy and prediction lock.
+     * The scoring_config here is duplicated verbatim in {@see GameFactory} —
+     * keep them in sync.
+     */
+    private function seedGame(Tournament $tournament): Game
+    {
+        return Game::updateOrCreate(
+            ['slug' => 'world-cup-2026'],
+            [
+                'tournament_id' => $tournament->id,
+                'name' => 'World Cup 2026',
+                'source' => 'FF&A',
                 'scoring_strategy' => ScoringStrategy::WorldCupStandard,
                 'scoring_config' => [
                     'group' => [
@@ -266,8 +289,6 @@ class WorldCup2026Seeder extends Seeder
                     ],
                 ],
                 'predictions_lock_at' => '2026-06-11 16:00:00',
-                'starts_on' => '2026-06-11',
-                'ends_on' => '2026-07-19',
             ],
         );
     }

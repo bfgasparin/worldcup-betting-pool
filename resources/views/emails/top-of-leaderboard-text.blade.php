@@ -1,4 +1,4 @@
-FF&A Betting Pool — Milestone
+Brothers Betting Pool — Milestone
 
 You're top of the table, {{ $userName }}!
 
@@ -15,4 +15,4 @@ See the table: {{ $url }}
 
 The next round of results could shake things up — there's a long way to the final.
 
-— FF&A Betting Pool
+— Brothers Betting Pool

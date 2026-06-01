@@ -8,9 +8,7 @@ export default function AppLogo() {
             </div>
             <div className="ml-2 grid flex-1 text-left leading-none">
                 <span className="font-display text-[15px] font-semibold tracking-tight">
-                    <span className="text-grad">FF</span>
-                    <span className="text-gold">&amp;</span>
-                    <span className="text-grad">A</span>
+                    <span className="text-grad">Brothers</span>
                 </span>
                 <span className="mt-0.5 text-[9px] font-bold tracking-[0.22em] text-muted-foreground uppercase">
                     Betting Pool

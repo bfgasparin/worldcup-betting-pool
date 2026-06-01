@@ -7,6 +7,7 @@ use App\Enums\PhaseKey;
 use App\Enums\TournamentStatus;
 use App\Models\Entry;
 use App\Models\Fixture;
+use App\Models\Game;
 use App\Models\GroupPrediction;
 use App\Models\Phase;
 use App\Models\Tournament;
@@ -51,6 +52,16 @@ class SimulateTournament extends Command
             return self::FAILURE;
         }
 
+        // The competition holds the structure and official results; entries and scoring belong to
+        // a game played over it. Simulate the first game (one is seeded today).
+        $game = $tournament->games()->first();
+
+        if ($game === null) {
+            $this->components->error("Tournament [{$this->argument('slug')}] has no game to simulate. Run `php artisan db:seed` first.");
+
+            return self::FAILURE;
+        }
+
         $through = PhaseKey::tryFrom((string) $this->option('through'));
 
         if ($through === null) {
@@ -70,7 +81,7 @@ class SimulateTournament extends Command
             $this->components->info('Cleared previous results and scoring.');
         }
 
-        $entries = $this->ensurePlayers($tournament);
+        $entries = $this->ensurePlayers($game);
         $this->components->info("{$entries->count()} players ready; generating predictions…");
 
         foreach ($entries as [$entry, $seedIndex]) {
@@ -95,7 +106,7 @@ class SimulateTournament extends Command
             $this->advanceTo($tournament, $until);
         }
 
-        $this->summarise($tournament, $through, $predictOnly, $until);
+        $this->summarise($game, $through, $predictOnly, $until);
 
         return self::SUCCESS;
     }
@@ -118,21 +129,23 @@ class SimulateTournament extends Command
         Fixture::whereIn('id', $tournament->knockoutFixtures()->pluck('id'))
             ->update(['home_team_id' => null, 'away_team_id' => null]);
 
-        $tournament->entries()->update([
-            'total_points' => null,
-            'rank' => null,
-            'previous_rank' => null,
-        ]);
+        foreach ($tournament->games as $game) {
+            $game->entries()->update([
+                'total_points' => null,
+                'rank' => null,
+                'previous_rank' => null,
+            ]);
+        }
 
         $tournament->scoreBatches()->delete();
     }
 
     /**
-     * Ensure demo players and the --me user each have a submitted entry.
+     * Ensure demo players and the --me user each have a submitted entry in the game.
      *
      * @return Collection<int, array{0: Entry, 1: int}> entry + its prediction seed index
      */
-    private function ensurePlayers(Tournament $tournament): Collection
+    private function ensurePlayers(Game $game): Collection
     {
         $entries = collect();
 
@@ -142,7 +155,7 @@ class SimulateTournament extends Command
                 ['name' => "Player {$i}", 'email_verified_at' => now()],
             );
 
-            $entries->push([$this->ensureEntry($tournament, $user), $i]);
+            $entries->push([$this->ensureEntry($game, $user), $i]);
         }
 
         $meEmail = (string) $this->option('me');
@@ -153,15 +166,15 @@ class SimulateTournament extends Command
                 ['name' => 'You', 'email_verified_at' => now()],
             );
 
-            $entries->push([$this->ensureEntry($tournament, $me), 0]);
+            $entries->push([$this->ensureEntry($game, $me), 0]);
         }
 
         return $entries;
     }
 
-    private function ensureEntry(Tournament $tournament, User $user): Entry
+    private function ensureEntry(Game $game, User $user): Entry
     {
-        return $tournament->entries()->firstOrCreate(['user_id' => $user->id]);
+        return $game->entries()->firstOrCreate(['user_id' => $user->id]);
     }
 
     private function generateGroupPredictions(Tournament $tournament, Entry $entry, int $seedIndex): void
@@ -226,8 +239,10 @@ class SimulateTournament extends Command
 
     private function closePredictions(Tournament $tournament, PhaseKey $through, bool $predictOnly = false): void
     {
+        // The prediction lock is per-game; the lifecycle status is the competition's.
+        $tournament->games()->update(['predictions_lock_at' => now()->subDay()]);
+
         $tournament->update([
-            'predictions_lock_at' => now()->subDay(),
             'status' => (! $predictOnly && $through === PhaseKey::Final)
                 ? TournamentStatus::Completed
                 : TournamentStatus::InProgress,
@@ -253,9 +268,13 @@ class SimulateTournament extends Command
                 ? $this->fillGroupResults($tournament, $until)
                 : $this->fillKnockoutResults($phase, $until);
 
+            // Official results are shared; re-project once, then re-score each game over them.
             $projector->project($tournament);
-            $engine->recompute($tournament);
-            $snapshotter->snapshot($tournament);
+
+            foreach ($tournament->games as $game) {
+                $engine->recompute($game);
+                $snapshotter->snapshot($game);
+            }
 
             $this->components->task("Played {$phase->name}");
         }
@@ -364,12 +383,12 @@ class SimulateTournament extends Command
         }
     }
 
-    private function summarise(Tournament $tournament, PhaseKey $through, bool $predictOnly = false, ?CarbonImmutable $until = null): void
+    private function summarise(Game $game, PhaseKey $through, bool $predictOnly = false, ?CarbonImmutable $until = null): void
     {
         if ($predictOnly) {
-            $players = $tournament->entries()->count();
+            $players = $game->entries()->count();
             $this->newLine();
-            $this->components->info("Set up {$players} players with predictions for {$tournament->name} — no results filled.");
+            $this->components->info("Set up {$players} players with predictions for {$game->name} — no results filled.");
 
             if ($until !== null) {
                 $this->components->info("Clock moved to {$until->toDayDateTimeString()} UTC; matches finished by then are awaiting scores. Run `php artisan scores:fetch` (set SCORING_SIMULATED_PROVIDER=true) or use the review screen to enter them.");
@@ -382,7 +401,7 @@ class SimulateTournament extends Command
             return;
         }
 
-        $top = $tournament->entries()
+        $top = $game->entries()
             ->with('user')
             ->orderByRaw('total_points IS NULL, total_points DESC, id')
             ->limit(5)
@@ -390,8 +409,8 @@ class SimulateTournament extends Command
 
         $this->newLine();
         $this->components->info($until !== null
-            ? "Simulated {$tournament->name} up to {$until->toDayDateTimeString()} UTC."
-            : "Simulated {$tournament->name} through the {$through->value} phase.");
+            ? "Simulated {$game->name} up to {$until->toDayDateTimeString()} UTC."
+            : "Simulated {$game->name} through the {$through->value} phase.");
 
         $this->table(
             ['Rank', 'Player', 'Points', 'Move'],

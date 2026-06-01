@@ -4,11 +4,11 @@ namespace Tests\Feature;
 
 use App\Enums\FeederOutcome;
 use App\Enums\PhaseType;
-use App\Enums\ScoringStrategy;
 use App\Enums\Sport;
 use App\Enums\TournamentStatus;
 use App\Models\Entry;
 use App\Models\Fixture;
+use App\Models\Game;
 use App\Models\Group;
 use App\Models\GroupPrediction;
 use App\Models\Team;
@@ -20,14 +20,12 @@ class TournamentRelationsTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_tournament_casts_resolve_to_enums_and_array(): void
+    public function test_tournament_casts_resolve_to_enums(): void
     {
         $tournament = Tournament::factory()->create();
 
         $this->assertSame(Sport::Soccer, $tournament->sport);
-        $this->assertSame(ScoringStrategy::WorldCupStandard, $tournament->scoring_strategy);
-        $this->assertIsArray($tournament->scoring_config);
-        $this->assertSame(20, $tournament->scoring_config['group']['exact_score']);
+        $this->assertSame(TournamentStatus::Upcoming, $tournament->status);
     }
 
     public function test_group_team_pivot_carries_position(): void
@@ -73,39 +71,11 @@ class TournamentRelationsTest extends TestCase
         $this->assertCount(2, $entry->groupPredictions);
     }
 
-    public function test_accepts_predictions_before_the_lock_time(): void
+    public function test_tournament_has_games(): void
     {
-        $tournament = Tournament::factory()->create([
-            'predictions_lock_at' => now()->addDay(),
-        ]);
+        $tournament = Tournament::factory()->create();
+        Game::factory()->count(2)->for($tournament)->create();
 
-        $this->assertTrue($tournament->acceptsPredictions());
-    }
-
-    public function test_does_not_accept_predictions_after_the_lock_time(): void
-    {
-        $tournament = Tournament::factory()->create([
-            'predictions_lock_at' => now()->subMinute(),
-        ]);
-
-        $this->assertFalse($tournament->acceptsPredictions());
-    }
-
-    public function test_prediction_window_is_independent_of_lifecycle_status(): void
-    {
-        // The prediction window alone decides; the lifecycle status must not affect it.
-        foreach (TournamentStatus::cases() as $status) {
-            $open = Tournament::factory()->create([
-                'status' => $status,
-                'predictions_lock_at' => now()->addWeek(),
-            ]);
-            $this->assertTrue($open->acceptsPredictions());
-
-            $closed = Tournament::factory()->create([
-                'status' => $status,
-                'predictions_lock_at' => now()->subMinute(),
-            ]);
-            $this->assertFalse($closed->acceptsPredictions());
-        }
+        $this->assertCount(2, $tournament->games);
     }
 }

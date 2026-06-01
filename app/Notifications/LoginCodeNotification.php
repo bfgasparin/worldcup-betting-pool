@@ -29,7 +29,7 @@ class LoginCodeNotification extends Notification
     /**
      * Get the mail representation of the notification.
      *
-     * Renders the branded FF&A email shell (HTML + plain text). The code is
+     * Renders the branded Brothers Betting Pool email shell (HTML + plain text). The code is
      * deliberately kept out of the subject so it is not exposed in inbox or
      * lock-screen previews.
      */

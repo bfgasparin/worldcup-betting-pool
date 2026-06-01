@@ -3,7 +3,7 @@
 namespace App\Http\Requests\Tournaments;
 
 use App\Enums\TournamentStatus;
-use App\Models\Tournament;
+use App\Models\Game;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -25,8 +25,8 @@ class TransitionTournamentRequest extends FormRequest
      */
     public function rules(): array
     {
-        /** @var Tournament $tournament */
-        $tournament = $this->route('tournament');
+        /** @var Game $game */
+        $game = $this->route('game');
 
         return [
             'status' => [
@@ -34,7 +34,7 @@ class TransitionTournamentRequest extends FormRequest
                 Rule::enum(TournamentStatus::class),
                 Rule::in(array_map(
                     fn (TournamentStatus $status): string => $status->value,
-                    $tournament->status->allowedTransitions(),
+                    $game->tournament->status->allowedTransitions(),
                 )),
             ],
         ];

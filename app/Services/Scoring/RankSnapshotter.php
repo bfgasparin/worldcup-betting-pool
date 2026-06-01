@@ -3,7 +3,7 @@
 namespace App\Services\Scoring;
 
 use App\Models\Entry;
-use App\Models\Tournament;
+use App\Models\Game;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -17,9 +17,9 @@ use Illuminate\Support\Facades\DB;
  */
 class RankSnapshotter
 {
-    public function snapshot(Tournament $tournament): void
+    public function snapshot(Game $game): void
     {
-        $ordered = $tournament->entries()
+        $ordered = $game->entries()
             ->orderBy('id')
             ->get()
             ->sortByDesc(fn (Entry $entry): int => $entry->total_points ?? PHP_INT_MIN)

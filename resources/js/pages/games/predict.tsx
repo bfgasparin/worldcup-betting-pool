@@ -16,6 +16,7 @@ import { StandingsTable } from '@/components/standings-table';
 import { Button } from '@/components/ui/button';
 import { chipVariants } from '@/components/ui/chip';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { scoringRules } from '@/lib/scoring';
 import { cn } from '@/lib/utils';
 import games from '@/routes/games';
 import type {
@@ -163,29 +164,8 @@ function reconcilePicks(
     return changed ? next : picks;
 }
 
-const RULE_LABELS: Record<string, string> = {
-    // group
-    exact_score: 'Exact score',
-    winner_and_one_team_exact_goals: 'Right winner + one team’s goals',
-    correct_outcome_wrong_goals: 'Right result',
-    one_team_exact_goals_wrong_outcome: 'One team’s goals',
-    // knockout
-    correct_team: 'Right team in the match',
-    exact_matchup: 'Right team in the match', // legacy key
-    team_reaches_phase: 'Right team in the match', // legacy key
-    team_goal_count_bonus: 'Goal-count bonus',
-    champion: 'Champion',
-};
-
-/** Turn an unmapped snake_case scoring key into a readable label as a fallback. */
-function humanizeRuleKey(key: string): string {
-    const spaced = key.replace(/_/g, ' ');
-
-    return spaced.charAt(0).toUpperCase() + spaced.slice(1);
-}
-
 /**
- * Scoring rules for the current step, read from the tournament's scoring_config. Every rule
+ * Scoring rules for the current step, read from the game's scoring_config. Every rule
  * configured for the current phase is shown, sorted by points descending. Rendered as subtle
  * pills on the dark header.
  */
@@ -196,29 +176,19 @@ function ScoringLegend({
     config: Record<string, Record<string, number>>;
     step: number;
 }) {
-    const phaseKey = step === 0 ? 'group' : 'knockout';
-    const rules = Object.entries(config[phaseKey] ?? {})
-        .map(([key, points]) => ({
-            label: RULE_LABELS[key] ?? humanizeRuleKey(key),
-            points,
-        }))
-        .sort((a, b) => b.points - a.points);
+    const rules = scoringRules(config, step === 0 ? 'group' : 'knockout');
 
     return (
         <div className="flex flex-wrap gap-2">
-            {rules
-                .filter((rule) => rule.points != null)
-                .map((rule) => (
-                    <span
-                        key={rule.label}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground"
-                    >
-                        {rule.label}
-                        <b className="font-display text-primary">
-                            +{rule.points}
-                        </b>
-                    </span>
-                ))}
+            {rules.map((rule) => (
+                <span
+                    key={rule.label}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground"
+                >
+                    {rule.label}
+                    <b className="font-display text-primary">+{rule.points}</b>
+                </span>
+            ))}
         </div>
     );
 }

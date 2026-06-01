@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Enums\ScoringStrategy;
 use App\Enums\Sport;
 use App\Enums\TournamentStatus;
 use App\Models\Tournament;
@@ -28,21 +27,6 @@ class TournamentFactory extends Factory
             'name' => Str::title($name),
             'sport' => Sport::Soccer,
             'status' => TournamentStatus::Upcoming,
-            'scoring_strategy' => ScoringStrategy::WorldCupStandard,
-            'scoring_config' => [
-                'group' => [
-                    'exact_score' => 20,
-                    'winner_and_one_team_exact_goals' => 15,
-                    'correct_outcome_wrong_goals' => 10,
-                    'one_team_exact_goals_wrong_outcome' => 5,
-                ],
-                'knockout' => [
-                    'correct_team' => 10,
-                    'team_goal_count_bonus' => 5,
-                    'champion' => 30,
-                ],
-            ],
-            'predictions_lock_at' => fake()->dateTimeBetween('+1 week', '+1 month'),
             'starts_on' => '2026-06-11',
             'ends_on' => '2026-07-19',
         ];

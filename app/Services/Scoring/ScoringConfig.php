@@ -2,11 +2,11 @@
 
 namespace App\Services\Scoring;
 
-use App\Models\Tournament;
+use App\Models\Game;
 
 /**
- * A typed reader over a tournament's `scoring_config` JSON, so the scorers never reach into raw
- * arrays. Missing keys default to 0, which keeps a partially-configured tournament from
+ * A typed reader over a game's `scoring_config` JSON, so the scorers never reach into raw
+ * arrays. Missing keys default to 0, which keeps a partially-configured game from
  * throwing during scoring.
  */
 class ScoringConfig
@@ -16,9 +16,9 @@ class ScoringConfig
      */
     public function __construct(private readonly array $config) {}
 
-    public static function fromTournament(Tournament $tournament): self
+    public static function fromGame(Game $game): self
     {
-        return new self($tournament->scoring_config ?? []);
+        return new self($game->scoring_config ?? []);
     }
 
     /**

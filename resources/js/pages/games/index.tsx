@@ -7,14 +7,16 @@ import {
     Trophy,
 } from 'lucide-react';
 import type { ComponentType, ReactNode } from 'react';
+import { Chip } from '@/components/ui/chip';
+import { scoringRules } from '@/lib/scoring';
 import { show } from '@/routes/games';
-import type { GameSummary } from '@/types/games';
+import type { GameListItem } from '@/types/games';
 
 interface GamesIndexProps {
-    games: GameSummary[];
+    games: GameListItem[];
 }
 
-function formatDates(game: GameSummary): string | null {
+function formatDates(game: GameListItem): string | null {
     if (!game.starts_on) {
         return null;
     }
@@ -47,7 +49,53 @@ function StatusBadge({ status }: { status: string }) {
     );
 }
 
-function FeaturedCard({ game }: { game: GameSummary }) {
+function SourceTag({ source }: { source: string }) {
+    return (
+        <span className="inline-flex items-center gap-1.5 text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">
+            <span className="opacity-70">Game by</span>
+            <span className="bg-gold-gradient rounded-full px-3 py-1 font-display text-sm font-bold tracking-normal text-[#0D2E23] normal-case shadow-[var(--sh-sm)]">
+                {source}
+            </span>
+        </span>
+    );
+}
+
+/**
+ * How a game scores: the strategy name, a one-line explanation, and the per-rule points so a
+ * player can tell games over the same competition apart before entering.
+ */
+function ScoringSummary({ game }: { game: GameListItem }) {
+    const rules = [
+        ...scoringRules(game.scoring_config, 'group'),
+        ...scoringRules(game.scoring_config, 'knockout'),
+    ];
+
+    return (
+        <div className="flex flex-col gap-3">
+            <Chip variant="points" className="w-fit px-3 py-1 text-xs">
+                {game.scoring_label}
+            </Chip>
+            <p className="text-sm text-muted-foreground">
+                {game.scoring_description}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+                {rules.map((rule) => (
+                    <span
+                        key={rule.label}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-secondary-foreground"
+                    >
+                        {rule.label}
+                        <b className="font-display text-primary">
+                            +{rule.points}
+                        </b>
+                    </span>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function FeaturedCard({ game }: { game: GameListItem }) {
     const dates = formatDates(game);
 
     return (
@@ -57,11 +105,9 @@ function FeaturedCard({ game }: { game: GameSummary }) {
         >
             <div className="hero relative flex flex-col justify-between gap-6 overflow-hidden border-b border-border p-8 md:border-r md:border-b-0">
                 <div className="hero-lines" />
-                <div className="relative flex items-center gap-2.5">
+                <div className="relative flex flex-wrap items-center gap-2.5">
                     <StatusBadge status={game.status} />
-                    <span className="text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">
-                        Featured
-                    </span>
+                    <SourceTag source={game.source} />
                 </div>
                 <div className="relative">
                     <h2 className="text-4xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl">
@@ -96,13 +142,10 @@ function FeaturedCard({ game }: { game: GameSummary }) {
                     )}
                 </div>
 
-                <p className="text-sm text-muted-foreground">
-                    Predict every scoreline, ride the bracket, and climb the
-                    pool table. Lock in your picks before kick-off.
-                </p>
+                <ScoringSummary game={game} />
 
                 <span className="bg-brand-gradient shadow-glow inline-flex w-fit items-center gap-2 rounded-full px-6 py-3 font-display text-base font-semibold text-white transition-all group-hover:gap-3">
-                    Enter tournament
+                    Enter game
                     <ArrowRight className="size-5" />
                 </span>
             </div>
@@ -110,7 +153,7 @@ function FeaturedCard({ game }: { game: GameSummary }) {
     );
 }
 
-function GameCard({ game }: { game: GameSummary }) {
+function GameCard({ game }: { game: GameListItem }) {
     const dates = formatDates(game);
 
     return (
@@ -130,12 +173,16 @@ function GameCard({ game }: { game: GameSummary }) {
                 <h3 className="font-display text-lg font-semibold tracking-tight">
                     {game.name}
                 </h3>
-                {dates && (
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        {dates}
-                    </p>
-                )}
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <SourceTag source={game.source} />
+                    {dates && (
+                        <span className="text-sm text-muted-foreground">
+                            {dates}
+                        </span>
+                    )}
+                </div>
             </div>
+            <ScoringSummary game={game} />
             <span className="inline-flex items-center gap-1 font-display text-sm font-semibold text-primary transition-all group-hover:gap-2">
                 Enter
                 <ArrowRight className="size-4" />
@@ -149,7 +196,7 @@ function ComingSoon() {
         <div className="flex min-h-44 flex-col items-center justify-center gap-2 rounded-3xl border border-dashed border-border p-6 text-center">
             <Sparkles className="size-5 text-muted-foreground" />
             <p className="text-sm font-medium text-muted-foreground">
-                More tournaments coming soon
+                More games coming soon
             </p>
         </div>
     );
@@ -160,7 +207,7 @@ export default function GamesIndex({ games }: GamesIndexProps) {
 
     return (
         <>
-            <Head title="Tournaments" />
+            <Head title="Games" />
             <div className="relative min-h-full bg-background">
                 <div className="relative mx-auto w-full max-w-6xl px-6 py-10">
                     <header className="hero relative mb-8 overflow-hidden rounded-3xl border border-border p-8">
@@ -168,14 +215,15 @@ export default function GamesIndex({ games }: GamesIndexProps) {
                         <div className="relative flex flex-col gap-3">
                             <span className="inline-flex w-fit items-center gap-2 text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">
                                 <span className="bg-brand-gradient size-2 rounded-full" />
-                                FF&amp;A Betting Pool
+                                Brothers Betting Pool
                             </span>
                             <h1 className="text-4xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl">
-                                Choose your tournament
+                                Choose your game
                             </h1>
                             <p className="max-w-xl text-base text-muted-foreground">
-                                Pick a competition to view the draw, follow the
-                                bracket, and get your predictions in.
+                                Pick a game to view the draw, follow the
+                                bracket, and get your predictions in. Each one
+                                scores its own way.
                             </p>
                         </div>
                     </header>
@@ -184,7 +232,7 @@ export default function GamesIndex({ games }: GamesIndexProps) {
                         <FeaturedCard game={featured} />
                     ) : (
                         <p className="text-sm text-muted-foreground">
-                            No tournaments are available yet.
+                            No games are available yet.
                         </p>
                     )}
 

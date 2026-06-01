@@ -7,6 +7,7 @@ use App\Enums\ProposalStatus;
 use App\Http\Requests\Tournaments\ApproveScoreBatchRequest;
 use App\Http\Requests\Tournaments\UpdateScoreProposalRequest;
 use App\Models\Fixture;
+use App\Models\Game;
 use App\Models\ScoreBatch;
 use App\Models\ScoreProposal;
 use App\Models\Team;
@@ -21,8 +22,9 @@ class ScoreReviewController extends Controller
     /**
      * The admin screen for reviewing, editing and approving a batch of proposed official scores.
      */
-    public function review(Tournament $tournament): Response
+    public function review(Game $game): Response
     {
+        $tournament = $game->tournament;
         $batch = $this->currentOpenBatch($tournament);
         $proposals = $batch?->proposals()->get()->keyBy('fixture_id') ?? collect();
 
@@ -36,8 +38,8 @@ class ScoreReviewController extends Controller
 
         return Inertia::render('games/scores/review', [
             'game' => [
-                'slug' => $tournament->slug,
-                'name' => $tournament->name,
+                'slug' => $game->slug,
+                'name' => $game->name,
             ],
             'rows' => $fixtures->map(function (Fixture $fixture) use ($proposals): array {
                 /** @var ScoreProposal|null $proposal */
@@ -71,11 +73,11 @@ class ScoreReviewController extends Controller
     /**
      * Create or update the proposed score for one fixture in the tournament's open batch.
      */
-    public function updateProposal(UpdateScoreProposalRequest $request, Tournament $tournament, Fixture $fixture): RedirectResponse
+    public function updateProposal(UpdateScoreProposalRequest $request, Game $game, Fixture $fixture): RedirectResponse
     {
-        abort_unless($fixture->tournament_id === $tournament->id, 404);
+        abort_unless($fixture->tournament_id === $game->tournament->id, 404);
 
-        $batch = $this->ensureOpenBatch($tournament);
+        $batch = $this->ensureOpenBatch($game->tournament);
         $validated = $request->validated();
 
         ScoreProposal::updateOrCreate(
@@ -96,13 +98,13 @@ class ScoreReviewController extends Controller
     /**
      * Approve the open batch: write the scores, project the bracket, score everyone and rank.
      */
-    public function approve(ApproveScoreBatchRequest $request, Tournament $tournament, ApproveScoreBatch $action): RedirectResponse
+    public function approve(ApproveScoreBatchRequest $request, Game $game, ApproveScoreBatch $action): RedirectResponse
     {
         $action->approve($request->openBatch(), $request->user());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Results approved and points updated.')]);
 
-        return to_route('games.show', $tournament);
+        return to_route('games.show', $game);
     }
 
     private function currentOpenBatch(Tournament $tournament): ?ScoreBatch

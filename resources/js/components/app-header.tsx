@@ -36,7 +36,7 @@ type Props = {
 
 const mainNavItems: NavItem[] = [
     {
-        title: 'Tournaments',
+        title: 'Games',
         href: games(),
         icon: Trophy,
     },

@@ -26,14 +26,14 @@ export default function Welcome() {
 
                 <nav className="relative z-10 mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-7">
                     <span className="inline-flex items-baseline font-display text-xl font-semibold tracking-tight text-foreground">
-                        FF<span className="text-gold">&amp;</span>A
+                        Brothers
                         <span className="ml-2 text-[10px] font-bold tracking-[0.22em] text-muted-foreground uppercase">
                             Betting Pool
                         </span>
                     </span>
                     <Button asChild size="sm" variant="outline">
                         <Link href={authed ? games() : login()}>
-                            {authed ? 'Tournaments' : 'Log in'}
+                            {authed ? 'Games' : 'Log in'}
                         </Link>
                     </Button>
                 </nav>
@@ -52,13 +52,13 @@ export default function Welcome() {
                     <p className="mt-6 max-w-xl text-lg leading-relaxed text-pretty text-muted-foreground">
                         Predict the fixtures, climb the leaderboard, and settle
                         the bragging rights. The private betting pool for the
-                        FF&amp;A crew — every match, every season.
+                        Brothers crew — every match, every season.
                     </p>
 
                     <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row">
                         <Button asChild size="lg" className="group">
                             <Link href={authed ? games() : login()}>
-                                {authed ? 'Go to Tournaments' : 'Log in'}
+                                {authed ? 'Go to Games' : 'Log in'}
                                 <span className="transition-transform group-hover:translate-x-1">
                                     →
                                 </span>
@@ -89,7 +89,7 @@ export default function Welcome() {
                 </main>
 
                 <footer className="relative z-10 mx-auto w-full max-w-6xl px-6 py-8 text-center text-sm text-muted-foreground">
-                    FF&amp;A Betting Pool — a private members' pool.
+                    Brothers Betting Pool — a private members' pool.
                 </footer>
             </div>
         </>

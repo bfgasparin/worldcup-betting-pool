@@ -3,21 +3,21 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Tournaments\TransitionTournamentRequest;
-use App\Models\Tournament;
+use App\Models\Game;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 
 class TransitionTournamentController extends Controller
 {
     /**
-     * Advance (or correct) a tournament's lifecycle status.
+     * Advance (or correct) the lifecycle status of the competition a game is played over.
      */
-    public function __invoke(TransitionTournamentRequest $request, Tournament $tournament): RedirectResponse
+    public function __invoke(TransitionTournamentRequest $request, Game $game): RedirectResponse
     {
-        $tournament->transitionTo($request->targetStatus());
+        $game->tournament->transitionTo($request->targetStatus());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Tournament status updated.')]);
 
-        return to_route('games.show', $tournament);
+        return to_route('games.show', $game);
     }
 }

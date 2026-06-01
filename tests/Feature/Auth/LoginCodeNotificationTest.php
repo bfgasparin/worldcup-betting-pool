@@ -47,7 +47,7 @@ class LoginCodeNotificationTest extends TestCase
         $this->assertStringContainsString('Your login code', $html);
         $this->assertStringContainsString('Secure sign-in', $html);
         $this->assertStringContainsString('player@example.com', $html);
-        // Brand markers from the reusable shell: pitch-green brand bar + gold wordmark ampersand.
+        // Brand markers from the reusable shell: pitch-green brand bar + gold wordmark accent.
         $this->assertStringContainsString('#0FA968', strtoupper($html));
         $this->assertStringContainsString('#FFC23C', strtoupper($html));
     }
@@ -61,7 +61,7 @@ class LoginCodeNotificationTest extends TestCase
         ])->render();
 
         $this->assertStringContainsString('482915', $text);
-        $this->assertStringContainsString('FF&A', $text);
+        $this->assertStringContainsString('Brothers Betting Pool', $text);
         $this->assertStringContainsString((string) SendLoginCode::TTL_MINUTES, $text);
     }
 }

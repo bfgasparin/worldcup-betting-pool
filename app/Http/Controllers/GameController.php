@@ -5,11 +5,11 @@ namespace App\Http\Controllers;
 use App\Enums\TournamentStatus;
 use App\Models\Entry;
 use App\Models\Fixture;
+use App\Models\Game;
 use App\Models\Group;
 use App\Models\GroupPrediction;
 use App\Models\KnockoutPrediction;
 use App\Models\Team;
-use App\Models\Tournament;
 use App\Services\Predictions\GroupStandings;
 use App\Services\Predictions\TeamStanding;
 use Illuminate\Http\Request;
@@ -24,14 +24,19 @@ class GameController extends Controller
      */
     public function index(): Response
     {
-        $games = Tournament::query()
-            ->withCount(['groups', 'fixtures'])
-            ->orderByDesc('starts_on')
+        $games = Game::query()
+            ->with(['tournament' => fn ($query) => $query->withCount(['groups', 'fixtures'])])
             ->get()
-            ->map(fn (Tournament $tournament): array => [
-                ...$this->gameHeader($tournament),
-                'groups_count' => $tournament->groups_count,
-                'fixtures_count' => $tournament->fixtures_count,
+            ->sortByDesc(fn (Game $game): ?string => $game->tournament->starts_on?->toDateString())
+            ->values()
+            ->map(fn (Game $game): array => [
+                ...$this->gameHeader($game),
+                'scoring_strategy' => $game->scoring_strategy->value,
+                'scoring_label' => $game->scoring_strategy->label(),
+                'scoring_description' => $game->scoring_strategy->description(),
+                'scoring_config' => $game->scoring_config,
+                'groups_count' => $game->tournament->groups_count,
+                'fixtures_count' => $game->tournament->fixtures_count,
             ]);
 
         return Inertia::render('games/index', ['games' => $games]);
@@ -41,8 +46,10 @@ class GameController extends Controller
      * Show a single game's structure: groups, fixtures and the knockout bracket, plus the
      * viewer's pool standing for the dashboard banner.
      */
-    public function show(Request $request, Tournament $tournament): Response
+    public function show(Request $request, Game $game): Response
     {
+        $tournament = $game->tournament;
+
         $tournament->load([
             'groups.teams',
             'groups.fixtures' => fn ($query) => $query->orderBy('match_number'),
@@ -57,8 +64,8 @@ class GameController extends Controller
 
         // The viewer's own picks, so each fixture can show its predicted scoreline alongside the
         // official result and the points it earned. Knockout picks carry their predicted teams so
-        // an upfront-bracket tournament can show the match-up the player called.
-        $entry = $tournament->entries()
+        // an upfront-bracket game can show the match-up the player called.
+        $entry = $game->entries()
             ->where('user_id', $request->user()->id)
             ->with([
                 'groupPredictions',
@@ -71,8 +78,8 @@ class GameController extends Controller
 
         return Inertia::render('games/show', [
             'game' => [
-                ...$this->gameHeader($tournament),
-                'scoring_config' => $tournament->scoring_config,
+                ...$this->gameHeader($game),
+                'scoring_config' => $game->scoring_config,
                 'allowed_transitions' => array_map(
                     fn (TournamentStatus $status): string => $status->value,
                     $tournament->status->allowedTransitions(),
@@ -82,8 +89,8 @@ class GameController extends Controller
             'groups' => $tournament->groups->map(
                 fn (Group $group): array => $this->mapGroup($group, $groupPredictions),
             ),
-            'bracket' => $this->mapBracket($tournament->knockoutFixtures, $knockoutPredictions, $tournament->predictsKnockoutBracket()),
-            'pool' => $this->poolSummary($tournament, $request->user()->id),
+            'bracket' => $this->mapBracket($tournament->knockoutFixtures, $knockoutPredictions, $game->predictsKnockoutBracket()),
+            'pool' => $this->poolSummary($game, $request->user()->id),
         ]);
     }
 
@@ -91,25 +98,25 @@ class GameController extends Controller
      * The full pool table — every entry ranked by total points (unscored entries last).
      * Until results land, points are null and the page leads with an explainer state.
      */
-    public function leaderboard(Request $request, Tournament $tournament): Response
+    public function leaderboard(Request $request, Game $game): Response
     {
-        $rows = $this->rankedEntries($tournament, $request->user()->id);
+        $rows = $this->rankedEntries($game, $request->user()->id);
 
         return Inertia::render('games/leaderboard', [
-            'game' => $this->gameHeader($tournament),
+            'game' => $this->gameHeader($game),
             'rows' => $rows->all(),
             'has_scores' => $rows->contains(fn (array $row): bool => $row['points'] !== null),
         ]);
     }
 
     /**
-     * Rank a tournament's entries by total points, marking the current user's row.
+     * Rank a game's entries by total points, marking the current user's row.
      *
      * @return Collection<int, array{rank: int, name: string, initials: string, points: ?int, is_me: bool}>
      */
-    private function rankedEntries(Tournament $tournament, int $userId): Collection
+    private function rankedEntries(Game $game, int $userId): Collection
     {
-        return $tournament->entries()
+        return $game->entries()
             ->with('user')
             ->orderBy('id')
             ->get()
@@ -148,14 +155,14 @@ class GameController extends Controller
     }
 
     /**
-     * A compact pool snapshot for the tournament dashboard: the viewer's standing plus the
+     * A compact pool snapshot for the game dashboard: the viewer's standing plus the
      * top of the table.
      *
      * @return array{participants: int, has_scores: bool, me: ?array<string, mixed>, top: list<array<string, mixed>>}
      */
-    private function poolSummary(Tournament $tournament, int $userId): array
+    private function poolSummary(Game $game, int $userId): array
     {
-        $rows = $this->rankedEntries($tournament, $userId);
+        $rows = $this->rankedEntries($game, $userId);
 
         return [
             'participants' => $rows->count(),
@@ -181,15 +188,20 @@ class GameController extends Controller
     }
 
     /**
-     * Shared header fields for a tournament across the games screens.
+     * Shared header fields for a game across the games screens. The game carries its own
+     * identity (slug/name/source) while the lifecycle, sport and dates come from the shared
+     * competition it is played over.
      *
-     * @return array{slug: string, name: string, sport: string, status: string, starts_on: ?string, ends_on: ?string}
+     * @return array{slug: string, name: string, source: string, sport: string, status: string, starts_on: ?string, ends_on: ?string}
      */
-    private function gameHeader(Tournament $tournament): array
+    private function gameHeader(Game $game): array
     {
+        $tournament = $game->tournament;
+
         return [
-            'slug' => $tournament->slug,
-            'name' => $tournament->name,
+            'slug' => $game->slug,
+            'name' => $game->name,
+            'source' => $game->source,
             'sport' => $tournament->sport->value,
             'status' => $tournament->status->value,
             'starts_on' => $tournament->starts_on?->toDateString(),
