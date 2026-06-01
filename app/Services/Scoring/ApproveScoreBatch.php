@@ -23,6 +23,7 @@ class ApproveScoreBatch
         private readonly OfficialBracketProjector $projector = new OfficialBracketProjector,
         private readonly ScoreEngine $engine = new ScoreEngine,
         private readonly RankSnapshotter $snapshotter = new RankSnapshotter,
+        private readonly LeaderboardNotifier $notifier = new LeaderboardNotifier,
     ) {}
 
     public function approve(ScoreBatch $batch, User $approver): void
@@ -51,6 +52,9 @@ class ApproveScoreBatch
             $this->engine->recompute($tournament);
             $this->snapshotter->snapshot($tournament);
         });
+
+        // Ranks are committed; email players about milestones and significant moves.
+        $this->notifier->notify($tournament);
     }
 
     private function applyToFixture(ScoreProposal $proposal): void
