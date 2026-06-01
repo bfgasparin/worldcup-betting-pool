@@ -16,6 +16,9 @@ use App\Services\Predictions\BracketResolver;
 use App\Services\Predictions\OfficialBracketProjector;
 use App\Services\Scoring\RankSnapshotter;
 use App\Services\Scoring\ScoreEngine;
+use App\Support\DeterministicScores;
+use App\Support\DevClock;
+use Carbon\CarbonImmutable;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -26,12 +29,14 @@ use Illuminate\Support\Collection;
     {--players=8 : How many demo players to fabricate}
     {--me=test@example.com : Also give this user an entry so you appear on the board}
     {--through=final : Play official results through this phase (group|round_of_32|round_of_16|quarter_finals|semi_finals|third_place|final)}
+    {--until= : Play official results for matches ended on or before this datetime (UTC), e.g. "2026-06-18 22:00" — like --through but date-granular, so you can land mid-phase. Also advances the dev clock (local)}
     {--seed= : Optional seed string to generate a different but reproducible world}
+    {--predict-only : Set up players + predictions only; leave fixtures scheduled with no official results}
     {--reset : Clear official results + scoring for the tournament before simulating}')]
 #[Description('Locally simulate a closed, fully-scored tournament: demo players + predictions, official results, computed board.')]
 class SimulateTournament extends Command
 {
-    private string $seedPrefix = '';
+    private DeterministicScores $scores;
 
     public function handle(
         BracketResolver $resolver,
@@ -55,7 +60,11 @@ class SimulateTournament extends Command
             return self::FAILURE;
         }
 
-        $this->seedPrefix = (string) ($this->option('seed') ?? '');
+        $until = ($untilOption = $this->option('until')) !== null
+            ? CarbonImmutable::parse($untilOption, 'UTC')
+            : null;
+
+        $this->scores = new DeterministicScores((string) ($this->option('seed') ?? ''));
 
         if ($this->option('reset')) {
             $this->reset($tournament);
@@ -75,10 +84,19 @@ class SimulateTournament extends Command
             $this->generateKnockoutPredictions($tournament, $entry, $seedIndex, $resolver);
         }
 
-        $this->closePredictions($tournament, $through);
-        $this->playResults($tournament, $through, $projector, $engine, $snapshotter);
+        $predictOnly = (bool) $this->option('predict-only');
 
-        $this->summarise($tournament, $through);
+        $this->closePredictions($tournament, $through, $predictOnly || $until !== null);
+
+        if (! $predictOnly) {
+            $this->playResults($tournament, $through, $until, $projector, $engine, $snapshotter);
+        }
+
+        if ($until !== null) {
+            $this->advanceTo($tournament, $until);
+        }
+
+        $this->summarise($tournament, $through, $predictOnly, $until);
 
         return self::SUCCESS;
     }
@@ -210,32 +228,34 @@ class SimulateTournament extends Command
         }
     }
 
-    private function closePredictions(Tournament $tournament, PhaseKey $through): void
+    private function closePredictions(Tournament $tournament, PhaseKey $through, bool $predictOnly = false): void
     {
         $tournament->update([
             'predictions_lock_at' => now()->subDay(),
-            'status' => $through === PhaseKey::Final
+            'status' => (! $predictOnly && $through === PhaseKey::Final)
                 ? TournamentStatus::Completed
                 : TournamentStatus::InProgress,
         ]);
     }
 
     /**
-     * Play official results phase by phase up to the requested phase, re-projecting and
-     * re-scoring after each so the leaderboard movement reflects each round.
+     * Play official results, re-projecting and re-scoring after each phase so the leaderboard
+     * movement reflects each round. Bounded either by phase (--through) or, when $until is given,
+     * by match end time — filling only matches finished by that datetime, which can land mid-phase.
      */
-    private function playResults(Tournament $tournament, PhaseKey $through, OfficialBracketProjector $projector, ScoreEngine $engine, RankSnapshotter $snapshotter): void
+    private function playResults(Tournament $tournament, PhaseKey $through, ?CarbonImmutable $until, OfficialBracketProjector $projector, ScoreEngine $engine, RankSnapshotter $snapshotter): void
     {
         $throughOrder = (int) $tournament->phases()->where('key', $through->value)->value('sort_order');
 
         foreach ($tournament->phases()->orderBy('sort_order')->get() as $phase) {
-            if ($phase->sort_order > $throughOrder) {
+            // A date cutoff spans every phase; a phase cutoff stops at the requested phase.
+            if ($until === null && $phase->sort_order > $throughOrder) {
                 break;
             }
 
             $phase->key === PhaseKey::Group
-                ? $this->fillGroupResults($tournament)
-                : $this->fillKnockoutResults($phase);
+                ? $this->fillGroupResults($tournament, $until)
+                : $this->fillKnockoutResults($phase, $until);
 
             $projector->project($tournament);
             $engine->recompute($tournament);
@@ -245,7 +265,7 @@ class SimulateTournament extends Command
         }
     }
 
-    private function fillGroupResults(Tournament $tournament): void
+    private function fillGroupResults(Tournament $tournament, ?CarbonImmutable $until = null): void
     {
         foreach ($tournament->groups()->with(['teams', 'fixtures'])->get() as $group) {
             $positions = $group->teams->mapWithKeys(
@@ -253,6 +273,10 @@ class SimulateTournament extends Command
             );
 
             foreach ($group->fixtures as $fixture) {
+                if (! $this->endedBy($fixture, $until)) {
+                    continue;
+                }
+
                 $home = $this->biasedGoals($this->noise($fixture->match_number, 'oh'), $positions[$fixture->home_team_id]);
                 $away = $this->biasedGoals($this->noise($fixture->match_number, 'oa'), $positions[$fixture->away_team_id]);
 
@@ -268,7 +292,7 @@ class SimulateTournament extends Command
         }
     }
 
-    private function fillKnockoutResults(Phase $phase): void
+    private function fillKnockoutResults(Phase $phase, ?CarbonImmutable $until = null): void
     {
         $fixtures = $phase->fixtures()
             ->whereNotNull('home_team_id')
@@ -276,6 +300,10 @@ class SimulateTournament extends Command
             ->get();
 
         foreach ($fixtures as $fixture) {
+            if (! $this->endedBy($fixture, $until)) {
+                continue;
+            }
+
             $matchNumber = $fixture->match_number;
             $homeAdvances = $this->noise($matchNumber, 'kw') < 0.5;
             $winnerId = $homeAdvances ? $fixture->home_team_id : $fixture->away_team_id;
@@ -309,8 +337,55 @@ class SimulateTournament extends Command
         }
     }
 
-    private function summarise(Tournament $tournament, PhaseKey $through): void
+    /**
+     * Whether a fixture's match has finished by the given cutoff (null cutoff = always).
+     */
+    private function endedBy(Fixture $fixture, ?CarbonImmutable $until): bool
     {
+        if ($until === null) {
+            return true;
+        }
+
+        return $fixture->kicks_off_at !== null
+            && $until->gte($fixture->kicks_off_at->addMinutes((int) config('scoring.match_duration_minutes')));
+    }
+
+    /**
+     * Move the simulated world to the cutoff date: bring matches that have kicked off but aren't
+     * finished to live (so the "ended" gate opens as the clock reaches them), and set the local
+     * dev clock so web requests and the scheduler share the same simulated "now".
+     */
+    private function advanceTo(Tournament $tournament, CarbonImmutable $until): void
+    {
+        $tournament->fixtures()
+            ->where('status', FixtureStatus::Scheduled)
+            ->whereNotNull('kicks_off_at')
+            ->where('kicks_off_at', '<=', $until)
+            ->update(['status' => FixtureStatus::Live]);
+
+        if ($this->getLaravel()->environment('local')) {
+            DevClock::travelTo($until);
+        }
+    }
+
+    private function summarise(Tournament $tournament, PhaseKey $through, bool $predictOnly = false, ?CarbonImmutable $until = null): void
+    {
+        if ($predictOnly) {
+            $players = $tournament->entries()->count();
+            $this->newLine();
+            $this->components->info("Set up {$players} players with predictions for {$tournament->name} — no results filled.");
+
+            if ($until !== null) {
+                $this->components->info("Clock moved to {$until->toDayDateTimeString()} UTC; matches finished by then are awaiting scores. Run `php artisan scores:fetch` (set SCORING_SIMULATED_PROVIDER=true) or use the review screen to enter them.");
+            } else {
+                $this->components->info('Advance time and let results land: `php artisan dev:clock --travel="2026-06-11 12:00"`, then `fixtures:tick` + `scores:fetch` as the clock moves (set SCORING_SIMULATED_PROVIDER=true to have the fetch propose).');
+            }
+
+            $this->components->info("Log in at /login as {$this->option('me')} — the 6-digit code is written to the log (`php artisan pail`).");
+
+            return;
+        }
+
         $top = $tournament->entries()
             ->with('user')
             ->orderByRaw('total_points IS NULL, total_points DESC, id')
@@ -318,7 +393,9 @@ class SimulateTournament extends Command
             ->get();
 
         $this->newLine();
-        $this->components->info("Simulated {$tournament->name} through the {$through->value} phase.");
+        $this->components->info($until !== null
+            ? "Simulated {$tournament->name} up to {$until->toDayDateTimeString()} UTC."
+            : "Simulated {$tournament->name} through the {$through->value} phase.");
 
         $this->table(
             ['Rank', 'Player', 'Points', 'Move'],
@@ -352,23 +429,13 @@ class SimulateTournament extends Command
         return (int) floor($this->noise(...$seedParts) * 4); // 0–3
     }
 
-    /**
-     * Nudge goals (0–3) by group seed: a better-seeded team (lower position) skews higher.
-     */
     private function biasedGoals(float $noise, int $position): int
     {
-        $strength = (4 - $position) * 0.4; // 0 (4th seed) … 1.2 (top seed)
-
-        return (int) max(0, min(3, round($noise * 3 + $strength - 0.6)));
+        return $this->scores->biasedGoals($noise, $position);
     }
 
-    /**
-     * A deterministic value in [0, 1) from the seed parts (so a given run is reproducible).
-     */
     private function noise(int|string ...$parts): float
     {
-        $hash = crc32($this->seedPrefix.':'.implode(':', $parts));
-
-        return ($hash % 100000) / 100000;
+        return $this->scores->noise(...$parts);
     }
 }

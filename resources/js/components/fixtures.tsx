@@ -205,89 +205,32 @@ export function PointsBadge({ points }: { points: number | null }) {
 function MatchRow({ fixture }: { fixture: GroupFixture }) {
     const tz = useDisplayTimeZone();
     const { home_goals: homeGoals, away_goals: awayGoals } = fixture;
+    const settled = homeGoals !== null && awayGoals !== null;
+    const outcome = settled ? goalOutcome(homeGoals, awayGoals) : null;
 
-    // Settled: lead with the official score, the viewer's pick below, and the points it earned.
-    if (homeGoals !== null && awayGoals !== null) {
-        const outcome = goalOutcome(homeGoals, awayGoals);
-
-        return (
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-t border-border py-2.5 first:border-t-0">
-                <div className="min-w-0">
-                    {fixture.kicks_off_at && (
-                        <div className="font-display text-[11px] font-semibold whitespace-nowrap text-muted-foreground">
-                            {formatMatchDate(fixture.kicks_off_at, tz)} ·{' '}
-                            {formatMatchTime(fixture.kicks_off_at, tz)}
-                        </div>
-                    )}
-                    {fixture.venue && (
-                        <div className="truncate text-[11px] text-muted-foreground">
-                            {venueLabel(fixture.venue)}
-                        </div>
-                    )}
-                </div>
-
-                {/* Official score in the centre, the viewer's pick directly beneath it. */}
-                <div className="flex min-w-0 flex-col items-center gap-0.5">
-                    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                        <span
-                            className={cn(
-                                'flex min-w-0 items-center justify-end gap-1.5 text-sm',
-                                outcome === 'home'
-                                    ? 'font-extrabold text-foreground'
-                                    : 'font-semibold text-muted-foreground',
-                            )}
-                        >
-                            <span className="truncate">
-                                {teamCode(fixture.home)}
-                            </span>
-                            <Flag team={fixture.home} className="h-4 w-6" />
-                        </span>
-                        <span className="text-center font-display text-base font-semibold tabular-nums">
-                            {homeGoals}–{awayGoals}
-                        </span>
-                        <span
-                            className={cn(
-                                'flex min-w-0 items-center gap-1.5 text-sm',
-                                outcome === 'away'
-                                    ? 'font-extrabold text-foreground'
-                                    : 'font-semibold text-muted-foreground',
-                            )}
-                        >
-                            <Flag team={fixture.away} className="h-4 w-6" />
-                            <span className="truncate">
-                                {teamCode(fixture.away)}
-                            </span>
-                        </span>
-                    </div>
-                    {fixture.prediction ? (
-                        <div className="text-[11px] text-muted-foreground">
-                            You{' '}
-                            <span className="font-semibold tabular-nums">
-                                {fixture.prediction.home_goals}–
-                                {fixture.prediction.away_goals}
-                            </span>
-                        </div>
-                    ) : (
-                        <div className="text-[11px] font-medium text-muted-foreground/70">
-                            No prediction
-                        </div>
-                    )}
-                </div>
-
-                <div className="justify-self-end">
-                    <PointsBadge
-                        points={fixture.prediction?.points_awarded ?? null}
-                    />
-                </div>
-            </div>
-        );
-    }
+    // Whichever state, the match-up sits in the centre with the viewer's pick directly beneath it,
+    // and the right column is reserved for the points badge (a muted dash until the match is scored).
+    const homeClass = !settled
+        ? 'font-bold'
+        : outcome === 'home'
+          ? 'font-extrabold text-foreground'
+          : 'font-semibold text-muted-foreground';
+    const awayClass = !settled
+        ? 'font-bold'
+        : outcome === 'away'
+          ? 'font-extrabold text-foreground'
+          : 'font-semibold text-muted-foreground';
 
     return (
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-t border-border py-2.5 first:border-t-0">
             <div className="min-w-0">
                 {fixture.kicks_off_at && (
-                    <div className="font-display text-[11px] font-semibold whitespace-nowrap">
+                    <div
+                        className={cn(
+                            'font-display text-[11px] font-semibold whitespace-nowrap',
+                            settled && 'text-muted-foreground',
+                        )}
+                    >
                         {formatMatchDate(fixture.kicks_off_at, tz)} ·{' '}
                         {formatMatchTime(fixture.kicks_off_at, tz)}
                     </div>
@@ -299,32 +242,59 @@ function MatchRow({ fixture }: { fixture: GroupFixture }) {
                 )}
             </div>
 
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                <span className="flex min-w-0 items-center justify-end gap-1.5 text-sm font-bold">
-                    <span className="truncate">{teamCode(fixture.home)}</span>
-                    <Flag team={fixture.home} className="h-4 w-6" />
-                </span>
-                <span className="text-center font-display text-xs text-muted-foreground">
-                    v
-                </span>
-                <span className="flex min-w-0 items-center gap-1.5 text-sm font-bold">
-                    <Flag team={fixture.away} className="h-4 w-6" />
-                    <span className="truncate">{teamCode(fixture.away)}</span>
-                </span>
+            <div className="flex min-w-0 flex-col items-center gap-0.5">
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                    <span
+                        className={cn(
+                            'flex min-w-0 items-center justify-end gap-1.5 text-sm',
+                            homeClass,
+                        )}
+                    >
+                        <span className="truncate">
+                            {teamCode(fixture.home)}
+                        </span>
+                        <Flag team={fixture.home} className="h-4 w-6" />
+                    </span>
+                    {settled ? (
+                        <span className="text-center font-display text-base font-semibold tabular-nums">
+                            {homeGoals}–{awayGoals}
+                        </span>
+                    ) : (
+                        <span className="text-center font-display text-xs text-muted-foreground">
+                            v
+                        </span>
+                    )}
+                    <span
+                        className={cn(
+                            'flex min-w-0 items-center gap-1.5 text-sm',
+                            awayClass,
+                        )}
+                    >
+                        <Flag team={fixture.away} className="h-4 w-6" />
+                        <span className="truncate">
+                            {teamCode(fixture.away)}
+                        </span>
+                    </span>
+                </div>
+                {fixture.prediction ? (
+                    <div className="text-[11px] text-muted-foreground">
+                        You{' '}
+                        <span className="font-semibold tabular-nums">
+                            {fixture.prediction.home_goals}–
+                            {fixture.prediction.away_goals}
+                        </span>
+                    </div>
+                ) : (
+                    <div className="text-[11px] font-medium text-muted-foreground/70">
+                        No prediction
+                    </div>
+                )}
             </div>
 
             <div className="justify-self-end">
-                {fixture.prediction ? (
-                    <span className="inline-flex items-center gap-1.5 font-display text-sm font-semibold text-pitch-deep tabular-nums dark:text-primary">
-                        <span className="size-1.5 rounded-full bg-primary" />
-                        {fixture.prediction.home_goals}–
-                        {fixture.prediction.away_goals}
-                    </span>
-                ) : (
-                    <span className="text-sm font-semibold text-muted-foreground">
-                        —
-                    </span>
-                )}
+                <PointsBadge
+                    points={fixture.prediction?.points_awarded ?? null}
+                />
             </div>
         </div>
     );
@@ -515,14 +485,19 @@ function PredictedMatchup({
     );
 }
 
-/** The settled-card footer: the viewer's pick and the points it earned. */
+/**
+ * The knockout-card footer: the viewer's pick and, once the match is scored, the points it earned.
+ * Set `showPoints` to false for an unplayed match, where there is no score yet — the footer then
+ * just previews the match-up the player called.
+ */
 function PredictionFoot({
     prediction,
+    showPoints = true,
 }: {
     prediction: BracketFixture['prediction'];
+    showPoints?: boolean;
 }) {
-    const hasTeams =
-        prediction != null && prediction.predicted_home != null;
+    const hasTeams = prediction != null && prediction.predicted_home != null;
     const hasPick =
         prediction != null &&
         prediction.home_goals !== null &&
@@ -535,7 +510,11 @@ function PredictionFoot({
                     <span className="text-[11px] font-medium text-muted-foreground">
                         Your pick
                     </span>
-                    <PointsBadge points={prediction.points_awarded ?? null} />
+                    {showPoints && (
+                        <PointsBadge
+                            points={prediction.points_awarded ?? null}
+                        />
+                    )}
                 </div>
                 <PredictedMatchup prediction={prediction} />
             </div>
@@ -637,6 +616,13 @@ export function KnockoutSlotCard({ fixture }: { fixture: BracketFixture }) {
                 <span className="h-px flex-1 bg-border" />
             </div>
             <KnockoutSlot team={fixture.away} label={fixture.away_label} />
+            {/* Upfront-bracket tournaments: preview the player's pick before the match-up is set. */}
+            {fixture.prediction?.predicted_home != null && (
+                <PredictionFoot
+                    prediction={fixture.prediction}
+                    showPoints={false}
+                />
+            )}
         </div>
     );
 }
@@ -806,7 +792,9 @@ export function FinalCard({ fixture }: { fixture: BracketFixture }) {
                                     'No prediction'
                                 )}
                             </span>
-                            <FinalPoints points={pick?.points_awarded ?? null} />
+                            <FinalPoints
+                                points={pick?.points_awarded ?? null}
+                            />
                         </div>
                     )}
                 </div>
@@ -836,6 +824,18 @@ export function FinalCard({ fixture }: { fixture: BracketFixture }) {
                     </span>
                     <FinalSlot team={fixture.away} label={fixture.away_label} />
                 </div>
+                {/* Upfront-bracket tournaments: preview the final the player called. */}
+                {fixture.prediction?.predicted_home != null && (
+                    <div className="mt-6 border-t border-white/10 pt-4">
+                        <div className="text-sm font-medium text-white/60">
+                            Your pick
+                        </div>
+                        <PredictedMatchup
+                            prediction={fixture.prediction}
+                            tone="dark"
+                        />
+                    </div>
+                )}
             </div>
         </div>
     );

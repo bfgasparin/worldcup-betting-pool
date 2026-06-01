@@ -16,6 +16,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withSchedule(function (Schedule $schedule): void {
+        // Move fixtures from scheduled to live as their kickoff passes, so the "match has
+        // ended" gate (live + past full time) can open for score entry.
+        $schedule->command('fixtures:tick')->everyMinute()->withoutOverlapping();
+
         // Pull fresh match scores into a pending review batch every half hour. Real results
         // only exist once the tournament is under way; until then this is a cheap no-op.
         $schedule->command('scores:fetch')->everyThirtyMinutes()->withoutOverlapping();
