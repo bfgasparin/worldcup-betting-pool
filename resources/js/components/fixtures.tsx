@@ -385,9 +385,16 @@ function KnockoutSlot({
     );
 }
 
-function AdvanceChip() {
+function AdvanceChip({ tone = 'light' }: { tone?: 'light' | 'dark' }) {
     return (
-        <span className="font-body inline-flex shrink-0 items-center rounded-full bg-primary/15 px-2 py-0.5 text-[9.5px] font-bold tracking-wide text-pitch-deep uppercase dark:text-primary">
+        <span
+            className={cn(
+                'font-body inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[9.5px] font-bold tracking-wide uppercase',
+                tone === 'dark'
+                    ? 'bg-gold/20 text-gold'
+                    : 'bg-primary/15 text-pitch-deep dark:text-primary',
+            )}
+        >
             Advances
         </span>
     );
@@ -449,6 +456,13 @@ function PredictedMatchup({
         prediction.advancing_team_id != null &&
         prediction.advancing_team_id === prediction.predicted_away?.id;
 
+    // On a draw the score alone doesn't reveal who the viewer picked to advance (extra time or
+    // penalties), so flag the chosen side explicitly. A decisive score speaks for itself.
+    const isDraw =
+        prediction.home_goals != null &&
+        prediction.away_goals != null &&
+        prediction.home_goals === prediction.away_goals;
+
     const advanced =
         tone === 'dark' ? 'font-bold text-gold' : 'font-bold text-foreground';
     const muted = tone === 'dark' ? 'text-white/60' : 'text-muted-foreground';
@@ -466,6 +480,7 @@ function PredictedMatchup({
                     {teamCode(prediction.predicted_home)}
                 </span>
                 <Flag team={prediction.predicted_home} className="h-3.5 w-5" />
+                {isDraw && advHome && <AdvanceChip tone={tone} />}
             </span>
             <span className={cn('font-display tabular-nums', score)}>
                 {prediction.home_goals ?? '–'}–{prediction.away_goals ?? '–'}
@@ -476,6 +491,7 @@ function PredictedMatchup({
                     advAway ? advanced : muted,
                 )}
             >
+                {isDraw && advAway && <AdvanceChip tone={tone} />}
                 <Flag team={prediction.predicted_away} className="h-3.5 w-5" />
                 <span className="truncate">
                     {teamCode(prediction.predicted_away)}

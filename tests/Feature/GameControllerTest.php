@@ -186,6 +186,36 @@ class GameControllerTest extends TestCase
             );
     }
 
+    public function test_show_exposes_the_advancing_team_for_a_drawn_knockout_pick(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+        $tournament = Tournament::firstOrFail();
+        $user = User::factory()->create();
+        $entry = Entry::factory()->for($tournament)->for($user)->create();
+
+        $fixture = $tournament->knockoutFixtures()->orderBy('match_number')->first();
+        [$home, $away] = Team::query()->take(2)->get()->all();
+
+        // A drawn pick where the away team was chosen to advance (extra time / penalties).
+        KnockoutPrediction::create([
+            'entry_id' => $entry->id,
+            'fixture_id' => $fixture->id,
+            'predicted_home_team_id' => $home->id,
+            'predicted_away_team_id' => $away->id,
+            'home_goals' => 1,
+            'away_goals' => 1,
+            'advancing_team_id' => $away->id,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('games.show', $tournament->slug))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('bracket.0.fixtures.0.prediction.home_goals', 1)
+                ->where('bracket.0.fixtures.0.prediction.away_goals', 1)
+                ->where('bracket.0.fixtures.0.prediction.advancing_team_id', $away->id)
+            );
+    }
+
     public function test_leaderboard_exposes_rank_movement(): void
     {
         $this->seed(WorldCup2026Seeder::class);
