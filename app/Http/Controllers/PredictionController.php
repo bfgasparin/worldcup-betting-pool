@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\EntryStatus;
 use App\Http\Requests\Predictions\UpdateGroupPredictionsRequest;
 use App\Http\Requests\Predictions\UpdateKnockoutPredictionsRequest;
 use App\Models\Entry;
@@ -40,7 +39,6 @@ class PredictionController extends Controller
         if ($entry === null && $canEdit) {
             $entry = $tournament->entries()->create([
                 'user_id' => $request->user()->id,
-                'status' => EntryStatus::Draft,
             ]);
         }
 

@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Enums\EntryStatus;
 use App\Enums\FixtureStatus;
 use App\Enums\PhaseKey;
 use App\Enums\TournamentStatus;
@@ -162,10 +161,7 @@ class SimulateTournament extends Command
 
     private function ensureEntry(Tournament $tournament, User $user): Entry
     {
-        return $tournament->entries()->firstOrCreate(
-            ['user_id' => $user->id],
-            ['status' => EntryStatus::Submitted, 'submitted_at' => now()],
-        );
+        return $tournament->entries()->firstOrCreate(['user_id' => $user->id]);
     }
 
     private function generateGroupPredictions(Tournament $tournament, Entry $entry, int $seedIndex): void

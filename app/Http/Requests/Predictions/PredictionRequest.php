@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests\Predictions;
 
-use App\Enums\EntryStatus;
 use App\Models\Entry;
 use App\Models\Tournament;
 use Illuminate\Foundation\Http\FormRequest;
@@ -32,7 +31,6 @@ abstract class PredictionRequest extends FormRequest
     {
         return $this->entry ??= Entry::firstOrCreate(
             ['tournament_id' => $this->tournament()->id, 'user_id' => $this->user()->id],
-            ['status' => EntryStatus::Draft],
         );
     }
 }

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Console;
 
-use App\Enums\EntryStatus;
 use App\Enums\FixtureStatus;
 use App\Enums\TournamentStatus;
 use App\Models\Entry;
@@ -144,7 +143,6 @@ class SimulateTournamentTest extends TestCase
         $user = User::factory()->create(['email' => 'keep-me@example.com']);
         $entry = $this->tournament->entries()->create([
             'user_id' => $user->id,
-            'status' => EntryStatus::Submitted,
         ]);
         $fixture = $this->tournament->groupFixtures()->orderBy('match_number')->first();
         GroupPrediction::create([

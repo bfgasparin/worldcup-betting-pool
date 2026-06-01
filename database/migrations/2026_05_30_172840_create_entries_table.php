@@ -15,8 +15,6 @@ return new class extends Migration
             $table->id();
             $table->foreignId('tournament_id')->constrained()->cascadeOnDelete();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->string('status')->default('draft');
-            $table->dateTime('submitted_at')->nullable();
             $table->integer('total_points')->nullable();
             $table->timestamps();
 
