@@ -274,7 +274,7 @@ class WorldCup2026Seeder extends Seeder
                 'tournament_id' => $tournament->id,
                 'name' => 'World Cup 2026',
                 'source' => 'FF&A',
-                'scoring_strategy' => ScoringStrategy::WorldCupStandard,
+                'scoring_strategy' => ScoringStrategy::UpfrontBracket,
                 'scoring_config' => [
                     'group' => [
                         'exact_score' => 20,

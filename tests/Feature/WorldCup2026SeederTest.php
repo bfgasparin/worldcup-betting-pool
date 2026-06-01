@@ -227,7 +227,7 @@ class WorldCup2026SeederTest extends TestCase
         $this->assertTrue($game->tournament->is($tournament));
         $this->assertSame('World Cup 2026', $game->name);
         $this->assertSame('FF&A', $game->source);
-        $this->assertSame(ScoringStrategy::WorldCupStandard, $game->scoring_strategy);
+        $this->assertSame(ScoringStrategy::UpfrontBracket, $game->scoring_strategy);
         $this->assertSame(20, $game->scoring_config['group']['exact_score']);
     }
 

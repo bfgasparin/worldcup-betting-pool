@@ -31,7 +31,7 @@ class GameFactory extends Factory
             'slug' => Str::slug($name),
             'name' => Str::title($name),
             'source' => fake()->company(),
-            'scoring_strategy' => ScoringStrategy::WorldCupStandard,
+            'scoring_strategy' => ScoringStrategy::UpfrontBracket,
             'scoring_config' => [
                 'group' => [
                     'exact_score' => 20,

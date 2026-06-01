@@ -18,7 +18,7 @@ class GameRelationsTest extends TestCase
     {
         $game = Game::factory()->create();
 
-        $this->assertSame(ScoringStrategy::WorldCupStandard, $game->scoring_strategy);
+        $this->assertSame(ScoringStrategy::UpfrontBracket, $game->scoring_strategy);
         $this->assertIsArray($game->scoring_config);
         $this->assertSame(20, $game->scoring_config['group']['exact_score']);
     }
@@ -39,9 +39,9 @@ class GameRelationsTest extends TestCase
         $this->assertCount(2, $game->entries);
     }
 
-    public function test_predicts_knockout_bracket_for_the_world_cup_strategy(): void
+    public function test_predicts_knockout_bracket_for_the_upfront_bracket_strategy(): void
     {
-        $game = Game::factory()->create(['scoring_strategy' => ScoringStrategy::WorldCupStandard]);
+        $game = Game::factory()->create(['scoring_strategy' => ScoringStrategy::UpfrontBracket]);
 
         $this->assertTrue($game->predictsKnockoutBracket());
     }
