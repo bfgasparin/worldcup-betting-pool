@@ -10,11 +10,12 @@ use App\Services\Scoring\ScorelineScorer;
 use App\Services\Scoring\ScoringConfig;
 
 /**
- * The standard World Cup rules: the group stage is scored on the predicted scoreline (the
- * four-tier ladder), while the knockout stage is scored per team the player correctly placed in
- * each fixture, plus per-team goal-count and champion bonuses.
+ * The upfront-bracket rules: players predict the whole tournament before kickoff, so the group
+ * stage is scored on the predicted scoreline (the four-tier ladder), while the knockout stage is
+ * scored per team the player correctly placed in each fixture of their projected bracket, plus
+ * per-team goal-count and champion bonuses.
  */
-class WorldCupStandardRules implements ScoringRules
+class UpfrontBracketRules implements ScoringRules
 {
     public function __construct(
         private readonly ScorelineScorer $scorelineScorer = new ScorelineScorer,

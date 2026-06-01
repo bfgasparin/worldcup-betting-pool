@@ -4,7 +4,7 @@ namespace App\Services\Scoring;
 
 use App\Enums\ScoringStrategy;
 use App\Services\Scoring\Strategies\ScoringRules;
-use App\Services\Scoring\Strategies\WorldCupStandardRules;
+use App\Services\Scoring\Strategies\UpfrontBracketRules;
 
 /**
  * Resolves the {@see ScoringRules} implementation for a tournament's scoring strategy. Adding a
@@ -16,7 +16,7 @@ class ScoringRulesFactory
     public function make(ScoringStrategy $strategy): ScoringRules
     {
         return match ($strategy) {
-            ScoringStrategy::WorldCupStandard => app(WorldCupStandardRules::class),
+            ScoringStrategy::UpfrontBracket => app(UpfrontBracketRules::class),
         };
     }
 }

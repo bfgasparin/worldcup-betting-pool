@@ -58,7 +58,7 @@ class Game extends Model
      */
     public function predictsKnockoutBracket(): bool
     {
-        return $this->scoring_strategy === ScoringStrategy::WorldCupStandard;
+        return $this->scoring_strategy === ScoringStrategy::UpfrontBracket;
     }
 
     /**

@@ -4,7 +4,7 @@ namespace App\Enums;
 
 enum ScoringStrategy: string
 {
-    case WorldCupStandard = 'world-cup-standard';
+    case UpfrontBracket = 'upfront-bracket';
 
     /**
      * A short, human-readable name for the strategy, shown on the game-selection card.
@@ -12,7 +12,7 @@ enum ScoringStrategy: string
     public function label(): string
     {
         return match ($this) {
-            self::WorldCupStandard => 'World Cup Standard',
+            self::UpfrontBracket => 'Upfront Bracket',
         };
     }
 
@@ -23,7 +23,7 @@ enum ScoringStrategy: string
     public function description(): string
     {
         return match ($this) {
-            self::WorldCupStandard => 'Predict every group scoreline and ride your bracket through the knockouts — exact scores and deep runs score the most.',
+            self::UpfrontBracket => 'Predict every group scoreline and ride your bracket through the knockouts — exact scores score big, and the deeper your teams run the more they bank, capped by a bonus for the champion.',
         };
     }
 }
