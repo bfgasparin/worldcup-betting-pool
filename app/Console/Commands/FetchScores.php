@@ -51,8 +51,10 @@ class FetchScores extends Command
 
     private function fetchFor(Tournament $tournament, ScoreProvider $provider): void
     {
-        // Only matches still missing an official score are candidates for a proposal.
+        // Only ended matches still missing an official score are candidates — the fetch must
+        // never propose for a match that is not over, even if a provider offers a score for it.
         $candidates = $tournament->fixtures()
+            ->ended()
             ->whereNull('home_goals')
             ->get()
             ->keyBy('match_number');
@@ -69,7 +71,9 @@ class FetchScores extends Command
 
             $batch ??= $this->openBatch($tournament);
 
-            ScoreProposal::updateOrCreate(
+            // First in wins: never overwrite a proposal already in the batch (e.g. one an admin
+            // entered by hand). firstOrCreate only writes when no row exists for this fixture.
+            $proposal = ScoreProposal::firstOrCreate(
                 ['score_batch_id' => $batch->id, 'fixture_id' => $fixture->id],
                 [
                     'home_goals' => $proposed->homeGoals,
@@ -80,7 +84,9 @@ class FetchScores extends Command
                 ],
             );
 
-            $created++;
+            if ($proposal->wasRecentlyCreated) {
+                $created++;
+            }
         }
 
         $this->components->info($created > 0

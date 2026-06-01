@@ -65,4 +65,15 @@ class FixtureFactory extends Factory
             'status' => FixtureStatus::Finished,
         ]);
     }
+
+    /**
+     * Indicate that the match is over (live and past full time) and awaiting an official score.
+     */
+    public function ended(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => FixtureStatus::Live,
+            'kicks_off_at' => now()->subMinutes((int) config('scoring.match_duration_minutes') + 1),
+        ]);
+    }
 }

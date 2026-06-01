@@ -92,6 +92,53 @@ class SimulateTournamentTest extends TestCase
         $this->assertSame(FixtureStatus::Scheduled, $final->status);
     }
 
+    public function test_predict_only_sets_up_predictions_without_results(): void
+    {
+        $this->artisan('tournament:simulate', ['--players' => 2, '--predict-only' => true])
+            ->assertSuccessful();
+
+        $demo = $this->tournament->entries()
+            ->whereHas('user', fn ($query) => $query->where('email', 'sim-player-1@ffa.test'))
+            ->firstOrFail();
+        $this->assertSame(72, $demo->groupPredictions()->count());
+
+        // No official results were filled and no fixture was settled.
+        $this->assertSame(0, $this->tournament->fixtures()->whereNotNull('home_goals')->count());
+        $this->assertSame(0, $this->tournament->fixtures()->where('status', FixtureStatus::Finished)->count());
+        $this->assertDatabaseCount('score_batches', 0);
+
+        // Predictions are locked and the tournament is under way (not completed).
+        $this->assertTrue($this->tournament->fresh()->predictions_lock_at->isPast());
+        $this->assertSame(TournamentStatus::InProgress, $this->tournament->fresh()->status);
+    }
+
+    public function test_until_plays_results_only_up_to_a_date(): void
+    {
+        $until = '2026-06-15 00:00';
+
+        $this->artisan('tournament:simulate', ['--players' => 2, '--until' => $until])
+            ->assertSuccessful();
+
+        // Some — but not all — group matches have been played (mid-phase).
+        $finishedGroup = $this->tournament->groupFixtures()->where('status', FixtureStatus::Finished)->count();
+        $this->assertGreaterThan(0, $finishedGroup);
+        $this->assertLessThan(72, $finishedGroup);
+
+        // The knockout stage hasn't started and the final is untouched.
+        $this->assertSame(0, $this->tournament->knockoutFixtures()->where('status', FixtureStatus::Finished)->count());
+        $final = $this->tournament->fixtures()->where('match_number', 104)->firstOrFail();
+        $this->assertNull($final->home_goals);
+        $this->assertSame(FixtureStatus::Scheduled, $final->status);
+
+        // No fixture whose kickoff has passed is still scheduled — each is live or finished.
+        $this->assertSame(0, $this->tournament->fixtures()
+            ->where('status', FixtureStatus::Scheduled)
+            ->where('kicks_off_at', '<=', $until)
+            ->count());
+
+        $this->assertSame(TournamentStatus::InProgress, $this->tournament->fresh()->status);
+    }
+
     public function test_existing_predictions_are_not_overwritten(): void
     {
         $user = User::factory()->create(['email' => 'keep-me@example.com']);

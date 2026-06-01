@@ -7,6 +7,7 @@ use App\Enums\FixtureStatus;
 use App\Enums\PhaseType;
 use Database\Factories\FixtureFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -28,6 +29,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'away_feeder_outcome',
     'home_goals',
     'away_goals',
+    'home_penalties',
+    'away_penalties',
     'winner_team_id',
     'kicks_off_at',
     'venue',
@@ -53,6 +56,8 @@ class Fixture extends Model
             'away_feeder_outcome' => FeederOutcome::class,
             'home_goals' => 'integer',
             'away_goals' => 'integer',
+            'home_penalties' => 'integer',
+            'away_penalties' => 'integer',
             'kicks_off_at' => 'datetime',
             'status' => FixtureStatus::class,
         ];
@@ -146,5 +151,46 @@ class Fixture extends Model
     public function isKnockout(): bool
     {
         return $this->phase?->type === PhaseType::Knockout;
+    }
+
+    /**
+     * Whether the match has reached its scheduled kickoff.
+     */
+    public function hasKickedOff(): bool
+    {
+        return $this->kicks_off_at !== null && now()->gte($this->kicks_off_at);
+    }
+
+    /**
+     * Whether the match is over and therefore eligible for an official score.
+     *
+     * A fixture has ended once it is live and enough time has passed since
+     * kickoff to cover regulation, extra time and penalties (see
+     * config('scoring.match_duration_minutes')). This is the single gate both
+     * the admin review screen and the scheduled fetch honour — a score can
+     * only ever be entered for a match that is truly finished.
+     */
+    public function hasEnded(): bool
+    {
+        return $this->status === FixtureStatus::Live
+            && $this->kicks_off_at !== null
+            && now()->gte($this->kicks_off_at->addMinutes($this->matchDurationMinutes()));
+    }
+
+    /**
+     * Limit the query to fixtures that have ended (live and past full time).
+     *
+     * @param  Builder<Fixture>  $query
+     */
+    public function scopeEnded(Builder $query): void
+    {
+        $query->where('status', FixtureStatus::Live)
+            ->whereNotNull('kicks_off_at')
+            ->where('kicks_off_at', '<=', now()->subMinutes($this->matchDurationMinutes()));
+    }
+
+    private function matchDurationMinutes(): int
+    {
+        return (int) config('scoring.match_duration_minutes');
     }
 }

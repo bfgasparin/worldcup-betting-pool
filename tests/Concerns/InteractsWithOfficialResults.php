@@ -3,6 +3,7 @@
 namespace Tests\Concerns;
 
 use App\Enums\FixtureStatus;
+use App\Models\Fixture;
 use App\Models\Tournament;
 use App\Services\Predictions\OfficialBracketProjector;
 
@@ -12,6 +13,19 @@ use App\Services\Predictions\OfficialBracketProjector;
  */
 trait InteractsWithOfficialResults
 {
+    /**
+     * Put a fixture into an "ended" state (live, past full time) so it accepts an official score.
+     */
+    protected function markEnded(Fixture $fixture): Fixture
+    {
+        $fixture->update([
+            'status' => FixtureStatus::Live,
+            'kicks_off_at' => now()->subMinutes((int) config('scoring.match_duration_minutes') + 1),
+        ]);
+
+        return $fixture->refresh();
+    }
+
     /**
      * Record official group-stage scores by applying a position-based rule to every group
      * fixture: rule($homePosition, $awayPosition) => [homeGoals, awayGoals]. The winner is

@@ -30,8 +30,9 @@ class ScoreReviewController extends Controller
             ->with(['phase', 'homeTeam', 'awayTeam'])
             ->orderBy('match_number')
             ->get()
-            // Matches still awaiting an official result, plus any already proposed in this batch.
-            ->filter(fn (Fixture $fixture): bool => $fixture->home_goals === null || $proposals->has($fixture->id));
+            // Ended matches still awaiting an official result, plus any already proposed in this
+            // batch — a score can only be entered once a match is over.
+            ->filter(fn (Fixture $fixture): bool => ($fixture->hasEnded() && $fixture->home_goals === null) || $proposals->has($fixture->id));
 
         return Inertia::render('games/scores/review', [
             'game' => [
@@ -47,6 +48,8 @@ class ScoreReviewController extends Controller
                     'match_number' => $fixture->match_number,
                     'phase' => $fixture->phase->name,
                     'is_knockout' => $fixture->isKnockout(),
+                    'status' => $fixture->status->value,
+                    'has_ended' => $fixture->hasEnded(),
                     'kicks_off_at' => $fixture->kicks_off_at?->toIso8601String(),
                     'home' => $this->teamRef($fixture->homeTeam),
                     'away' => $this->teamRef($fixture->awayTeam),

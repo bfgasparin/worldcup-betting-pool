@@ -13,6 +13,8 @@ interface ReviewRowData {
     match_number: number;
     phase: string;
     is_knockout: boolean;
+    status: string;
+    has_ended: boolean;
     kicks_off_at: string | null;
     home: TeamRef | null;
     away: TeamRef | null;
@@ -72,14 +74,25 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
 
     const rejected = row.proposal?.status === 'rejected';
 
+    const stateLabel = row.has_ended
+        ? 'Full time'
+        : row.status === 'finished'
+          ? 'Finished'
+          : row.status === 'live'
+            ? 'Live'
+            : 'Scheduled';
+
     return (
         <div className="grid grid-cols-1 items-center gap-3 border-b border-border px-4 py-3 last:border-0 sm:grid-cols-[120px_1fr_auto]">
-            <div className="flex flex-col">
+            <div className="flex flex-col gap-1">
                 <span className="font-display text-sm font-semibold">
                     Match {row.match_number}
                 </span>
                 <span className="text-[11px] font-medium text-muted-foreground">
                     {row.phase}
+                </span>
+                <span className="inline-flex w-fit items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
+                    {stateLabel}
                 </span>
             </div>
 
@@ -234,7 +247,8 @@ export default function ScoreReview({ game, rows }: ReviewPageProps) {
                             Nothing to review
                         </p>
                         <p className="max-w-sm text-sm text-muted-foreground">
-                            Every match already has an official result.
+                            No finished matches are waiting for a score right
+                            now. Matches appear here once they have ended.
                         </p>
                     </div>
                 )}
