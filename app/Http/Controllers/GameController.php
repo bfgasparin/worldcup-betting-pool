@@ -7,6 +7,7 @@ use App\Models\Entry;
 use App\Models\Fixture;
 use App\Models\Group;
 use App\Models\GroupPrediction;
+use App\Models\KnockoutPrediction;
 use App\Models\Team;
 use App\Models\Tournament;
 use App\Services\Predictions\GroupStandings;
@@ -51,11 +52,22 @@ class GameController extends Controller
             'knockoutFixtures.phase',
             'knockoutFixtures.homeTeam',
             'knockoutFixtures.awayTeam',
+            'knockoutFixtures.winner',
         ]);
 
-        // The viewer's own group-stage picks, so each fixture can show its predicted scoreline.
-        $entry = $tournament->entries()->where('user_id', $request->user()->id)->first();
+        // The viewer's own picks, so each fixture can show its predicted scoreline alongside the
+        // official result and the points it earned. Knockout picks carry their predicted teams so
+        // an upfront-bracket tournament can show the match-up the player called.
+        $entry = $tournament->entries()
+            ->where('user_id', $request->user()->id)
+            ->with([
+                'groupPredictions',
+                'knockoutPredictions.predictedHomeTeam',
+                'knockoutPredictions.predictedAwayTeam',
+            ])
+            ->first();
         $groupPredictions = $entry?->groupPredictions->keyBy('fixture_id') ?? collect();
+        $knockoutPredictions = $entry?->knockoutPredictions->keyBy('fixture_id') ?? collect();
 
         return Inertia::render('games/show', [
             'game' => [
@@ -65,11 +77,12 @@ class GameController extends Controller
                     fn (TournamentStatus $status): string => $status->value,
                     $tournament->status->allowedTransitions(),
                 ),
+                'can_review_scores' => (bool) $request->user()?->can('manage-tournament'),
             ],
             'groups' => $tournament->groups->map(
                 fn (Group $group): array => $this->mapGroup($group, $groupPredictions),
             ),
-            'bracket' => $this->mapBracket($tournament->knockoutFixtures),
+            'bracket' => $this->mapBracket($tournament->knockoutFixtures, $knockoutPredictions, $tournament->predictsKnockoutBracket()),
             'pool' => $this->poolSummary($tournament, $request->user()->id),
         ]);
     }
@@ -109,7 +122,29 @@ class GameController extends Controller
                 'initials' => $this->initials($entry->user->name ?? ''),
                 'points' => $entry->total_points,
                 'is_me' => $entry->user_id === $userId,
+                'movement' => $this->movement($entry),
             ]);
+    }
+
+    /**
+     * Which way the entry moved on the leaderboard since the last approved batch: up, down,
+     * same, or "new" (first appearance). Null until ranks have been snapshotted at least once.
+     */
+    private function movement(Entry $entry): ?string
+    {
+        if ($entry->rank === null) {
+            return null;
+        }
+
+        if ($entry->previous_rank === null) {
+            return 'new';
+        }
+
+        return match (true) {
+            $entry->rank < $entry->previous_rank => 'up',
+            $entry->rank > $entry->previous_rank => 'down',
+            default => 'same',
+        };
     }
 
     /**
@@ -189,7 +224,11 @@ class GameController extends Controller
                     'venue' => $fixture->venue,
                     'venue_timezone' => $fixture->venue_timezone,
                     'prediction' => $prediction !== null && $prediction->home_goals !== null && $prediction->away_goals !== null
-                        ? ['home_goals' => $prediction->home_goals, 'away_goals' => $prediction->away_goals]
+                        ? [
+                            'home_goals' => $prediction->home_goals,
+                            'away_goals' => $prediction->away_goals,
+                            'points_awarded' => $prediction->points_awarded,
+                        ]
                         : null,
                 ];
             })->all(),
@@ -237,12 +276,16 @@ class GameController extends Controller
     }
 
     /**
-     * Group the knockout fixtures into bracket columns, ordered by phase progression.
+     * Group the knockout fixtures into bracket columns, ordered by phase progression. Each
+     * fixture carries the official result (teams, score, penalties, advancing team) plus the
+     * viewer's own prediction and the points it earned, so a settled card can show all three.
      *
      * @param  Collection<int, Fixture>  $fixtures
+     * @param  Collection<int, KnockoutPrediction>  $predictions  keyed by fixture id
+     * @param  bool  $showPredictedTeams  whether to expose the viewer's predicted teams (upfront brackets only)
      * @return list<array<string, mixed>>
      */
-    private function mapBracket($fixtures): array
+    private function mapBracket($fixtures, Collection $predictions, bool $showPredictedTeams): array
     {
         return $fixtures
             ->groupBy(fn (Fixture $fixture): string => $fixture->phase->key->value)
@@ -250,19 +293,34 @@ class GameController extends Controller
                 'phase_key' => $phaseFixtures->first()->phase->key->value,
                 'phase_name' => $phaseFixtures->first()->phase->name,
                 'sort_order' => $phaseFixtures->first()->phase->sort_order,
-                'fixtures' => $phaseFixtures->map(fn (Fixture $fixture): array => [
-                    'match_number' => $fixture->match_number,
-                    'bracket_slot' => $fixture->bracket_slot,
-                    'home' => $this->teamRef($fixture->homeTeam),
-                    'away' => $this->teamRef($fixture->awayTeam),
-                    'home_label' => $fixture->homeTeam?->name ?? $fixture->home_placeholder_label,
-                    'away_label' => $fixture->awayTeam?->name ?? $fixture->away_placeholder_label,
-                    'home_goals' => $fixture->home_goals,
-                    'away_goals' => $fixture->away_goals,
-                    'kicks_off_at' => $fixture->kicks_off_at?->toIso8601String(),
-                    'venue' => $fixture->venue,
-                    'venue_timezone' => $fixture->venue_timezone,
-                ])->all(),
+                'fixtures' => $phaseFixtures->map(function (Fixture $fixture) use ($predictions, $showPredictedTeams): array {
+                    $prediction = $predictions->get($fixture->id);
+
+                    return [
+                        'match_number' => $fixture->match_number,
+                        'bracket_slot' => $fixture->bracket_slot,
+                        'home' => $this->teamRef($fixture->homeTeam),
+                        'away' => $this->teamRef($fixture->awayTeam),
+                        'home_label' => $fixture->homeTeam?->name ?? $fixture->home_placeholder_label,
+                        'away_label' => $fixture->awayTeam?->name ?? $fixture->away_placeholder_label,
+                        'home_goals' => $fixture->home_goals,
+                        'away_goals' => $fixture->away_goals,
+                        'home_penalties' => $fixture->home_penalties,
+                        'away_penalties' => $fixture->away_penalties,
+                        'winner_team_id' => $fixture->winner_team_id,
+                        'kicks_off_at' => $fixture->kicks_off_at?->toIso8601String(),
+                        'venue' => $fixture->venue,
+                        'venue_timezone' => $fixture->venue_timezone,
+                        'prediction' => $prediction === null ? null : [
+                            'home_goals' => $prediction->home_goals,
+                            'away_goals' => $prediction->away_goals,
+                            'advancing_team_id' => $prediction->advancing_team_id,
+                            'points_awarded' => $prediction->points_awarded,
+                            'predicted_home' => $showPredictedTeams ? $this->teamRef($prediction->predictedHomeTeam) : null,
+                            'predicted_away' => $showPredictedTeams ? $this->teamRef($prediction->predictedAwayTeam) : null,
+                        ],
+                    ];
+                })->all(),
             ])
             ->sortBy('sort_order')
             ->values()

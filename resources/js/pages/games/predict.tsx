@@ -170,7 +170,9 @@ const RULE_LABELS: Record<string, string> = {
     correct_outcome_wrong_goals: 'Right result',
     one_team_exact_goals_wrong_outcome: 'One team’s goals',
     // knockout
-    team_reaches_phase: 'Team advances',
+    correct_team: 'Right team in the match',
+    exact_matchup: 'Right team in the match', // legacy key
+    team_reaches_phase: 'Right team in the match', // legacy key
     team_goal_count_bonus: 'Goal-count bonus',
     champion: 'Champion',
 };

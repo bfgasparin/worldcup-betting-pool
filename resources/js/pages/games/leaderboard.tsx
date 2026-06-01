@@ -64,6 +64,7 @@ export default function Leaderboard({
                                     initials: row.initials,
                                     points: row.points,
                                     isMe: row.is_me,
+                                    movement: row.movement,
                                 }}
                             />
                         ))}

@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['tournament_id', 'user_id', 'status', 'submitted_at', 'total_points'])]
+#[Fillable(['tournament_id', 'user_id', 'status', 'submitted_at', 'total_points', 'rank', 'previous_rank'])]
 class Entry extends Model
 {
     /** @use HasFactory<EntryFactory> */
@@ -27,6 +27,8 @@ class Entry extends Model
             'status' => EntryStatus::class,
             'submitted_at' => 'datetime',
             'total_points' => 'integer',
+            'rank' => 'integer',
+            'previous_rank' => 'integer',
         ];
     }
 

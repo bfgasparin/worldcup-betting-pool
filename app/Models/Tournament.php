@@ -58,6 +58,18 @@ class Tournament extends Model
     }
 
     /**
+     * Whether players predict the whole knockout bracket upfront (teams included), as opposed to
+     * a future between-phases model where knockout teams are known before they are predicted.
+     * When true, a player's predicted knockout teams are worth surfacing so the per-team
+     * placement points (10 per team correctly placed in a match, +5 goal-count bonus) can be
+     * audited; otherwise the predicted teams would just equal the official ones.
+     */
+    public function predictsKnockoutBracket(): bool
+    {
+        return $this->scoring_strategy === ScoringStrategy::WorldCupStandard;
+    }
+
+    /**
      * Move the tournament to a new lifecycle status, guarding against illegal
      * transitions and announcing the change for downstream listeners.
      *
@@ -108,6 +120,14 @@ class Tournament extends Model
     public function entries(): HasMany
     {
         return $this->hasMany(Entry::class);
+    }
+
+    /**
+     * @return HasMany<ScoreBatch, $this>
+     */
+    public function scoreBatches(): HasMany
+    {
+        return $this->hasMany(ScoreBatch::class);
     }
 
     /**

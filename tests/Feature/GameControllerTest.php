@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\Entry;
 use App\Models\Fixture;
 use App\Models\GroupPrediction;
+use App\Models\KnockoutPrediction;
+use App\Models\Team;
 use App\Models\Tournament;
 use App\Models\User;
 use Database\Seeders\WorldCup2026Seeder;
@@ -128,6 +130,80 @@ class GameControllerTest extends TestCase
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('groups.0.fixtures.0.prediction.home_goals', 2)
                 ->where('groups.0.fixtures.0.prediction.away_goals', 1)
+                ->where('groups.0.fixtures.0.prediction.points_awarded', null)
+            );
+    }
+
+    public function test_show_exposes_the_admin_review_flag_and_settled_card_fields(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+        $admin = User::factory()->create();
+        config()->set('admin.emails', [$admin->email]);
+
+        $this->actingAs($admin)
+            ->get(route('games.show', 'world-cup-2026'))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('game.can_review_scores', true)
+                // The knockout fixtures expose the fields a settled card needs.
+                ->where('bracket.0.fixtures.0.winner_team_id', null)
+                ->where('bracket.0.fixtures.0.home_penalties', null)
+                ->where('bracket.0.fixtures.0.prediction', null)
+            );
+
+        $this->actingAs(User::factory()->create())
+            ->get(route('games.show', 'world-cup-2026'))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('game.can_review_scores', false)
+            );
+    }
+
+    public function test_show_exposes_the_viewers_predicted_knockout_teams(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+        $tournament = Tournament::firstOrFail();
+        $user = User::factory()->create();
+        $entry = Entry::factory()->for($tournament)->for($user)->create();
+
+        $fixture = $tournament->knockoutFixtures()->orderBy('match_number')->first();
+        [$home, $away] = Team::query()->take(2)->get()->all();
+
+        KnockoutPrediction::create([
+            'entry_id' => $entry->id,
+            'fixture_id' => $fixture->id,
+            'predicted_home_team_id' => $home->id,
+            'predicted_away_team_id' => $away->id,
+            'home_goals' => 2,
+            'away_goals' => 1,
+            'advancing_team_id' => $home->id,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('games.show', $tournament->slug))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('bracket.0.fixtures.0.prediction.predicted_home.id', $home->id)
+                ->where('bracket.0.fixtures.0.prediction.predicted_away.id', $away->id)
+                ->whereNot('bracket.0.fixtures.0.prediction.predicted_home.flag_url', null)
+            );
+    }
+
+    public function test_leaderboard_exposes_rank_movement(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+        $tournament = Tournament::firstOrFail();
+
+        // A climbed from 2nd to 1st; B slipped from 1st to 2nd.
+        Entry::factory()->for($tournament)
+            ->for(User::factory()->create(['name' => 'Climber']))
+            ->create(['total_points' => 120, 'rank' => 1, 'previous_rank' => 2]);
+        $me = User::factory()->create(['name' => 'Slider']);
+        Entry::factory()->for($tournament)->for($me)
+            ->create(['total_points' => 40, 'rank' => 2, 'previous_rank' => 1]);
+
+        $this->actingAs($me)
+            ->get(route('games.leaderboard', $tournament->slug))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('rows.0.movement', 'up')
+                ->where('rows.1.movement', 'down')
             );
     }
 
