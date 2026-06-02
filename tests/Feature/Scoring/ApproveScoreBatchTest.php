@@ -37,7 +37,7 @@ class ApproveScoreBatchTest extends TestCase
 
         $this->seed(WorldCup2026Seeder::class);
         $this->tournament = Tournament::firstOrFail();
-        $this->game = $this->tournament->games()->firstOrFail();
+        $this->game = $this->tournament->games()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
         $this->entry = Entry::factory()->for($this->game)->for(User::factory())->create();
         $this->predictAllGroups($this->entry, $this->tournament, $this->seedOrderScores());
     }

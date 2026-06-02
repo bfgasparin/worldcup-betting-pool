@@ -26,7 +26,7 @@ class WorldCup2026SeederTest extends TestCase
 
         $this->assertSame('World Cup 2026', $tournament->name);
         $this->assertSame(7, $tournament->phases()->count());
-        $this->assertSame(1, $tournament->games()->count());
+        $this->assertSame(2, $tournament->games()->count());
         $this->assertSame(12, $tournament->groups()->count());
         $this->assertSame(48, Team::count());
         $this->assertSame(104, $tournament->fixtures()->count());
@@ -222,7 +222,7 @@ class WorldCup2026SeederTest extends TestCase
         $this->seed(WorldCup2026Seeder::class);
 
         $tournament = Tournament::where('slug', 'world-cup-2026')->firstOrFail();
-        $game = Game::where('slug', 'world-cup-2026')->firstOrFail();
+        $game = Game::where('slug', 'world-cup-2026-ffa')->firstOrFail();
 
         $this->assertTrue($game->tournament->is($tournament));
         $this->assertSame('World Cup 2026', $game->name);
@@ -231,13 +231,31 @@ class WorldCup2026SeederTest extends TestCase
         $this->assertSame(20, $game->scoring_config['group']['exact_score']);
     }
 
+    public function test_it_seeds_the_brothers_association_phased_game(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+
+        $tournament = Tournament::where('slug', 'world-cup-2026')->firstOrFail();
+        $game = Game::where('slug', 'world-cup-2026-brothers')->firstOrFail();
+
+        $this->assertTrue($game->tournament->is($tournament));
+        $this->assertSame('World Cup 2026', $game->name);
+        $this->assertSame('Brothers Association', $game->source);
+        $this->assertSame(ScoringStrategy::PhasedBracket, $game->scoring_strategy);
+
+        // Rising-stakes knockout config: a flat advancing bonus plus per-round multipliers.
+        $this->assertSame(10, $game->scoring_config['knockout']['advancing_team']);
+        $this->assertSame(8, $game->scoring_config['knockout']['round_multipliers']['final']);
+        $this->assertSame(1, $game->scoring_config['knockout']['round_multipliers']['round_of_32']);
+    }
+
     public function test_it_is_idempotent(): void
     {
         $this->seed(WorldCup2026Seeder::class);
         $this->seed(WorldCup2026Seeder::class);
 
         $this->assertSame(1, Tournament::count());
-        $this->assertSame(1, Game::count());
+        $this->assertSame(2, Game::count());
         $this->assertSame(48, Team::count());
         $this->assertSame(104, Fixture::count());
         $this->assertSame(48, \DB::table('group_team')->count());

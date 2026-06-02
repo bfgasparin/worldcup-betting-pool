@@ -24,6 +24,7 @@ import type {
     PredictBracketPhase,
     PredictGroup,
     PredictGroupFixture,
+    PredictionWindowStatus,
     PredictPageProps,
     TeamRef,
     ThirdRanking,
@@ -50,6 +51,55 @@ const STEP_TITLES = [
 ];
 
 const AUTOSAVE_DELAY = 700;
+
+/** The knockout phase keys that make up a wizard step (empty for the group step). */
+function stepPhaseKeys(step: number): string[] {
+    return step === 0 ? [] : KNOCKOUT_STEPS[step - 1].phaseKeys;
+}
+
+/**
+ * Whether a wizard step currently accepts edits: the group step rides the game-level lock; a
+ * knockout step is editable while any of its rounds is open.
+ */
+function isStepEditable(
+    step: number,
+    groupCanEdit: boolean,
+    phasesByKey: Record<string, PredictBracketPhase>,
+): boolean {
+    if (step === 0) {
+        return groupCanEdit;
+    }
+
+    return stepPhaseKeys(step).some(
+        (key) => phasesByKey[key]?.window === 'open',
+    );
+}
+
+/**
+ * The round-weight multiplier to apply to the scoreline tiers shown in the legend for a knockout
+ * step (phased bracket). Group steps and games without multipliers use ×1; a step spanning two
+ * rounds (Third Place & Final) shows the larger one.
+ */
+function roundMultiplier(
+    step: number,
+    config: Record<string, Record<string, number>>,
+): number {
+    if (step === 0) {
+        return 1;
+    }
+
+    const multipliers = (
+        config.knockout as unknown as {
+            round_multipliers?: Record<string, number>;
+        }
+    )?.round_multipliers;
+
+    if (!multipliers) {
+        return 1;
+    }
+
+    return Math.max(...stepPhaseKeys(step).map((key) => multipliers[key] ?? 1));
+}
 
 function teamName(
     team: TeamRef | null,
@@ -176,7 +226,11 @@ function ScoringLegend({
     config: Record<string, Record<string, number>>;
     step: number;
 }) {
-    const rules = scoringRules(config, step === 0 ? 'group' : 'knockout');
+    const rules = scoringRules(
+        config,
+        step === 0 ? 'group' : 'knockout',
+        roundMultiplier(step, config),
+    );
 
     return (
         <div className="flex flex-wrap gap-2">
@@ -562,6 +616,11 @@ export default function Predict({
     }, [phasesByKey]);
 
     const isLastStep = step === STEP_TITLES.length - 1;
+    const currentStepEditable = isStepEditable(step, canEdit, phasesByKey);
+    // Whether anything is still predictable now, and whether any knockout round is waiting on
+    // results to open — phased games shouldn't show the "all locked" banner while rounds are pending.
+    const anyOpen = canEdit || bracket.some((phase) => phase.window === 'open');
+    const anyPending = bracket.some((phase) => phase.window === 'pending');
 
     function buildStepPayload(): {
         url: string;
@@ -587,7 +646,11 @@ export default function Predict({
             return { url: games.predict.group(game.slug).url, predictions };
         }
 
-        const phaseKeys = KNOCKOUT_STEPS[stepRef.current - 1].phaseKeys;
+        // Only submit rounds that are actually open — a step can span an open and a locked round
+        // (e.g. the Final is open while the Third-place play-off has already kicked off).
+        const phaseKeys = KNOCKOUT_STEPS[stepRef.current - 1].phaseKeys.filter(
+            (key) => phasesByKeyRef.current[key]?.window === 'open',
+        );
         const predictions = phaseKeys
             .flatMap((key) => phasesByKeyRef.current[key]?.fixtures ?? [])
             .map((fixture) => {
@@ -614,7 +677,10 @@ export default function Predict({
             timerRef.current = null;
         }
 
-        if (!canEdit || savingRef.current) {
+        if (
+            !isStepEditable(stepRef.current, canEdit, phasesByKeyRef.current) ||
+            savingRef.current
+        ) {
             return;
         }
 
@@ -650,7 +716,7 @@ export default function Predict({
     }
 
     function scheduleFlush(delay: number = AUTOSAVE_DELAY): void {
-        if (!canEdit) {
+        if (!isStepEditable(stepRef.current, canEdit, phasesByKeyRef.current)) {
             return;
         }
 
@@ -665,7 +731,7 @@ export default function Predict({
     }
 
     function markDirty(): void {
-        if (!canEdit) {
+        if (!isStepEditable(stepRef.current, canEdit, phasesByKeyRef.current)) {
             return;
         }
 
@@ -779,7 +845,7 @@ export default function Predict({
                     </div>
                 </header>
 
-                {!canEdit && (
+                {!anyOpen && !anyPending && (
                     <div className="flex items-center gap-3 rounded-2xl border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
                         <Lock className="size-4 shrink-0" />
                         <span>
@@ -823,12 +889,14 @@ export default function Predict({
                         </div>
                     ) : (
                         <>
-                            {step === 1 && <ThirdsPanel thirds={thirds} />}
+                            {step === 1 &&
+                                game.scoring_strategy === 'upfront-bracket' && (
+                                    <ThirdsPanel thirds={thirds} />
+                                )}
                             <KnockoutStep
                                 phaseKeys={KNOCKOUT_STEPS[step - 1].phaseKeys}
                                 phasesByKey={phasesByKey}
                                 picks={picks}
-                                canEdit={canEdit}
                                 onChange={(fixtureId, patch, immediate) =>
                                     updatePick(fixtureId, patch, immediate)
                                 }
@@ -848,7 +916,7 @@ export default function Predict({
                         <ChevronLeft className="size-4" /> Back
                     </Button>
 
-                    {canEdit && <SaveStatus status={saveStatus} />}
+                    {currentStepEditable && <SaveStatus status={saveStatus} />}
 
                     {isLastStep ? (
                         <Button variant="gold" asChild>
@@ -900,18 +968,31 @@ function ThirdsPanel({ thirds }: { thirds: ThirdRanking[] | null }) {
     );
 }
 
+function PhaseWindowBadge({ window }: { window: PredictionWindowStatus }) {
+    if (window === 'open') {
+        return null;
+    }
+
+    const label = window === 'pending' ? 'Opens later' : 'Locked';
+
+    return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
+            <Lock className="size-3" />
+            {label}
+        </span>
+    );
+}
+
 function KnockoutStep({
     phaseKeys,
     phasesByKey,
     picks,
-    canEdit,
     onChange,
     onCommit,
 }: {
     phaseKeys: string[];
     phasesByKey: Record<string, PredictBracketPhase>;
     picks: KnockoutPicks;
-    canEdit: boolean;
     onChange: (
         fixtureId: number,
         patch: Partial<KnockoutPick>,
@@ -928,36 +1009,48 @@ function KnockoutStep({
                     return null;
                 }
 
+                const phaseEditable = phase.window === 'open';
+
                 return (
                     <div key={key} className="flex flex-col gap-3">
-                        <h2 className="font-display text-xs font-bold tracking-wide text-primary uppercase">
-                            {phase.phase_name}
-                        </h2>
-                        <div className="flex flex-wrap gap-3">
-                            {phase.fixtures.map((fixture) => (
-                                <KnockoutCard
-                                    key={fixture.fixture_id}
-                                    fixture={fixture}
-                                    pick={
-                                        picks[fixture.fixture_id] ?? {
-                                            home: '',
-                                            away: '',
-                                            advancing: null,
-                                        }
-                                    }
-                                    canEdit={canEdit}
-                                    isFinal={fixture.phase_key === 'final'}
-                                    onChange={(patch, immediate) =>
-                                        onChange(
-                                            fixture.fixture_id,
-                                            patch,
-                                            immediate,
-                                        )
-                                    }
-                                    onCommit={onCommit}
-                                />
-                            ))}
+                        <div className="flex items-center justify-between gap-2">
+                            <h2 className="font-display text-xs font-bold tracking-wide text-primary uppercase">
+                                {phase.phase_name}
+                            </h2>
+                            <PhaseWindowBadge window={phase.window} />
                         </div>
+                        {phase.window === 'pending' ? (
+                            <p className="text-sm text-muted-foreground italic">
+                                This round opens once the previous round&apos;s
+                                results are in.
+                            </p>
+                        ) : (
+                            <div className="flex flex-wrap gap-3">
+                                {phase.fixtures.map((fixture) => (
+                                    <KnockoutCard
+                                        key={fixture.fixture_id}
+                                        fixture={fixture}
+                                        pick={
+                                            picks[fixture.fixture_id] ?? {
+                                                home: '',
+                                                away: '',
+                                                advancing: null,
+                                            }
+                                        }
+                                        canEdit={phaseEditable}
+                                        isFinal={fixture.phase_key === 'final'}
+                                        onChange={(patch, immediate) =>
+                                            onChange(
+                                                fixture.fixture_id,
+                                                patch,
+                                                immediate,
+                                            )
+                                        }
+                                        onCommit={onCommit}
+                                    />
+                                ))}
+                            </div>
+                        )}
                     </div>
                 );
             })}

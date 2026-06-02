@@ -32,23 +32,23 @@ class PredictionControllerTest extends TestCase
 
         $this->seed(WorldCup2026Seeder::class);
         $this->tournament = Tournament::firstOrFail();
-        $this->game = $this->tournament->games()->firstOrFail();
+        $this->game = $this->tournament->games()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
         $this->user = User::factory()->create();
     }
 
     public function test_guests_are_redirected_from_the_predict_page(): void
     {
-        $this->get(route('games.predict.edit', 'world-cup-2026'))->assertRedirect(route('login'));
+        $this->get(route('games.predict.edit', 'world-cup-2026-ffa'))->assertRedirect(route('login'));
     }
 
     public function test_visiting_predict_creates_a_draft_entry_and_renders_the_wizard(): void
     {
         $this->actingAs($this->user)
-            ->get(route('games.predict.edit', 'world-cup-2026'))
+            ->get(route('games.predict.edit', 'world-cup-2026-ffa'))
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->component('games/predict')
-                ->where('game.slug', 'world-cup-2026')
+                ->where('game.slug', 'world-cup-2026-ffa')
                 ->where('game.can_edit', true)
                 ->has('groups', 12)
                 ->has('groups.0.standings', 4)
@@ -70,7 +70,7 @@ class PredictionControllerTest extends TestCase
         $this->predictGroup($entry, $this->tournament, 'A', $this->seedOrderScores());
 
         $this->actingAs($this->user)
-            ->get(route('games.predict.edit', 'world-cup-2026'))
+            ->get(route('games.predict.edit', 'world-cup-2026-ffa'))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('groups.0.fixtures.0.home_goals', 1)
                 ->where('groups.0.fixtures.0.away_goals', 0)
@@ -91,8 +91,8 @@ class PredictionControllerTest extends TestCase
         })->all()];
 
         $this->actingAs($this->user)
-            ->put(route('games.predict.group', 'world-cup-2026'), $payload)
-            ->assertRedirect(route('games.predict.edit', 'world-cup-2026'));
+            ->put(route('games.predict.group', 'world-cup-2026-ffa'), $payload)
+            ->assertRedirect(route('games.predict.edit', 'world-cup-2026-ffa'));
 
         $entry = $this->entry();
         $this->assertDatabaseHas('group_predictions', [
@@ -127,8 +127,8 @@ class PredictionControllerTest extends TestCase
         ]]];
 
         $this->actingAs($this->user)
-            ->put(route('games.predict.knockout', 'world-cup-2026'), $payload)
-            ->assertRedirect(route('games.predict.edit', 'world-cup-2026'));
+            ->put(route('games.predict.knockout', 'world-cup-2026-ffa'), $payload)
+            ->assertRedirect(route('games.predict.edit', 'world-cup-2026-ffa'));
 
         $this->assertDatabaseHas('knockout_predictions', [
             'entry_id' => $entry->id,
@@ -157,8 +157,8 @@ class PredictionControllerTest extends TestCase
         ]]];
 
         $this->actingAs($this->user)
-            ->put(route('games.predict.knockout', 'world-cup-2026'), $payload)
-            ->assertRedirect(route('games.predict.edit', 'world-cup-2026'));
+            ->put(route('games.predict.knockout', 'world-cup-2026-ffa'), $payload)
+            ->assertRedirect(route('games.predict.edit', 'world-cup-2026-ffa'));
 
         $this->assertDatabaseHas('knockout_predictions', [
             'entry_id' => $entry->id,
@@ -184,8 +184,8 @@ class PredictionControllerTest extends TestCase
         ]]];
 
         $this->actingAs($this->user)
-            ->put(route('games.predict.knockout', 'world-cup-2026'), $payload)
-            ->assertRedirect(route('games.predict.edit', 'world-cup-2026'));
+            ->put(route('games.predict.knockout', 'world-cup-2026-ffa'), $payload)
+            ->assertRedirect(route('games.predict.edit', 'world-cup-2026-ffa'));
 
         $this->assertDatabaseHas('knockout_predictions', [
             'entry_id' => $entry->id,
@@ -211,7 +211,7 @@ class PredictionControllerTest extends TestCase
         ]]];
 
         $this->actingAs($this->user)
-            ->put(route('games.predict.knockout', 'world-cup-2026'), $payload)
+            ->put(route('games.predict.knockout', 'world-cup-2026-ffa'), $payload)
             ->assertSessionHasErrors('predictions.0.advancing_team_id');
     }
 
@@ -232,7 +232,7 @@ class PredictionControllerTest extends TestCase
         ]]];
 
         $this->actingAs($this->user)
-            ->put(route('games.predict.knockout', 'world-cup-2026'), $payload)
+            ->put(route('games.predict.knockout', 'world-cup-2026-ffa'), $payload)
             ->assertSessionHasErrors('predictions.0.advancing_team_id');
     }
 
@@ -247,7 +247,7 @@ class PredictionControllerTest extends TestCase
         ]]];
 
         $this->actingAs($this->user)
-            ->put(route('games.predict.group', 'world-cup-2026'), $payload)
+            ->put(route('games.predict.group', 'world-cup-2026-ffa'), $payload)
             ->assertSessionHasErrors('predictions.0.fixture_id');
     }
 
@@ -262,7 +262,7 @@ class PredictionControllerTest extends TestCase
         ]]];
 
         $this->actingAs($this->user)
-            ->put(route('games.predict.group', 'world-cup-2026'), $payload)
+            ->put(route('games.predict.group', 'world-cup-2026-ffa'), $payload)
             ->assertSessionHasErrors('predictions.0.home_goals');
     }
 
@@ -278,7 +278,7 @@ class PredictionControllerTest extends TestCase
         ]]];
 
         $this->actingAs($this->user)
-            ->put(route('games.predict.group', 'world-cup-2026'), $payload)
+            ->put(route('games.predict.group', 'world-cup-2026-ffa'), $payload)
             ->assertForbidden();
 
         $this->assertDatabaseCount('entries', 0);
@@ -289,7 +289,7 @@ class PredictionControllerTest extends TestCase
         $this->game->update(['predictions_lock_at' => now()->subDay()]);
 
         $this->actingAs($this->user)
-            ->get(route('games.predict.edit', 'world-cup-2026'))
+            ->get(route('games.predict.edit', 'world-cup-2026-ffa'))
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->component('games/predict')
@@ -313,7 +313,7 @@ class PredictionControllerTest extends TestCase
         ]]];
 
         $this->actingAs($this->user)
-            ->put(route('games.predict.group', 'world-cup-2026'), $payload)
+            ->put(route('games.predict.group', 'world-cup-2026-ffa'), $payload)
             ->assertRedirect();
 
         // The other user's prediction is untouched; the acting user gets their own entry.

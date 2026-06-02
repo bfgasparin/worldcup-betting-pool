@@ -12,6 +12,7 @@ use App\Models\GroupPrediction;
 use App\Models\KnockoutPrediction;
 use App\Models\LeaderboardStanding;
 use App\Models\Team;
+use App\Models\Tournament;
 use App\Services\Predictions\GroupStandings;
 use App\Services\Predictions\GroupStandingsPresenter;
 use Illuminate\Http\Request;
@@ -28,10 +29,13 @@ class GameController extends Controller
     {
         $games = Game::query()
             ->with(['tournament' => fn ($query) => $query->withCount(['groups', 'fixtures'])])
-            ->get()
-            ->sortByDesc(fn (Game $game): ?string => $game->tournament->starts_on?->toDateString())
-            ->values()
-            ->map(fn (Game $game): array => [
+            // Newest competition first; games over the same tournament keep a stable order by id.
+            ->orderByDesc(
+                Tournament::select('starts_on')->whereColumn('tournaments.id', 'games.tournament_id'),
+            )
+            ->orderBy('id')
+            ->paginate(12)
+            ->through(fn (Game $game): array => [
                 ...$this->gameHeader($game),
                 'scoring_strategy' => $game->scoring_strategy->value,
                 'scoring_label' => $game->scoring_strategy->label(),

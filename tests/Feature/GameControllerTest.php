@@ -46,8 +46,12 @@ class GameControllerTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->component('games/index')
-                ->has('games', 1)
-                ->where('games.0.slug', 'world-cup-2026')
+                ->has('games.data', 2)
+                ->where('games.data.0.slug', 'world-cup-2026-ffa')
+                ->where('games.data.1.slug', 'world-cup-2026-brothers')
+                ->where('games.current_page', 1)
+                ->where('games.last_page', 1)
+                ->where('games.total', 2)
             );
     }
 
@@ -56,11 +60,11 @@ class GameControllerTest extends TestCase
         $this->seed(WorldCup2026Seeder::class);
         $this->actingAs(User::factory()->create());
 
-        $this->get(route('games.show', 'world-cup-2026'))
+        $this->get(route('games.show', 'world-cup-2026-ffa'))
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->component('games/show')
-                ->where('game.slug', 'world-cup-2026')
+                ->where('game.slug', 'world-cup-2026-ffa')
                 ->has('groups', 12)
                 ->has('groups.0.teams', 4)
                 ->has('groups.0.fixtures', 6)
@@ -77,7 +81,7 @@ class GameControllerTest extends TestCase
         $this->seed(WorldCup2026Seeder::class);
         $this->actingAs(User::factory()->create());
 
-        $this->get(route('games.show', 'world-cup-2026'))
+        $this->get(route('games.show', 'world-cup-2026-ffa'))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->whereNot('groups.0.fixtures.0.home', null)
                 ->whereNot('groups.0.fixtures.0.away', null)
@@ -89,7 +93,7 @@ class GameControllerTest extends TestCase
         $this->seed(WorldCup2026Seeder::class);
         $this->actingAs(User::factory()->create());
 
-        $this->get(route('games.show', 'world-cup-2026'))
+        $this->get(route('games.show', 'world-cup-2026-ffa'))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->whereNot('bracket.0.fixtures.0.kicks_off_at', null)
                 ->whereNot('bracket.0.fixtures.0.venue', null)
@@ -105,7 +109,7 @@ class GameControllerTest extends TestCase
         $this->seed(WorldCup2026Seeder::class);
         $this->actingAs(User::factory()->create());
 
-        $this->get(route('games.show', 'world-cup-2026'))
+        $this->get(route('games.show', 'world-cup-2026-ffa'))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('groups.0.fixtures.0.prediction', null)
             );
@@ -116,7 +120,7 @@ class GameControllerTest extends TestCase
         $this->seed(WorldCup2026Seeder::class);
         $tournament = Tournament::firstOrFail();
         $user = User::factory()->create();
-        $entry = Entry::factory()->for($tournament->games()->firstOrFail())->for($user)->create();
+        $entry = Entry::factory()->for($tournament->games()->where('slug', 'world-cup-2026-ffa')->firstOrFail())->for($user)->create();
         $fixture = $tournament->fixtures()->where('match_number', 1)->firstOrFail();
 
         GroupPrediction::factory()->create([
@@ -128,7 +132,7 @@ class GameControllerTest extends TestCase
 
         $this->actingAs($user);
 
-        $this->get(route('games.show', $tournament->slug))
+        $this->get(route('games.show', 'world-cup-2026-ffa'))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('groups.0.fixtures.0.prediction.home_goals', 2)
                 ->where('groups.0.fixtures.0.prediction.away_goals', 1)
@@ -143,7 +147,7 @@ class GameControllerTest extends TestCase
         config()->set('admin.emails', [$admin->email]);
 
         $this->actingAs($admin)
-            ->get(route('games.show', 'world-cup-2026'))
+            ->get(route('games.show', 'world-cup-2026-ffa'))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('game.can_review_scores', true)
                 // The knockout fixtures expose the fields a settled card needs.
@@ -153,7 +157,7 @@ class GameControllerTest extends TestCase
             );
 
         $this->actingAs(User::factory()->create())
-            ->get(route('games.show', 'world-cup-2026'))
+            ->get(route('games.show', 'world-cup-2026-ffa'))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('game.can_review_scores', false)
             );
@@ -164,7 +168,7 @@ class GameControllerTest extends TestCase
         $this->seed(WorldCup2026Seeder::class);
         $tournament = Tournament::firstOrFail();
         $user = User::factory()->create();
-        $entry = Entry::factory()->for($tournament->games()->firstOrFail())->for($user)->create();
+        $entry = Entry::factory()->for($tournament->games()->where('slug', 'world-cup-2026-ffa')->firstOrFail())->for($user)->create();
 
         $fixture = $tournament->knockoutFixtures()->orderBy('match_number')->first();
         [$home, $away] = Team::query()->take(2)->get()->all();
@@ -180,7 +184,7 @@ class GameControllerTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->get(route('games.show', $tournament->slug))
+            ->get(route('games.show', 'world-cup-2026-ffa'))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('bracket.0.fixtures.0.prediction.predicted_home.id', $home->id)
                 ->where('bracket.0.fixtures.0.prediction.predicted_away.id', $away->id)
@@ -193,7 +197,7 @@ class GameControllerTest extends TestCase
         $this->seed(WorldCup2026Seeder::class);
         $tournament = Tournament::firstOrFail();
         $user = User::factory()->create();
-        $entry = Entry::factory()->for($tournament->games()->firstOrFail())->for($user)->create();
+        $entry = Entry::factory()->for($tournament->games()->where('slug', 'world-cup-2026-ffa')->firstOrFail())->for($user)->create();
 
         $fixture = $tournament->knockoutFixtures()->orderBy('match_number')->first();
         [$home, $away] = Team::query()->take(2)->get()->all();
@@ -210,7 +214,7 @@ class GameControllerTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->get(route('games.show', $tournament->slug))
+            ->get(route('games.show', 'world-cup-2026-ffa'))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('bracket.0.fixtures.0.prediction.home_goals', 1)
                 ->where('bracket.0.fixtures.0.prediction.away_goals', 1)
@@ -224,15 +228,15 @@ class GameControllerTest extends TestCase
         $tournament = Tournament::firstOrFail();
 
         // A climbed from 2nd to 1st; B slipped from 1st to 2nd.
-        Entry::factory()->for($tournament->games()->firstOrFail())
+        Entry::factory()->for($tournament->games()->where('slug', 'world-cup-2026-ffa')->firstOrFail())
             ->for(User::factory()->create(['name' => 'Climber']))
             ->create(['total_points' => 120, 'rank' => 1, 'previous_rank' => 2]);
         $me = User::factory()->create(['name' => 'Slider']);
-        Entry::factory()->for($tournament->games()->firstOrFail())->for($me)
+        Entry::factory()->for($tournament->games()->where('slug', 'world-cup-2026-ffa')->firstOrFail())->for($me)
             ->create(['total_points' => 40, 'rank' => 2, 'previous_rank' => 1]);
 
         $this->actingAs($me)
-            ->get(route('games.leaderboard', $tournament->slug))
+            ->get(route('games.leaderboard', 'world-cup-2026-ffa'))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('boards.0.key', 'overall')
                 ->where('boards.0.rows.0.movement', 'up')
@@ -246,7 +250,7 @@ class GameControllerTest extends TestCase
         $this->actingAs(User::factory()->create());
 
         // Before any match is played the table is seed-ordered with everyone on zero.
-        $this->get(route('games.show', 'world-cup-2026'))
+        $this->get(route('games.show', 'world-cup-2026-ffa'))
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->has('groups.0.standings', 4)
@@ -283,7 +287,7 @@ class GameControllerTest extends TestCase
 
         $this->actingAs(User::factory()->create());
 
-        $this->get(route('games.show', $tournament->slug))
+        $this->get(route('games.show', 'world-cup-2026-ffa'))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('groups.0.name', 'A')
                 ->where('groups.0.standings.0.rank', 1)
@@ -300,7 +304,7 @@ class GameControllerTest extends TestCase
         $this->seed(WorldCup2026Seeder::class);
         $this->actingAs(User::factory()->create());
 
-        $this->get(route('games.show', 'world-cup-2026'))
+        $this->get(route('games.show', 'world-cup-2026-ffa'))
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('game.scoring_strategy', 'upfront-bracket')
@@ -317,7 +321,7 @@ class GameControllerTest extends TestCase
         $this->seed(WorldCup2026Seeder::class);
         $this->actingAs(User::factory()->create());
 
-        $this->get(route('games.show', 'world-cup-2026'))
+        $this->get(route('games.show', 'world-cup-2026-ffa'))
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('groups.0.predicted_standings', null)
@@ -330,7 +334,7 @@ class GameControllerTest extends TestCase
         $tournament = Tournament::firstOrFail();
         $groupA = $tournament->groups()->where('name', 'A')->firstOrFail();
         $user = User::factory()->create();
-        $entry = Entry::factory()->for($tournament->games()->firstOrFail())->for($user)->create();
+        $entry = Entry::factory()->for($tournament->games()->where('slug', 'world-cup-2026-ffa')->firstOrFail())->for($user)->create();
 
         $positions = $groupA->teams()->get()->mapWithKeys(
             fn ($team): array => [$team->id => (int) $team->pivot->position],
@@ -352,7 +356,7 @@ class GameControllerTest extends TestCase
 
         $this->actingAs($user);
 
-        $this->get(route('games.show', $tournament->slug))
+        $this->get(route('games.show', 'world-cup-2026-ffa'))
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
                 // The official table is still all zeros (no real results yet)...
@@ -383,11 +387,11 @@ class GameControllerTest extends TestCase
         $this->seed(WorldCup2026Seeder::class);
         $tournament = Tournament::firstOrFail();
         $user = User::factory()->create();
-        Entry::factory()->for($tournament->games()->firstOrFail())->for($user)->create();
+        Entry::factory()->for($tournament->games()->where('slug', 'world-cup-2026-ffa')->firstOrFail())->for($user)->create();
 
         $this->actingAs($user);
 
-        $this->get(route('games.show', $tournament->slug))
+        $this->get(route('games.show', 'world-cup-2026-ffa'))
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('pool.participants', 1)
@@ -414,7 +418,7 @@ class GameControllerTest extends TestCase
     {
         $this->seed(WorldCup2026Seeder::class);
         $tournament = Tournament::firstOrFail();
-        $game = $tournament->games()->firstOrFail();
+        $game = $tournament->games()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
 
         $leader = Entry::factory()->for($game)
             ->for(User::factory()->create(['name' => 'Caller']))
@@ -428,7 +432,7 @@ class GameControllerTest extends TestCase
 
         $this->actingAs($me);
 
-        $this->get(route('games.show', $tournament->slug))
+        $this->get(route('games.show', 'world-cup-2026-ffa'))
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('boardSummaries.0.key', 'match-winners')
@@ -441,7 +445,7 @@ class GameControllerTest extends TestCase
 
     public function test_guests_are_redirected_from_the_leaderboard(): void
     {
-        $this->get(route('games.leaderboard', 'world-cup-2026'))
+        $this->get(route('games.leaderboard', 'world-cup-2026-ffa'))
             ->assertRedirect(route('login'));
     }
 
@@ -449,17 +453,17 @@ class GameControllerTest extends TestCase
     {
         $this->seed(WorldCup2026Seeder::class);
         $tournament = Tournament::firstOrFail();
-        Entry::factory()->count(2)->for($tournament->games()->firstOrFail())->create();
+        Entry::factory()->count(2)->for($tournament->games()->where('slug', 'world-cup-2026-ffa')->firstOrFail())->create();
         $me = User::factory()->create();
-        Entry::factory()->for($tournament->games()->firstOrFail())->for($me)->create();
+        Entry::factory()->for($tournament->games()->where('slug', 'world-cup-2026-ffa')->firstOrFail())->for($me)->create();
 
         $this->actingAs($me);
 
-        $this->get(route('games.leaderboard', $tournament->slug))
+        $this->get(route('games.leaderboard', 'world-cup-2026-ffa'))
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->component('games/leaderboard')
-                ->where('game.slug', $tournament->slug)
+                ->where('game.slug', 'world-cup-2026-ffa')
                 ->has('boards', 3)
                 ->where('boards.0.key', 'overall')
                 ->where('boards.0.has_scores', false)
@@ -472,16 +476,16 @@ class GameControllerTest extends TestCase
         $this->seed(WorldCup2026Seeder::class);
         $tournament = Tournament::firstOrFail();
 
-        Entry::factory()->for($tournament->games()->firstOrFail())
+        Entry::factory()->for($tournament->games()->where('slug', 'world-cup-2026-ffa')->firstOrFail())
             ->for(User::factory()->create(['name' => 'Top Scorer']))
             ->create(['total_points' => 120]);
 
         $me = User::factory()->create(['name' => 'Runner Up']);
-        Entry::factory()->for($tournament->games()->firstOrFail())->for($me)->create(['total_points' => 40]);
+        Entry::factory()->for($tournament->games()->where('slug', 'world-cup-2026-ffa')->firstOrFail())->for($me)->create(['total_points' => 40]);
 
         $this->actingAs($me);
 
-        $this->get(route('games.leaderboard', $tournament->slug))
+        $this->get(route('games.leaderboard', 'world-cup-2026-ffa'))
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('boards.0.key', 'overall')
@@ -499,7 +503,7 @@ class GameControllerTest extends TestCase
     {
         $this->seed(WorldCup2026Seeder::class);
         $tournament = Tournament::firstOrFail();
-        $game = $tournament->games()->firstOrFail();
+        $game = $tournament->games()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
 
         // The Overall leader trails on Match Winners, where a different player leads.
         $caller = Entry::factory()->for($game)
@@ -515,7 +519,7 @@ class GameControllerTest extends TestCase
 
         $this->actingAs($me);
 
-        $this->get(route('games.leaderboard', $tournament->slug))
+        $this->get(route('games.leaderboard', 'world-cup-2026-ffa'))
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('boards.1.key', 'match-winners')
@@ -533,14 +537,14 @@ class GameControllerTest extends TestCase
         $tournament = Tournament::firstOrFail();
         $this->actingAs(User::factory()->create());
 
-        $this->get(route('games.leaderboard', ['game' => $tournament->slug, 'board' => 'match-winners']))
+        $this->get(route('games.leaderboard', ['game' => 'world-cup-2026-ffa', 'board' => 'match-winners']))
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('active_board', 'match-winners')
             );
 
         // An unknown board falls back to no preselection (the page defaults to Overall).
-        $this->get(route('games.leaderboard', ['game' => $tournament->slug, 'board' => 'nonsense']))
+        $this->get(route('games.leaderboard', ['game' => 'world-cup-2026-ffa', 'board' => 'nonsense']))
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('active_board', null)

@@ -10,12 +10,14 @@ export const RULE_LABELS: Record<string, string> = {
     winner_and_one_team_exact_goals: 'Right winner + one team’s goals',
     correct_outcome_wrong_goals: 'Right result',
     one_team_exact_goals_wrong_outcome: 'One team’s goals',
-    // knockout
+    // knockout (upfront bracket)
     correct_team: 'Right team in the match',
     exact_matchup: 'Right team in the match', // legacy key
     team_reaches_phase: 'Right team in the match', // legacy key
     team_goal_count_bonus: 'Goal-count bonus',
     champion: 'Champion',
+    // knockout (phased bracket)
+    advancing_team: 'Right team through',
 };
 
 /** Turn an unmapped snake_case scoring key into a readable label as a fallback. */
@@ -32,17 +34,22 @@ export interface ScoringRule {
 
 /**
  * The configured rules for one phase ('group' | 'knockout'), labelled and sorted by points
- * descending. Rules without a point value are dropped.
+ * descending. Only plain numeric entries become rules — nested config (e.g. the phased bracket's
+ * `round_multipliers` map) is skipped. An optional `multiplier` scales the scoreline-tier points
+ * for a given knockout round, leaving flat bonuses (e.g. `advancing_team`) untouched.
  */
+const FLAT_RULE_KEYS = new Set(['advancing_team']);
+
 export function scoringRules(
     config: Record<string, Record<string, number>>,
     phase: string,
+    multiplier: number = 1,
 ): ScoringRule[] {
     return Object.entries(config[phase] ?? {})
+        .filter(([, points]) => typeof points === 'number')
         .map(([key, points]) => ({
             label: RULE_LABELS[key] ?? humanizeRuleKey(key),
-            points,
+            points: FLAT_RULE_KEYS.has(key) ? points : points * multiplier,
         }))
-        .filter((rule) => rule.points != null)
         .sort((a, b) => b.points - a.points);
 }

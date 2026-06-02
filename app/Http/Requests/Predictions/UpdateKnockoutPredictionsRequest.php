@@ -3,17 +3,51 @@
 namespace App\Http\Requests\Predictions;
 
 use App\Services\Predictions\BracketResolver;
+use App\Services\Predictions\PredictionWindowResolver;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Validation\Rule;
 
 class UpdateKnockoutPredictionsRequest extends PredictionRequest
 {
     /**
-     * Cache of the engine-resolved home/away team ids per fixture, keyed by fixture id.
+     * Cache of the resolved home/away team ids per fixture, keyed by fixture id. For an upfront
+     * bracket these come from the engine (the player's self-derived bracket); for a phased bracket
+     * they are the official participants already on the fixtures.
      *
      * @var array<int, array{home: int|null, away: int|null}>|null
      */
     private ?array $resolvedSlots = null;
+
+    /**
+     * Phased-bracket games lock per knockout round, so a save is only authorised when every
+     * submitted fixture's round is currently open. Upfront games keep the single game-level lock.
+     */
+    public function authorize(): bool
+    {
+        $game = $this->game();
+
+        if (! $game->usesPhasedPredictionWindows()) {
+            return parent::authorize();
+        }
+
+        if ($this->user() === null) {
+            return false;
+        }
+
+        $resolver = app(PredictionWindowResolver::class);
+        $knockoutFixtures = $game->tournament->knockoutFixtures()->with('phase')->get()->keyBy('id');
+
+        foreach ((array) $this->input('predictions', []) as $prediction) {
+            $fixture = $knockoutFixtures->get($prediction['fixture_id'] ?? null);
+
+            // Unknown fixtures are left to validation; known ones must be in an open round.
+            if ($fixture !== null && ! $resolver->isOpen($game, $fixture->phase->key)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     /**
      * @return array<string, mixed>
@@ -122,6 +156,20 @@ class UpdateKnockoutPredictionsRequest extends PredictionRequest
      */
     private function resolvedSlots(): array
     {
-        return $this->resolvedSlots ??= app(BracketResolver::class)->resolve($this->entry())->resolved;
+        if ($this->resolvedSlots !== null) {
+            return $this->resolvedSlots;
+        }
+
+        // Phased brackets are predicted against the official participants already on the fixtures;
+        // upfront brackets resolve from the player's own group scores via the engine.
+        if ($this->game()->usesPhasedPredictionWindows()) {
+            return $this->resolvedSlots = $this->game()->tournament->knockoutFixtures()->get()
+                ->mapWithKeys(fn ($fixture): array => [
+                    $fixture->id => ['home' => $fixture->home_team_id, 'away' => $fixture->away_team_id],
+                ])
+                ->all();
+        }
+
+        return $this->resolvedSlots = app(BracketResolver::class)->resolve($this->entry())->resolved;
     }
 }

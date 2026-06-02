@@ -48,4 +48,40 @@ class GameFactory extends Factory
             'predictions_lock_at' => fake()->dateTimeBetween('+1 week', '+1 month'),
         ];
     }
+
+    /**
+     * The phased-bracket strategy: the group stage is predicted upfront, each knockout round is
+     * predicted against the official match-ups once known, and scores carry rising round
+     * multipliers. The scoring_config below is duplicated verbatim in {@see WorldCup2026Seeder}
+     * for the Brothers Association game — keep them in sync.
+     */
+    public function phasedBracket(): static
+    {
+        return $this->state(fn (): array => [
+            'scoring_strategy' => ScoringStrategy::PhasedBracket,
+            'scoring_config' => [
+                'group' => [
+                    'exact_score' => 20,
+                    'winner_and_one_team_exact_goals' => 15,
+                    'correct_outcome_wrong_goals' => 10,
+                    'one_team_exact_goals_wrong_outcome' => 5,
+                ],
+                'knockout' => [
+                    'exact_score' => 20,
+                    'winner_and_one_team_exact_goals' => 15,
+                    'correct_outcome_wrong_goals' => 10,
+                    'one_team_exact_goals_wrong_outcome' => 5,
+                    'advancing_team' => 10,
+                    'round_multipliers' => [
+                        'round_of_32' => 1,
+                        'round_of_16' => 2,
+                        'quarter_finals' => 4,
+                        'semi_finals' => 6,
+                        'third_place' => 4,
+                        'final' => 8,
+                    ],
+                ],
+            ],
+        ]);
+    }
 }
