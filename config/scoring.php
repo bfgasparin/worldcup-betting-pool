@@ -19,6 +19,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Prediction lock buffer (minutes)
+    |--------------------------------------------------------------------------
+    |
+    | How long before a phase's first kickoff its prediction window closes when
+    | the lock is derived from the schedule (see App\Models\Game::predictionsLockAt
+    | for the group stage and App\Services\Predictions\PredictionWindowResolver
+    | for each phased knockout round). A game with an explicit predictions_lock_at
+    | override ignores this buffer — the override is taken verbatim.
+    |
+    */
+
+    'prediction_lock_buffer_minutes' => (int) env('SCORING_PREDICTION_LOCK_BUFFER_MINUTES', 60),
+
+    /*
+    |--------------------------------------------------------------------------
     | Simulated score provider
     |--------------------------------------------------------------------------
     |

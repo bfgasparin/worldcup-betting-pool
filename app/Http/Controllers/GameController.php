@@ -90,7 +90,7 @@ class GameController extends Controller
                 'scoring_description' => $game->scoring_strategy->description(),
                 'how_to_play' => $game->scoring_strategy->howToPlay(),
                 'scoring_config' => $game->scoring_config,
-                'predictions_lock_at' => $game->predictions_lock_at?->toIso8601String(),
+                'predictions_lock_at' => $game->predictionsLockAt()?->toIso8601String(),
                 'allowed_transitions' => array_map(
                     fn (TournamentStatus $status): string => $status->value,
                     $tournament->status->allowedTransitions(),

@@ -293,7 +293,8 @@ class WorldCup2026Seeder extends Seeder
                         'champion' => 30,
                     ],
                 ],
-                'predictions_lock_at' => '2026-06-11 16:00:00',
+                // No override: the lock derives from the first group kickoff (minus the buffer).
+                'predictions_lock_at' => null,
             ],
         );
 
@@ -327,7 +328,9 @@ class WorldCup2026Seeder extends Seeder
                         ],
                     ],
                 ],
-                'predictions_lock_at' => '2026-06-11 16:00:00',
+                // No override: the group lock derives from the first group kickoff (minus the
+                // buffer); each knockout round locks the buffer before its own first kickoff.
+                'predictions_lock_at' => null,
             ],
         );
     }

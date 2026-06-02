@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\ScoringStrategy;
 use App\Enums\TournamentStatus;
+use Carbon\CarbonInterface;
 use Database\Factories\GameFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -25,6 +26,11 @@ class Game extends Model
     /** @use HasFactory<GameFactory> */
     use HasFactory;
 
+    /** Memoised result of {@see predictionsLockAt()}; null is a valid resolved value. */
+    private ?CarbonInterface $resolvedLock = null;
+
+    private bool $lockResolved = false;
+
     /**
      * Get the attributes that should be cast.
      *
@@ -40,13 +46,35 @@ class Game extends Model
     }
 
     /**
+     * The instant the group-stage prediction window closes. Defaults to the configured buffer
+     * before the tournament's first group kickoff {@see Tournament::firstGroupKickoffAt()}; an
+     * explicit {@see $predictions_lock_at} override (e.g. set by the tournament simulator or an
+     * admin) wins verbatim and ignores the buffer. Null — no override and no scheduled kickoff —
+     * means the window is closed (fail closed). Memoised per instance: the derivation runs one
+     * aggregate query and {@see acceptsPredictions()} is called repeatedly within a request.
+     */
+    public function predictionsLockAt(): ?CarbonInterface
+    {
+        if (! $this->lockResolved) {
+            $this->resolvedLock = $this->predictions_lock_at
+                ?? $this->tournament->firstGroupKickoffAt()
+                    ?->subMinutes((int) config('scoring.prediction_lock_buffer_minutes'));
+            $this->lockResolved = true;
+        }
+
+        return $this->resolvedLock;
+    }
+
+    /**
      * Whether the game still accepts prediction edits. This is driven by the prediction
      * window alone and is intentionally independent of the underlying tournament's lifecycle
      * {@see TournamentStatus}, which describes where the competition is in its life.
      */
     public function acceptsPredictions(): bool
     {
-        return $this->predictions_lock_at !== null && now()->lessThan($this->predictions_lock_at);
+        $lock = $this->predictionsLockAt();
+
+        return $lock !== null && now()->lessThan($lock);
     }
 
     /**
@@ -63,8 +91,9 @@ class Game extends Model
 
     /**
      * Whether predictions lock per phase (a fresh window opening for each knockout round as its
-     * real participants become known), as opposed to the single upfront {@see $predictions_lock_at}
-     * that gates the whole game at once. Drives {@see PredictionWindowResolver}.
+     * real participants become known, closing the configured buffer before that round's first
+     * kickoff), as opposed to a single group-stage lock {@see predictionsLockAt()} that gates the
+     * whole game at once. Drives {@see PredictionWindowResolver}.
      */
     public function usesPhasedPredictionWindows(): bool
     {

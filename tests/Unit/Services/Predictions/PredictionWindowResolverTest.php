@@ -11,6 +11,7 @@ use App\Services\Predictions\OfficialBracketProjector;
 use App\Services\Predictions\PredictionWindowResolver;
 use Database\Seeders\WorldCup2026Seeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\Concerns\InteractsWithOfficialResults;
 use Tests\Concerns\InteractsWithPredictions;
 use Tests\TestCase;
@@ -103,6 +104,35 @@ class PredictionWindowResolverTest extends TestCase
             PredictionWindowStatus::Locked,
             $this->resolver->windows($game)[PhaseKey::RoundOf32->value],
         );
+    }
+
+    public function test_phased_knockout_round_locks_the_buffer_before_its_first_kickoff(): void
+    {
+        config(['scoring.prediction_lock_buffer_minutes' => 60]);
+        $game = $this->game(ScoringStrategy::PhasedBracket, now()->subDay());
+
+        // Give the Round of 32 real participants so its window is no longer pending.
+        $this->recordOfficialGroupResults($this->tournament, $this->seedOrderScores());
+        (new OfficialBracketProjector)->project($this->tournament);
+
+        $kickoff = Carbon::parse('2026-06-28 19:00:00', 'UTC');
+        $this->setPhaseKickoff(PhaseKey::RoundOf32, $kickoff);
+
+        // One minute before the buffer window closes (kickoff − 60m) → still open.
+        Carbon::setTestNow($kickoff->copy()->subMinutes(61));
+        $this->assertSame(
+            PredictionWindowStatus::Open,
+            $this->resolver->windows($game)[PhaseKey::RoundOf32->value],
+        );
+
+        // Exactly the buffer before kickoff → locked.
+        Carbon::setTestNow($kickoff->copy()->subMinutes(60));
+        $this->assertSame(
+            PredictionWindowStatus::Locked,
+            $this->resolver->windows($game)[PhaseKey::RoundOf32->value],
+        );
+
+        Carbon::setTestNow();
     }
 
     public function test_is_open_answers_for_a_single_phase(): void
