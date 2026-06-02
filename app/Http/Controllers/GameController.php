@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\LeaderboardCategory;
 use App\Enums\TournamentStatus;
 use App\Models\Entry;
 use App\Models\Fixture;
@@ -9,6 +10,7 @@ use App\Models\Game;
 use App\Models\Group;
 use App\Models\GroupPrediction;
 use App\Models\KnockoutPrediction;
+use App\Models\LeaderboardStanding;
 use App\Models\Team;
 use App\Services\Predictions\GroupStandings;
 use App\Services\Predictions\GroupStandingsPresenter;
@@ -90,28 +92,177 @@ class GameController extends Controller
                     $tournament->status->allowedTransitions(),
                 ),
                 'can_review_scores' => (bool) $request->user()?->can('manage-tournament'),
+                'leaderboards' => $this->boardDescriptors(),
             ],
             'groups' => $tournament->groups->map(
                 fn (Group $group): array => $this->mapGroup($group, $groupPredictions),
             ),
             'bracket' => $this->mapBracket($tournament->knockoutFixtures, $knockoutPredictions, $game->predictsKnockoutBracket()),
             'pool' => $this->poolSummary($game, $request->user()->id),
+            'boardSummaries' => $this->boardSummaries($game, $request->user()->id),
         ]);
     }
 
     /**
-     * The full pool table — every entry ranked by total points (unscored entries last).
-     * Until results land, points are null and the page leads with an explainer state.
+     * The Leaderboards page — every board's full table. The viewer's row is marked, and each board
+     * reports whether scoring has begun so the page can lead with an explainer state. `active_board`
+     * preselects a tab when a valid `?board=` is given (e.g. from a leaders-strip link).
      */
     public function leaderboard(Request $request, Game $game): Response
     {
-        $rows = $this->rankedEntries($game, $request->user()->id);
+        $boards = $this->boards($game, $request->user()->id);
+        $requested = $request->query('board');
+        $active = is_string($requested) && in_array($requested, array_column($boards, 'key'), true)
+            ? $requested
+            : null;
 
         return Inertia::render('games/leaderboard', [
             'game' => $this->gameHeader($game),
-            'rows' => $rows->all(),
-            'has_scores' => $rows->contains(fn (array $row): bool => $row['points'] !== null),
+            'boards' => $boards,
+            'active_board' => $active,
         ]);
+    }
+
+    /**
+     * Every leaderboard for a game, in display order, each with its full ranked table.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function boards(Game $game, int $userId): array
+    {
+        $entries = $game->entries()
+            ->with(['user', 'standings'])
+            ->orderBy('id')
+            ->get();
+
+        $hasScores = $entries->contains(fn (Entry $entry): bool => $entry->total_points !== null);
+
+        return array_map(
+            fn (LeaderboardCategory $category): array => $this->board($category, $entries, $userId, $hasScores),
+            LeaderboardCategory::ordered(),
+        );
+    }
+
+    /**
+     * One board's payload: its labels plus the entries ranked for that category. The Overall board
+     * ranks by `total_points` straight off the entry (mirroring the snapshot); every other board
+     * ranks its {@see LeaderboardStanding} rows by value, then tie-break, then entry id.
+     *
+     * @param  Collection<int, Entry>  $entries
+     * @return array<string, mixed>
+     */
+    private function board(LeaderboardCategory $category, Collection $entries, int $userId, bool $hasScores): array
+    {
+        if ($category === LeaderboardCategory::Overall) {
+            $rows = $entries
+                ->sortByDesc(fn (Entry $entry): int => $entry->total_points ?? PHP_INT_MIN)
+                ->values()
+                ->map(fn (Entry $entry, int $index): array => [
+                    'rank' => $index + 1,
+                    'name' => $entry->user_id === $userId ? 'You' : ($entry->user->name ?? 'Player'),
+                    'initials' => $this->initials($entry->user->name ?? ''),
+                    'primary_value' => $entry->total_points,
+                    'secondary_value' => null,
+                    'is_me' => $entry->user_id === $userId,
+                    'movement' => $this->movement($entry->rank, $entry->previous_rank),
+                ])
+                ->all();
+        } else {
+            $rows = $entries
+                ->map(fn (Entry $entry): array => [
+                    'entry' => $entry,
+                    'standing' => $entry->standings->firstWhere('category', $category),
+                ])
+                ->sort($this->compareStandings(...))
+                ->values()
+                ->map(fn (array $pair, int $index): array => [
+                    'rank' => $index + 1,
+                    'name' => $pair['entry']->user_id === $userId ? 'You' : ($pair['entry']->user->name ?? 'Player'),
+                    'initials' => $this->initials($pair['entry']->user->name ?? ''),
+                    'primary_value' => $pair['standing']?->value ?? 0,
+                    'secondary_value' => $pair['standing']?->tiebreaker ?? 0,
+                    'is_me' => $pair['entry']->user_id === $userId,
+                    'movement' => $this->movement($pair['standing']?->rank, $pair['standing']?->previous_rank),
+                ])
+                ->all();
+        }
+
+        return [
+            'key' => $category->value,
+            'label' => $category->label(),
+            'description' => $category->description(),
+            'primary_stat_label' => $category->primaryStatLabel(),
+            'secondary_stat_label' => $category->secondaryStatLabel(),
+            'has_scores' => $hasScores,
+            'rows' => $rows,
+        ];
+    }
+
+    /**
+     * Order two entry/standing pairs for a board: value descending, then tie-break descending, then
+     * entry id ascending (stable). Missing standings sort as zero.
+     *
+     * @param  array{entry: Entry, standing: ?LeaderboardStanding}  $a
+     * @param  array{entry: Entry, standing: ?LeaderboardStanding}  $b
+     */
+    private function compareStandings(array $a, array $b): int
+    {
+        return ($b['standing']?->value ?? 0) <=> ($a['standing']?->value ?? 0)
+            ?: ($b['standing']?->tiebreaker ?? 0) <=> ($a['standing']?->tiebreaker ?? 0)
+            ?: $a['entry']->id <=> $b['entry']->id;
+    }
+
+    /**
+     * A summary of each non-Overall board for the game page: who leads it, and where the viewer
+     * stands on it. Both are null until scoring has begun (or the viewer has no entry).
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function boardSummaries(Game $game, int $userId): array
+    {
+        return collect($this->boards($game, $userId))
+            ->reject(fn (array $board): bool => $board['key'] === LeaderboardCategory::Overall->value)
+            ->map(function (array $board): array {
+                $mine = $board['has_scores']
+                    ? collect($board['rows'])->firstWhere('is_me', true)
+                    : null;
+
+                return [
+                    'key' => $board['key'],
+                    'label' => $board['label'],
+                    'primary_stat_label' => $board['primary_stat_label'],
+                    'leader' => $board['has_scores'] && $board['rows'] !== []
+                        ? [
+                            'name' => $board['rows'][0]['name'],
+                            'initials' => $board['rows'][0]['initials'],
+                            'primary_value' => $board['rows'][0]['primary_value'],
+                        ]
+                        : null,
+                    'you' => $mine === null ? null : [
+                        'rank' => $mine['rank'],
+                        'primary_value' => $mine['primary_value'],
+                        'movement' => $mine['movement'],
+                    ],
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * The board descriptors (no rows) for the "How this game works" dialog.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function boardDescriptors(): array
+    {
+        return array_map(fn (LeaderboardCategory $category): array => [
+            'key' => $category->value,
+            'label' => $category->label(),
+            'description' => $category->description(),
+            'primary_stat_label' => $category->primaryStatLabel(),
+            'secondary_stat_label' => $category->secondaryStatLabel(),
+        ], LeaderboardCategory::ordered());
     }
 
     /**
@@ -134,27 +285,27 @@ class GameController extends Controller
                 'initials' => $this->initials($entry->user->name ?? ''),
                 'points' => $entry->total_points,
                 'is_me' => $entry->user_id === $userId,
-                'movement' => $this->movement($entry),
+                'movement' => $this->movement($entry->rank, $entry->previous_rank),
             ]);
     }
 
     /**
-     * Which way the entry moved on the leaderboard since the last approved batch: up, down,
-     * same, or "new" (first appearance). Null until ranks have been snapshotted at least once.
+     * Which way a rank moved on a leaderboard since the last approved batch: up, down, same, or
+     * "new" (first appearance). Null until ranks have been snapshotted at least once.
      */
-    private function movement(Entry $entry): ?string
+    private function movement(?int $rank, ?int $previousRank): ?string
     {
-        if ($entry->rank === null) {
+        if ($rank === null) {
             return null;
         }
 
-        if ($entry->previous_rank === null) {
+        if ($previousRank === null) {
             return 'new';
         }
 
         return match (true) {
-            $entry->rank < $entry->previous_rank => 'up',
-            $entry->rank > $entry->previous_rank => 'down',
+            $rank < $previousRank => 'up',
+            $rank > $previousRank => 'down',
             default => 'same',
         };
     }

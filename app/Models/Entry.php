@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\LeaderboardCategory;
 use Database\Factories\EntryFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -59,5 +60,15 @@ class Entry extends Model
     public function knockoutPredictions(): HasMany
     {
         return $this->hasMany(KnockoutPrediction::class);
+    }
+
+    /**
+     * This entry's per-leaderboard standings, one row per {@see LeaderboardCategory}.
+     *
+     * @return HasMany<LeaderboardStanding, $this>
+     */
+    public function standings(): HasMany
+    {
+        return $this->hasMany(LeaderboardStanding::class);
     }
 }

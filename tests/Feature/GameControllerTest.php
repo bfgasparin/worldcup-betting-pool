@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Enums\LeaderboardCategory;
 use App\Models\Entry;
 use App\Models\Fixture;
 use App\Models\GroupPrediction;
 use App\Models\KnockoutPrediction;
+use App\Models\LeaderboardStanding;
 use App\Models\Team;
 use App\Models\Tournament;
 use App\Models\User;
@@ -232,8 +234,9 @@ class GameControllerTest extends TestCase
         $this->actingAs($me)
             ->get(route('games.leaderboard', $tournament->slug))
             ->assertInertia(fn (AssertableInertia $page) => $page
-                ->where('rows.0.movement', 'up')
-                ->where('rows.1.movement', 'down')
+                ->where('boards.0.key', 'overall')
+                ->where('boards.0.rows.0.movement', 'up')
+                ->where('boards.0.rows.1.movement', 'down')
             );
     }
 
@@ -392,6 +395,47 @@ class GameControllerTest extends TestCase
                 ->where('pool.me.is_me', true)
                 ->where('pool.me.points', null)
                 ->has('pool.top', 1)
+                // A summary per non-Overall board; before any scores the leader and the viewer's
+                // position are both null.
+                ->has('boardSummaries', 2)
+                ->where('boardSummaries.0.key', 'match-winners')
+                ->where('boardSummaries.0.leader', null)
+                ->where('boardSummaries.0.you', null)
+                // Board descriptors for the dialog (each carrying its tie-break stat).
+                ->has('game.leaderboards', 3)
+                ->where('game.leaderboards.0.key', 'overall')
+                ->where('game.leaderboards.0.secondary_stat_label', null)
+                ->where('game.leaderboards.1.key', 'match-winners')
+                ->where('game.leaderboards.1.secondary_stat_label', 'Team goals')
+            );
+    }
+
+    public function test_show_summarises_each_board_with_the_leader_and_your_position(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+        $tournament = Tournament::firstOrFail();
+        $game = $tournament->games()->firstOrFail();
+
+        $leader = Entry::factory()->for($game)
+            ->for(User::factory()->create(['name' => 'Caller']))
+            ->create(['total_points' => 90]);
+        $me = User::factory()->create(['name' => 'Me']);
+        $mine = Entry::factory()->for($game)->for($me)->create(['total_points' => 40]);
+
+        // Match Winners: Caller leads (12), I'm behind (3).
+        LeaderboardStanding::factory()->for($leader)->create(['category' => LeaderboardCategory::MatchWinners, 'value' => 12]);
+        LeaderboardStanding::factory()->for($mine)->create(['category' => LeaderboardCategory::MatchWinners, 'value' => 3]);
+
+        $this->actingAs($me);
+
+        $this->get(route('games.show', $tournament->slug))
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('boardSummaries.0.key', 'match-winners')
+                ->where('boardSummaries.0.leader.name', 'Caller')
+                ->where('boardSummaries.0.leader.primary_value', 12)
+                ->where('boardSummaries.0.you.rank', 2)
+                ->where('boardSummaries.0.you.primary_value', 3)
             );
     }
 
@@ -416,12 +460,14 @@ class GameControllerTest extends TestCase
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->component('games/leaderboard')
                 ->where('game.slug', $tournament->slug)
-                ->where('has_scores', false)
-                ->has('rows', 3)
+                ->has('boards', 3)
+                ->where('boards.0.key', 'overall')
+                ->where('boards.0.has_scores', false)
+                ->has('boards.0.rows', 3)
             );
     }
 
-    public function test_leaderboard_ranks_entries_by_total_points(): void
+    public function test_leaderboard_ranks_the_overall_board_by_total_points(): void
     {
         $this->seed(WorldCup2026Seeder::class);
         $tournament = Tournament::firstOrFail();
@@ -438,13 +484,66 @@ class GameControllerTest extends TestCase
         $this->get(route('games.leaderboard', $tournament->slug))
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
-                ->where('has_scores', true)
-                ->where('rows.0.rank', 1)
-                ->where('rows.0.name', 'Top Scorer')
-                ->where('rows.0.points', 120)
-                ->where('rows.1.rank', 2)
-                ->where('rows.1.name', 'You')
-                ->where('rows.1.is_me', true)
+                ->where('boards.0.key', 'overall')
+                ->where('boards.0.has_scores', true)
+                ->where('boards.0.rows.0.rank', 1)
+                ->where('boards.0.rows.0.name', 'Top Scorer')
+                ->where('boards.0.rows.0.primary_value', 120)
+                ->where('boards.0.rows.1.rank', 2)
+                ->where('boards.0.rows.1.name', 'You')
+                ->where('boards.0.rows.1.is_me', true)
+            );
+    }
+
+    public function test_leaderboard_ranks_a_category_board_by_its_standings(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+        $tournament = Tournament::firstOrFail();
+        $game = $tournament->games()->firstOrFail();
+
+        // The Overall leader trails on Match Winners, where a different player leads.
+        $caller = Entry::factory()->for($game)
+            ->for(User::factory()->create(['name' => 'Caller']))
+            ->create(['total_points' => 50]);
+        $me = User::factory()->create(['name' => 'Me']);
+        $mine = Entry::factory()->for($game)->for($me)->create(['total_points' => 90]);
+
+        LeaderboardStanding::factory()->for($caller)->create(['category' => LeaderboardCategory::Overall, 'value' => 50]);
+        LeaderboardStanding::factory()->for($mine)->create(['category' => LeaderboardCategory::Overall, 'value' => 90]);
+        LeaderboardStanding::factory()->for($caller)->create(['category' => LeaderboardCategory::MatchWinners, 'value' => 12, 'tiebreaker' => 30]);
+        LeaderboardStanding::factory()->for($mine)->create(['category' => LeaderboardCategory::MatchWinners, 'value' => 3, 'tiebreaker' => 8]);
+
+        $this->actingAs($me);
+
+        $this->get(route('games.leaderboard', $tournament->slug))
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('boards.1.key', 'match-winners')
+                ->where('boards.1.rows.0.name', 'Caller')
+                ->where('boards.1.rows.0.primary_value', 12)
+                ->where('boards.1.rows.0.secondary_value', 30)
+                ->where('boards.1.rows.1.name', 'You')
+                ->where('boards.1.rows.1.is_me', true)
+            );
+    }
+
+    public function test_leaderboard_preselects_a_requested_board(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+        $tournament = Tournament::firstOrFail();
+        $this->actingAs(User::factory()->create());
+
+        $this->get(route('games.leaderboard', ['game' => $tournament->slug, 'board' => 'match-winners']))
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('active_board', 'match-winners')
+            );
+
+        // An unknown board falls back to no preselection (the page defaults to Overall).
+        $this->get(route('games.leaderboard', ['game' => $tournament->slug, 'board' => 'nonsense']))
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('active_board', null)
             );
     }
 }

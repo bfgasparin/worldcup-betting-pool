@@ -16,6 +16,7 @@ class LeaderboardEmailsTest extends TestCase
     {
         $html = view('emails.top-of-leaderboard', [
             'tournamentName' => 'World Cup 2026',
+            'leaderboardLabel' => 'Overall',
             'points' => 200,
             'totalEntries' => 12,
             'runnerUpName' => 'Aisha',
@@ -29,10 +30,12 @@ class LeaderboardEmailsTest extends TestCase
         $this->assertStringContainsString('Sam', $html);
         $this->assertStringContainsString('35 pts', $html);
         $this->assertStringContainsString('Aisha', $html);
+        $this->assertStringContainsString('Overall leaderboard', $html);
         $this->assertStringContainsString('https://ffa.test/games/world-cup-2026/leaderboard', $html);
 
         $text = view('emails.top-of-leaderboard-text', [
             'tournamentName' => 'World Cup 2026',
+            'leaderboardLabel' => 'Overall',
             'points' => 200,
             'totalEntries' => 12,
             'runnerUpName' => 'Aisha',
@@ -41,7 +44,8 @@ class LeaderboardEmailsTest extends TestCase
             'url' => 'https://ffa.test/games/world-cup-2026/leaderboard',
         ])->render();
 
-        $this->assertStringContainsString('1st place', $text);
+        $this->assertStringContainsString('1st', $text);
+        $this->assertStringContainsString('Overall leaderboard', $text);
         $this->assertStringContainsString('https://ffa.test/games/world-cup-2026/leaderboard', $text);
     }
 
@@ -49,6 +53,7 @@ class LeaderboardEmailsTest extends TestCase
     {
         $data = [
             'tournamentName' => 'World Cup 2026',
+            'leaderboardLabel' => 'Overall',
             'direction' => 'up',
             'rank' => 4,
             'previousRank' => 6,
@@ -67,10 +72,12 @@ class LeaderboardEmailsTest extends TestCase
         $this->assertStringContainsString('4th', $html);
         $this->assertStringContainsString('Aisha', $html);
         $this->assertStringContainsString('35 pts', $html);
+        $this->assertStringContainsString('Overall leaderboard', $html);
         $this->assertStringContainsString('https://ffa.test/games/world-cup-2026/leaderboard', $html);
 
         $text = view('emails.rank-change-text', $data)->render();
         $this->assertStringContainsString('4th', $text);
+        $this->assertStringContainsString('Overall leaderboard', $text);
         $this->assertStringContainsString('https://ffa.test/games/world-cup-2026/leaderboard', $text);
     }
 
@@ -78,6 +85,7 @@ class LeaderboardEmailsTest extends TestCase
     {
         $html = view('emails.rank-change', [
             'tournamentName' => 'World Cup 2026',
+            'leaderboardLabel' => 'Overall',
             'direction' => 'down',
             'rank' => 6,
             'previousRank' => 4,

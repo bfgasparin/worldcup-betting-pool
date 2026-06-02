@@ -6,6 +6,7 @@ use App\Models\Fixture;
 use App\Models\GroupPrediction;
 use App\Models\KnockoutPrediction;
 use App\Services\Scoring\KnockoutProgressionScorer;
+use App\Services\Scoring\PredictionBreakdown;
 use App\Services\Scoring\ScorelineScorer;
 use App\Services\Scoring\ScoringConfig;
 
@@ -24,12 +25,22 @@ class UpfrontBracketRules implements ScoringRules
 
     public function scoreGroup(GroupPrediction $prediction, Fixture $fixture, ScoringConfig $config): int
     {
+        return $this->evaluateGroup($prediction, $fixture, $config)->points;
+    }
+
+    public function scoreKnockout(KnockoutPrediction $prediction, Fixture $fixture, ScoringConfig $config): int
+    {
+        return $this->evaluateKnockout($prediction, $fixture, $config)->points;
+    }
+
+    public function evaluateGroup(GroupPrediction $prediction, Fixture $fixture, ScoringConfig $config): PredictionBreakdown
+    {
         if ($prediction->home_goals === null || $prediction->away_goals === null
             || $fixture->home_goals === null || $fixture->away_goals === null) {
-            return 0;
+            return new PredictionBreakdown(points: 0, isExactScore: false, isCorrectOutcome: false, teamGoalsHit: 0);
         }
 
-        return $this->scorelineScorer->score(
+        return $this->scorelineScorer->evaluate(
             $prediction->home_goals,
             $prediction->away_goals,
             $fixture->home_goals,
@@ -38,8 +49,8 @@ class UpfrontBracketRules implements ScoringRules
         );
     }
 
-    public function scoreKnockout(KnockoutPrediction $prediction, Fixture $fixture, ScoringConfig $config): int
+    public function evaluateKnockout(KnockoutPrediction $prediction, Fixture $fixture, ScoringConfig $config): PredictionBreakdown
     {
-        return $this->knockoutScorer->score($prediction, $fixture, $config);
+        return $this->knockoutScorer->evaluate($prediction, $fixture, $config);
     }
 }

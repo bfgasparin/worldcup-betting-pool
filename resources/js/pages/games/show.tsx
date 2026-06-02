@@ -3,12 +3,13 @@ import {
     ArrowRight,
     CalendarDays,
     ClipboardCheck,
-    ListOrdered,
     PencilLine,
+    Users,
 } from 'lucide-react';
 import { useState } from 'react';
 import {
     FinalCard,
+    formatLongDate,
     GroupFixtureCard,
     KnockoutSlotCard,
     PhaseMeta,
@@ -18,11 +19,13 @@ import {
 import type { Phase } from '@/components/fixtures';
 import { GameInfoDialog } from '@/components/game-info-dialog';
 import { LeaderboardRow } from '@/components/leaderboard-row';
+import { MovementArrow } from '@/components/movement-arrow';
 import { Button } from '@/components/ui/button';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
-import { cn } from '@/lib/utils';
+import { ordinal } from '@/lib/leaderboards';
 import games from '@/routes/games';
 import type {
+    BoardSummary,
     BracketPhase,
     GameDetail,
     GameStatus,
@@ -35,6 +38,7 @@ interface GameShowProps {
     groups: GroupView[];
     bracket: BracketPhase[];
     pool: PoolSummary;
+    boardSummaries: BoardSummary[];
 }
 
 function greeting(): string {
@@ -51,30 +55,32 @@ function greeting(): string {
     return 'Good evening';
 }
 
-function PoolStat({
-    label,
-    value,
-    accent,
-}: {
-    label: string;
-    value: string;
-    accent?: boolean;
-}) {
-    return (
-        <div className="flex flex-col gap-0.5">
-            <span className="text-[11px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
-                {label}
-            </span>
-            <span
-                className={cn(
-                    'font-display text-3xl font-semibold tabular-nums',
-                    accent ? 'text-primary' : 'text-foreground',
-                )}
-            >
-                {value}
-            </span>
-        </div>
-    );
+/**
+ * The hero's one-line context, by state: not entered yet, predictions still open (lock date),
+ * or locked but not yet scored. Null once results are landing — the standings carry it from there.
+ */
+function heroContextLine(
+    game: GameDetail,
+    hasEntry: boolean,
+    hasScores: boolean,
+    tz: string,
+): string | null {
+    if (!hasEntry) {
+        return "You're not in yet — make your predictions.";
+    }
+
+    if (
+        game.predictions_lock_at &&
+        new Date(game.predictions_lock_at).getTime() > Date.now()
+    ) {
+        return `Predictions lock ${formatLongDate(game.predictions_lock_at, tz)}.`;
+    }
+
+    if (!hasScores) {
+        return 'Locked in — points unlock as results land.';
+    }
+
+    return null;
 }
 
 const STATUS_LABELS: Record<GameStatus, string> = {
@@ -145,8 +151,10 @@ function DashboardBanner({
             : game.starts_on
         : null;
 
+    const tz = useDisplayTimeZone();
     const firstName = name.split(' ')[0] || name;
     const hasEntry = pool.me !== null;
+    const contextLine = heroContextLine(game, hasEntry, pool.has_scores, tz);
 
     return (
         <header className="hero relative overflow-hidden rounded-3xl border border-border p-6 sm:p-8">
@@ -171,32 +179,20 @@ function DashboardBanner({
                                     {dates}
                                 </span>
                             )}
+                            <span className="inline-flex items-center gap-1.5">
+                                <Users className="size-4" />
+                                {pool.participants}{' '}
+                                {pool.participants === 1 ? 'player' : 'players'}
+                            </span>
                         </div>
+                        {contextLine && (
+                            <p className="mt-2 text-sm font-medium text-foreground">
+                                {contextLine}
+                            </p>
+                        )}
                         {isAdmin && <AdminStatusControl game={game} />}
                     </div>
                     <GameInfoDialog game={game} />
-                </div>
-
-                <div className="flex flex-wrap items-center gap-8 rounded-2xl border border-border bg-card px-5 py-4">
-                    <PoolStat
-                        label="Your points"
-                        value={
-                            pool.me?.points != null
-                                ? pool.me.points.toLocaleString()
-                                : '—'
-                        }
-                    />
-                    <PoolStat
-                        label="Pool rank"
-                        value={hasEntry ? `${pool.me?.rank}` : '—'}
-                        accent
-                    />
-                    <PoolStat label="Players" value={`${pool.participants}`} />
-                    {!pool.has_scores && (
-                        <span className="text-xs text-muted-foreground">
-                            Points unlock as results land
-                        </span>
-                    )}
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
@@ -206,12 +202,6 @@ function DashboardBanner({
                             {hasEntry
                                 ? 'Edit predictions'
                                 : 'Make your predictions'}
-                        </Link>
-                    </Button>
-                    <Button asChild variant="outline">
-                        <Link href={games.leaderboard(game.slug)}>
-                            <ListOrdered className="size-4" />
-                            View pool table
                         </Link>
                     </Button>
                     {game.can_review_scores && (
@@ -233,17 +223,22 @@ function PoolPreview({ game, pool }: { game: GameDetail; pool: PoolSummary }) {
         return null;
     }
 
+    // Pin the viewer's own row when they're ranked outside the shown top, so they always see where
+    // they stand on the Overall board.
+    const pinnedMe =
+        pool.me && !pool.top.some((row) => row.is_me) ? pool.me : null;
+
     return (
         <section className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
                 <h2 className="font-display text-xl font-semibold tracking-tight">
-                    Pool table
+                    Overall
                 </h2>
                 <Link
                     href={games.leaderboard(game.slug)}
                     className="inline-flex items-center gap-1 font-display text-sm font-semibold text-primary transition-all hover:gap-2"
                 >
-                    See full table
+                    See all leaderboards
                     <ArrowRight className="size-4" />
                 </Link>
             </div>
@@ -255,12 +250,118 @@ function PoolPreview({ game, pool }: { game: GameDetail; pool: PoolSummary }) {
                             rank: row.rank,
                             name: row.name,
                             initials: row.initials,
-                            points: row.points,
+                            primary: row.points,
                             isMe: row.is_me,
                             movement: row.movement,
                         }}
                     />
                 ))}
+                {pinnedMe && (
+                    <>
+                        <div className="border-t border-dashed border-border bg-muted/30 px-4 py-1 text-center text-[10px] font-bold tracking-[0.12em] text-muted-foreground uppercase">
+                            You
+                        </div>
+                        <LeaderboardRow
+                            entry={{
+                                rank: pinnedMe.rank,
+                                name: pinnedMe.name,
+                                initials: pinnedMe.initials,
+                                primary: pinnedMe.points,
+                                isMe: true,
+                                movement: pinnedMe.movement,
+                            }}
+                        />
+                    </>
+                )}
+            </div>
+        </section>
+    );
+}
+
+/**
+ * A summary card per non-Overall board: the board's leader as the headline, with the viewer's own
+ * position beneath. Shown once scoring has begun; each card deep-links to that board's tab.
+ */
+function BoardSummaries({
+    game,
+    summaries,
+}: {
+    game: GameDetail;
+    summaries: BoardSummary[];
+}) {
+    if (summaries.length === 0) {
+        return null;
+    }
+
+    return (
+        <section className="flex flex-col gap-3">
+            <h2 className="font-display text-xl font-semibold tracking-tight">
+                More leaderboards
+            </h2>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {summaries.map((board) => {
+                    const unit = board.primary_stat_label.toLowerCase();
+                    const leader =
+                        board.leader && board.leader.primary_value
+                            ? board.leader
+                            : null;
+
+                    return (
+                        <Link
+                            key={board.key}
+                            href={`${games.leaderboard(game.slug).url}?board=${board.key}`}
+                            className="group flex flex-col gap-2 rounded-2xl border border-border bg-card px-4 py-3 shadow-[var(--sh-sm)] transition-colors hover:border-primary/40"
+                        >
+                            <div className="flex items-center justify-between">
+                                <span className="text-[11px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
+                                    {board.label}
+                                </span>
+                                <ArrowRight className="size-4 text-muted-foreground transition-all group-hover:translate-x-0.5 group-hover:text-primary" />
+                            </div>
+
+                            <div className="flex items-center justify-between gap-2">
+                                {leader ? (
+                                    <span className="flex min-w-0 items-center gap-2">
+                                        <span className="bg-gold-gradient grid size-7 shrink-0 place-items-center rounded-full font-display text-xs font-semibold text-[#3a2600]">
+                                            {leader.initials}
+                                        </span>
+                                        <span className="truncate font-display text-sm font-semibold">
+                                            {leader.name}
+                                        </span>
+                                    </span>
+                                ) : (
+                                    <span className="font-display text-sm font-semibold text-muted-foreground">
+                                        No leader yet
+                                    </span>
+                                )}
+                                {leader && (
+                                    <span className="shrink-0 font-display text-sm font-semibold tabular-nums">
+                                        {leader.primary_value?.toLocaleString()}{' '}
+                                        {unit}
+                                    </span>
+                                )}
+                            </div>
+
+                            <div className="flex items-center justify-between gap-2 border-t border-border pt-2 text-xs font-medium text-muted-foreground">
+                                <span className="inline-flex items-center gap-1.5">
+                                    You ·{' '}
+                                    {board.you ? ordinal(board.you.rank) : '—'}
+                                    {board.you?.movement && (
+                                        <MovementArrow
+                                            movement={board.you.movement}
+                                        />
+                                    )}
+                                </span>
+                                {board.you && (
+                                    <span className="shrink-0 tabular-nums">
+                                        {board.you.primary_value?.toLocaleString()}{' '}
+                                        {unit}
+                                    </span>
+                                )}
+                            </div>
+                        </Link>
+                    );
+                })}
             </div>
         </section>
     );
@@ -398,6 +499,7 @@ export default function GameShow({
     groups,
     bracket,
     pool,
+    boardSummaries,
 }: GameShowProps) {
     const { auth } = usePage().props;
     const name = auth.user?.name ?? 'there';
@@ -414,6 +516,10 @@ export default function GameShow({
                 />
 
                 <PoolPreview game={game} pool={pool} />
+
+                {pool.has_scores && (
+                    <BoardSummaries game={game} summaries={boardSummaries} />
+                )}
 
                 <FixturesView groups={groups} bracket={bracket} />
             </div>

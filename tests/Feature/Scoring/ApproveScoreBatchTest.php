@@ -4,6 +4,7 @@ namespace Tests\Feature\Scoring;
 
 use App\Enums\BatchStatus;
 use App\Enums\FixtureStatus;
+use App\Enums\LeaderboardCategory;
 use App\Enums\PhaseType;
 use App\Enums\ProposalStatus;
 use App\Models\Entry;
@@ -62,6 +63,14 @@ class ApproveScoreBatchTest extends TestCase
         // Points and ranks are computed for the entry.
         $this->assertNotNull($this->entry->fresh()->total_points);
         $this->assertSame(1, $this->entry->fresh()->rank);
+
+        // Every leaderboard now has a ranked standing for the entry, and the Overall board's rank
+        // mirrors the entry's rank.
+        $this->assertSame(3, $this->entry->standings()->count());
+        $overall = $this->standingFor($this->entry, LeaderboardCategory::Overall);
+        $this->assertSame(1, $overall->rank);
+        $this->assertSame($this->entry->fresh()->total_points, $overall->value);
+        $this->assertSame(1, $this->standingFor($this->entry, LeaderboardCategory::MatchWinners)->rank);
 
         // The batch and its proposals are marked applied.
         $this->assertSame(BatchStatus::Approved, $batch->fresh()->status);

@@ -24,16 +24,29 @@ class KnockoutProgressionScorer
 {
     public function score(KnockoutPrediction $prediction, Fixture $fixture, ScoringConfig $config): int
     {
+        return $this->evaluate($prediction, $fixture, $config)->points;
+    }
+
+    /**
+     * Score a knockout prediction, returning the points plus the per-category signals the
+     * leaderboards roll up (team-based, since the player predicts the matchup): how many of the two
+     * named teams were correctly placed *and* on the right score ({@see PredictionBreakdown::teamGoalsHit},
+     * 0–2), and whether the player sent the team that actually advanced through
+     * ({@see PredictionBreakdown::isCorrectOutcome}).
+     */
+    public function evaluate(KnockoutPrediction $prediction, Fixture $fixture, ScoringConfig $config): PredictionBreakdown
+    {
         $officialHome = $this->asInt($fixture->home_team_id);
         $officialAway = $this->asInt($fixture->away_team_id);
 
         // The match has no official line-up yet (not projected/played) — nothing to score.
         if ($officialHome === null || $officialAway === null) {
-            return 0;
+            return new PredictionBreakdown(points: 0, isCorrectOutcome: false, teamGoalsHit: 0);
         }
 
         $official = [$officialHome, $officialAway];
         $points = 0;
+        $teamGoalsHit = 0;
 
         $sides = [
             [$this->asInt($prediction->predicted_home_team_id), $prediction->home_goals],
@@ -53,17 +66,24 @@ class KnockoutProgressionScorer
 
             if ($predictedGoals !== null && (int) $predictedGoals === $officialGoals) {
                 $points += $config->knockoutGoalCountBonus();
+                $teamGoalsHit++;
             }
         }
 
+        // The "match winner": the player sent the team that actually advanced through.
+        $correctWinner = $prediction->advancing_team_id !== null
+            && $this->asInt($prediction->advancing_team_id) === $this->asInt($fixture->winner_team_id);
+
         // Champion bonus on the final.
-        if ($fixture->phase->key === PhaseKey::Final
-            && $prediction->advancing_team_id !== null
-            && $this->asInt($prediction->advancing_team_id) === $this->asInt($fixture->winner_team_id)) {
+        if ($fixture->phase->key === PhaseKey::Final && $correctWinner) {
             $points += $config->champion();
         }
 
-        return $points;
+        return new PredictionBreakdown(
+            points: $points,
+            isCorrectOutcome: $correctWinner,
+            teamGoalsHit: $teamGoalsHit,
+        );
     }
 
     private function asInt(int|string|null $value): ?int
