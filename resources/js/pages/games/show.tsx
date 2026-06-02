@@ -528,5 +528,5 @@ export default function GameShow({
 }
 
 GameShow.layout = {
-    breadcrumbs: [{ title: 'Tournaments', href: games.index() }],
+    breadcrumbs: [{ title: 'Games', href: games.index() }],
 };
