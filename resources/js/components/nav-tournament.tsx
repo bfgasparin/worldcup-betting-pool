@@ -34,7 +34,7 @@ export function NavTournament({ slug, name }: { slug: string; name: string }) {
             icon: PencilLine,
         },
         {
-            title: 'Pool table',
+            title: 'Leaderboards',
             href: games.leaderboard(slug).url,
             icon: ListOrdered,
         },

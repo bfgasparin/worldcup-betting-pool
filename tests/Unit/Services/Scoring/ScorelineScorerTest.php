@@ -36,6 +36,41 @@ class ScorelineScorerTest extends TestCase
     }
 
     /**
+     * @param  array{int, int}  $prediction
+     * @param  array{int, int}  $actual
+     */
+    #[DataProvider('breakdownCases')]
+    public function test_evaluate_exposes_the_per_category_breakdown(
+        array $prediction,
+        array $actual,
+        int $points,
+        bool $isCorrectOutcome,
+        int $teamGoalsHit,
+    ): void {
+        $breakdown = $this->scorer->evaluate($prediction[0], $prediction[1], $actual[0], $actual[1], $this->tiers);
+
+        $this->assertSame($points, $breakdown->points);
+        $this->assertSame($isCorrectOutcome, $breakdown->isCorrectOutcome);
+        $this->assertSame($teamGoalsHit, $breakdown->teamGoalsHit);
+    }
+
+    /**
+     * @return array<string, array{array{int, int}, array{int, int}, int, bool, int}>
+     */
+    public static function breakdownCases(): array
+    {
+        return [
+            // prediction, actual, points, correct outcome?, team goals hit (0-2)
+            'exact win' => [[2, 1], [2, 1], 20, true, 2],
+            'exact draw' => [[0, 0], [0, 0], 20, true, 2],
+            'correct win, home goals exact' => [[2, 0], [2, 1], 15, true, 1],
+            'correct draw, no exact goals' => [[1, 1], [2, 2], 10, true, 0],
+            'wrong outcome, one goal exact' => [[2, 2], [2, 0], 5, false, 1],
+            'total miss' => [[0, 3], [2, 1], 0, false, 0],
+        ];
+    }
+
+    /**
      * @return array<string, array{array{int, int}, array{int, int}, int}>
      */
     public static function scorelineCases(): array

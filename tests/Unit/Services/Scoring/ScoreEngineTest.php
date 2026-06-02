@@ -3,6 +3,7 @@
 namespace Tests\Unit\Services\Scoring;
 
 use App\Enums\FixtureStatus;
+use App\Enums\LeaderboardCategory;
 use App\Models\Entry;
 use App\Models\Game;
 use App\Models\GroupPrediction;
@@ -140,6 +141,66 @@ class ScoreEngineTest extends TestCase
         $this->assertNull($this->groupPrediction(
             $this->tournament->groups()->where('name', 'A')->firstOrFail()->fixtures()->first()->id,
         )->points_awarded);
+    }
+
+    public function test_recompute_writes_a_standing_per_leaderboard_category(): void
+    {
+        $resolver = new BracketResolver;
+        $projector = new OfficialBracketProjector;
+
+        // Predict and play out the whole tournament in seed order, so every scored prediction —
+        // group and knockout — is exact and on the right winner.
+        $this->predictAllGroups($this->entry, $this->tournament, $this->seedOrderScores());
+        $this->advanceAllHome($this->entry, $resolver);
+        $this->recordOfficialGroupResults($this->tournament, $this->seedOrderScores());
+        $this->advanceOfficialHome($this->tournament, $projector);
+
+        $this->engine->recompute($this->game);
+
+        // Count the scored matches across the whole tournament; each is exact (so 2 team goals).
+        $matches = (int) $this->entry->groupPredictions()->whereNotNull('points_awarded')->count()
+            + (int) $this->entry->knockoutPredictions()->whereNotNull('points_awarded')->count();
+
+        // The three boards each have exactly one row for the entry.
+        $this->assertSame(3, $this->entry->standings()->count());
+
+        $this->assertStanding(LeaderboardCategory::Overall, $this->entry->fresh()->total_points, 0);
+        // Score-based boards span the whole tournament (group + knockout) and cross-tie-break.
+        $this->assertStanding(LeaderboardCategory::MatchWinners, $matches, 2 * $matches);
+        $this->assertStanding(LeaderboardCategory::GoalSniper, 2 * $matches, $matches);
+
+        // Sanity: knockout matches are included, not just the group stage.
+        $this->assertGreaterThan(0, $this->entry->knockoutPredictions()->whereNotNull('points_awarded')->count());
+    }
+
+    public function test_recompute_keeps_one_standing_row_per_board_when_re_run(): void
+    {
+        $this->predictAllGroups($this->entry, $this->tournament, $this->seedOrderScores());
+        $this->recordOfficialGroupResults($this->tournament, $this->seedOrderScores());
+
+        $this->engine->recompute($this->game);
+        $this->engine->recompute($this->game);
+
+        $this->assertSame(3, $this->entry->standings()->count());
+    }
+
+    public function test_standings_are_written_even_before_any_result_lands(): void
+    {
+        $this->predictAllGroups($this->entry, $this->tournament, $this->seedOrderScores());
+
+        $this->engine->recompute($this->game);
+
+        // All three rows exist (so the boards never miss an entry), at zero.
+        $this->assertSame(3, $this->entry->standings()->count());
+        $this->assertSame(0, $this->standingFor($this->entry, LeaderboardCategory::GoalSniper)->value);
+    }
+
+    private function assertStanding(LeaderboardCategory $category, int $value, int $tiebreaker): void
+    {
+        $standing = $this->standingFor($this->entry, $category);
+
+        $this->assertSame($value, $standing->value, "value for {$category->value}");
+        $this->assertSame($tiebreaker, $standing->tiebreaker, "tiebreaker for {$category->value}");
     }
 
     private function setPrediction(int $fixtureId, int $home, int $away): void

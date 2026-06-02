@@ -2,8 +2,10 @@
 
 namespace Tests\Unit\Services\Scoring;
 
+use App\Enums\LeaderboardCategory;
 use App\Models\Entry;
 use App\Models\Game;
+use App\Models\LeaderboardStanding;
 use App\Services\Scoring\RankSnapshotter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -76,5 +78,88 @@ class RankSnapshotterTest extends TestCase
 
         $this->assertSame(1, $first->fresh()->rank);
         $this->assertSame(2, $second->fresh()->rank);
+    }
+
+    public function test_each_board_is_ranked_independently(): void
+    {
+        $a = Entry::factory()->for($this->game)->create(['total_points' => 100]);
+        $b = Entry::factory()->for($this->game)->create(['total_points' => 50]);
+
+        // On Overall, A leads; on Goal Sniper, B leads.
+        $this->standing($a, LeaderboardCategory::Overall, 100);
+        $this->standing($b, LeaderboardCategory::Overall, 50);
+        $this->standing($a, LeaderboardCategory::GoalSniper, 2);
+        $this->standing($b, LeaderboardCategory::GoalSniper, 9);
+
+        $this->snapshotter->snapshot($this->game);
+
+        $this->assertSame(1, $this->rankOf($a, LeaderboardCategory::Overall));
+        $this->assertSame(2, $this->rankOf($b, LeaderboardCategory::Overall));
+        $this->assertSame(2, $this->rankOf($a, LeaderboardCategory::GoalSniper));
+        $this->assertSame(1, $this->rankOf($b, LeaderboardCategory::GoalSniper));
+
+        // The Overall board mirrors onto the entry itself.
+        $this->assertSame(1, $a->fresh()->rank);
+        $this->assertSame(2, $b->fresh()->rank);
+    }
+
+    public function test_a_board_breaks_ties_by_tiebreaker_then_id(): void
+    {
+        $a = Entry::factory()->for($this->game)->create();
+        $b = Entry::factory()->for($this->game)->create();
+
+        // Equal value; B has the higher tie-break, so B leads despite the later id.
+        $this->standing($a, LeaderboardCategory::GoalSniper, 5, 3);
+        $this->standing($b, LeaderboardCategory::GoalSniper, 5, 10);
+
+        $this->snapshotter->snapshot($this->game);
+
+        $this->assertSame(1, $this->rankOf($b, LeaderboardCategory::GoalSniper));
+        $this->assertSame(2, $this->rankOf($a, LeaderboardCategory::GoalSniper));
+    }
+
+    public function test_a_second_snapshot_captures_the_previous_rank_per_board(): void
+    {
+        $a = Entry::factory()->for($this->game)->create();
+        $b = Entry::factory()->for($this->game)->create();
+
+        $this->standing($a, LeaderboardCategory::GoalSniper, 5);
+        $this->standing($b, LeaderboardCategory::GoalSniper, 9); // b=1, a=2
+        $this->snapshotter->snapshot($this->game);
+
+        // a overtakes b on Goal Sniper.
+        $this->standingFor($a)->update(['value' => 12]);
+        $this->snapshotter->snapshot($this->game);
+
+        $this->assertSame(1, $this->rankOf($a, LeaderboardCategory::GoalSniper));
+        $this->assertSame(2, $this->standingFor($a)->previous_rank);
+        $this->assertSame(2, $this->rankOf($b, LeaderboardCategory::GoalSniper));
+        $this->assertSame(1, $this->standingFor($b)->previous_rank);
+    }
+
+    private function standing(Entry $entry, LeaderboardCategory $category, int $value, int $tiebreaker = 0): LeaderboardStanding
+    {
+        return LeaderboardStanding::factory()->for($entry)->create([
+            'category' => $category,
+            'value' => $value,
+            'tiebreaker' => $tiebreaker,
+        ]);
+    }
+
+    private function rankOf(Entry $entry, LeaderboardCategory $category): ?int
+    {
+        return LeaderboardStanding::query()
+            ->where('entry_id', $entry->id)
+            ->where('category', $category)
+            ->firstOrFail()
+            ->rank;
+    }
+
+    private function standingFor(Entry $entry): LeaderboardStanding
+    {
+        return LeaderboardStanding::query()
+            ->where('entry_id', $entry->id)
+            ->where('category', LeaderboardCategory::GoalSniper)
+            ->firstOrFail();
     }
 }

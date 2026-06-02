@@ -21,6 +21,7 @@ class TopOfLeaderboardNotification extends Notification implements ShouldQueue
         public int $totalEntries,
         public ?string $runnerUpName = null,
         public ?int $leadOverRunnerUp = null,
+        public string $leaderboardLabel = 'Overall',
     ) {}
 
     /**
@@ -42,6 +43,7 @@ class TopOfLeaderboardNotification extends Notification implements ShouldQueue
             ->subject(__("🏆 You're top of :tournament!", ['tournament' => $this->tournamentName]))
             ->view(['emails.top-of-leaderboard', 'emails.top-of-leaderboard-text'], [
                 'tournamentName' => $this->tournamentName,
+                'leaderboardLabel' => $this->leaderboardLabel,
                 'points' => $this->points,
                 'totalEntries' => $this->totalEntries,
                 'runnerUpName' => $this->runnerUpName,

@@ -2,9 +2,11 @@
 
 namespace Tests\Concerns;
 
+use App\Enums\LeaderboardCategory;
 use App\Models\Entry;
 use App\Models\Fixture;
 use App\Models\GroupPrediction;
+use App\Models\LeaderboardStanding;
 use App\Models\Tournament;
 use App\Services\Predictions\BracketResolver;
 
@@ -68,6 +70,14 @@ trait InteractsWithPredictions
     protected function knockoutFixture(Tournament $tournament, string $bracketSlot): Fixture
     {
         return $tournament->fixtures()->where('bracket_slot', $bracketSlot)->firstOrFail();
+    }
+
+    /**
+     * The entry's standing on a given leaderboard, after a recompute.
+     */
+    protected function standingFor(Entry $entry, LeaderboardCategory $category): LeaderboardStanding
+    {
+        return $entry->standings()->where('category', $category)->firstOrFail();
     }
 
     /**

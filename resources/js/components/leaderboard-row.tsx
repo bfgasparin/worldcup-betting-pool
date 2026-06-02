@@ -6,9 +6,11 @@ export interface LeaderboardEntry {
     rank: number;
     name: string;
     initials: string;
-    points: number | null;
+    /** The board's headline number; null renders as "—" and suppresses podium styling. */
+    primary: number | null;
+    /** An optional secondary stat (e.g. the board's tie-break), already formatted with its label. */
+    secondary?: string | null;
     subtitle?: string | null;
-    hitRate?: string | null;
     isMe?: boolean;
     movement?: RankMovement | null;
 }
@@ -39,12 +41,12 @@ function avatarGradient(rank: number, scored: boolean, isMe: boolean): string {
     return 'bg-brand-gradient text-white';
 }
 
-function formatPoints(points: number | null): string {
-    return points === null ? '—' : points.toLocaleString();
+function formatValue(value: number | null): string {
+    return value === null ? '—' : value.toLocaleString();
 }
 
 /**
- * A single ranked row for the pool table. Podium medals and avatar colours appear only once
+ * A single ranked row for a leaderboard. Podium medals and avatar colours appear only once
  * the entry is scored; an unscored roster shows neutral row numbers.
  */
 export function LeaderboardRow({
@@ -54,14 +56,14 @@ export function LeaderboardRow({
     entry: LeaderboardEntry;
     className?: string;
 }) {
-    const scored = entry.points !== null;
+    const scored = entry.primary !== null;
     const medal = scored ? MEDALS[entry.rank] : undefined;
 
     return (
         <div
             className={cn(
                 'grid items-center gap-3 border-b border-border px-4 py-3 last:border-0 sm:px-5',
-                entry.hitRate
+                entry.secondary
                     ? 'grid-cols-[40px_1fr_auto_auto] sm:gap-4'
                     : 'grid-cols-[36px_1fr_auto]',
                 entry.isMe && 'bg-primary/[0.06]',
@@ -99,9 +101,9 @@ export function LeaderboardRow({
                 </span>
             </div>
 
-            {entry.hitRate && (
+            {entry.secondary && (
                 <span className="hidden rounded-full bg-primary/10 px-2.5 py-1 text-xs font-bold text-pitch-deep sm:inline-block dark:bg-primary/15 dark:text-primary">
-                    {entry.hitRate}
+                    {entry.secondary}
                 </span>
             )}
 
@@ -110,7 +112,7 @@ export function LeaderboardRow({
                     <MovementArrow movement={entry.movement} />
                 )}
                 <span className="text-right font-display text-lg font-semibold tabular-nums">
-                    {formatPoints(entry.points)}
+                    {formatValue(entry.primary)}
                 </span>
             </div>
         </div>

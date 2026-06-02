@@ -120,13 +120,22 @@ export interface GameDetail extends GameSummary {
     allowed_transitions: GameStatus[];
     /** Whether the viewer may open the admin score-review screen. */
     can_review_scores: boolean;
+    /** Board descriptors for the "How this game works" dialog. */
+    leaderboards: BoardDescriptor[];
 }
 
-// --- Pool table / leaderboard ---
+// --- Leaderboards ---
 
-/** Movement on the pool table since the last approved results, or "new" on first appearance. */
+/** Movement on a leaderboard since the last approved results, or "new" on first appearance. */
 export type RankMovement = 'up' | 'down' | 'same' | 'new';
 
+/** The string key of each leaderboard (matches the backend LeaderboardCategory enum). */
+export type LeaderboardCategoryKey =
+    | 'overall'
+    | 'match-winners'
+    | 'goal-sniper';
+
+/** A ranked row on the Overall pool preview (game page hero). */
 export interface LeaderboardEntryRow {
     rank: number;
     name: string;
@@ -143,10 +152,59 @@ export interface PoolSummary {
     top: LeaderboardEntryRow[];
 }
 
+/** A ranked row on any of the full leaderboards (Leaderboards page). */
+export interface BoardRow {
+    rank: number;
+    name: string;
+    initials: string;
+    /** The board's headline value; null renders as "—" and suppresses podium styling. */
+    primary_value: number | null;
+    /** The board's tie-break value, or null for boards that don't show one (Overall). */
+    secondary_value: number | null;
+    is_me: boolean;
+    movement: RankMovement | null;
+}
+
+export interface LeaderboardBoard {
+    key: LeaderboardCategoryKey;
+    label: string;
+    description: string;
+    primary_stat_label: string;
+    secondary_stat_label: string | null;
+    has_scores: boolean;
+    rows: BoardRow[];
+}
+
+/** A board summary for the game page: who leads it, and where the viewer stands on it. */
+export interface BoardSummary {
+    key: LeaderboardCategoryKey;
+    label: string;
+    primary_stat_label: string;
+    leader: {
+        name: string;
+        initials: string;
+        primary_value: number | null;
+    } | null;
+    you: {
+        rank: number;
+        primary_value: number | null;
+        movement: RankMovement | null;
+    } | null;
+}
+
+/** A board's name + blurb (no rows), for the "How this game works" dialog. */
+export interface BoardDescriptor {
+    key: LeaderboardCategoryKey;
+    label: string;
+    description: string;
+    primary_stat_label: string;
+    secondary_stat_label: string | null;
+}
+
 export interface LeaderboardPageProps {
     game: GameSummary;
-    rows: LeaderboardEntryRow[];
-    has_scores: boolean;
+    boards: LeaderboardBoard[];
+    active_board: LeaderboardCategoryKey | null;
 }
 
 // --- Prediction wizard ---

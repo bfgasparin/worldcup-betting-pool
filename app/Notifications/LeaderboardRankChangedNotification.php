@@ -25,6 +25,7 @@ class LeaderboardRankChangedNotification extends Notification implements ShouldQ
         public int $points,
         public ?string $aheadName = null,
         public ?int $pointsBehind = null,
+        public string $leaderboardLabel = 'Overall',
     ) {}
 
     /**
@@ -52,6 +53,7 @@ class LeaderboardRankChangedNotification extends Notification implements ShouldQ
             ->subject($subject)
             ->view(['emails.rank-change', 'emails.rank-change-text'], [
                 'tournamentName' => $this->tournamentName,
+                'leaderboardLabel' => $this->leaderboardLabel,
                 'direction' => $this->direction,
                 'rank' => $this->rank,
                 'previousRank' => $this->previousRank,

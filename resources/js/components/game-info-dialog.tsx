@@ -1,4 +1,12 @@
-import { CalendarClock, Coins, Info, ListChecks, Trophy } from 'lucide-react';
+import {
+    CalendarClock,
+    Coins,
+    Info,
+    ListChecks,
+    Medal,
+    Scale,
+    Trophy,
+} from 'lucide-react';
 import { useState } from 'react';
 import { formatLongDate } from '@/components/fixtures';
 import { Button } from '@/components/ui/button';
@@ -12,6 +20,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
+import { tiebreakRule } from '@/lib/leaderboards';
 import type { ScoringRule } from '@/lib/scoring';
 import { scoringRules } from '@/lib/scoring';
 import type { GameDetail } from '@/types/games';
@@ -177,6 +186,34 @@ export function GameInfoDialog({ game }: { game: GameDetail }) {
                                 />
                             </div>
                         </Section>
+
+                        {game.leaderboards.length > 0 && (
+                            <Section icon={Medal} title="Leaderboards">
+                                <p className="text-sm text-muted-foreground">
+                                    Compete on every board at once — your
+                                    position updates as results land.
+                                </p>
+                                <div className="mt-1 flex flex-col gap-2.5">
+                                    {game.leaderboards.map((board) => (
+                                        <div
+                                            key={board.key}
+                                            className="flex flex-col gap-0.5"
+                                        >
+                                            <span className="font-display text-sm font-semibold">
+                                                {board.label}
+                                            </span>
+                                            <span className="text-sm text-muted-foreground">
+                                                {board.description}
+                                            </span>
+                                            <span className="inline-flex items-start gap-1 text-xs text-muted-foreground/80">
+                                                <Scale className="mt-px size-3 shrink-0 text-primary/70" />
+                                                {tiebreakRule(board)}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </Section>
+                        )}
                     </div>
 
                     <label className="flex cursor-pointer items-center gap-2 border-t border-border pt-4 text-sm text-muted-foreground select-none">

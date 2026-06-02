@@ -128,6 +128,49 @@ class KnockoutProgressionScorerTest extends TestCase
         $this->assertSame(0, $this->scorer->score($prediction, $fixture, $this->config));
     }
 
+    public function test_evaluate_exposes_the_per_category_breakdown(): void
+    {
+        // Official: team 1 beats team 5 (2–1) and advances.
+        $fixture = $this->fixture(PhaseKey::QuarterFinals, 1, 5, 2, 1, 1);
+
+        // Perfect: both teams placed, both goals right, picked the advancing team.
+        $perfect = $this->scorer->evaluate(new KnockoutPrediction([
+            'predicted_home_team_id' => 1, 'home_goals' => 2,
+            'predicted_away_team_id' => 5, 'away_goals' => 1,
+            'advancing_team_id' => 1,
+        ]), $fixture, $this->config);
+        $this->assertSame(30, $perfect->points);
+        $this->assertTrue($perfect->isCorrectOutcome);
+        $this->assertSame(2, $perfect->teamGoalsHit);
+
+        // Right winner, wrong opponent, one goal right: the winner counts and one team goal banks.
+        $partial = $this->scorer->evaluate(new KnockoutPrediction([
+            'predicted_home_team_id' => 1, 'home_goals' => 2,
+            'predicted_away_team_id' => 99, 'away_goals' => 0,
+            'advancing_team_id' => 1,
+        ]), $fixture, $this->config);
+        $this->assertTrue($partial->isCorrectOutcome);
+        $this->assertSame(1, $partial->teamGoalsHit);
+
+        // Neither team in the match: nothing.
+        $miss = $this->scorer->evaluate(new KnockoutPrediction([
+            'predicted_home_team_id' => 8, 'predicted_away_team_id' => 9,
+            'advancing_team_id' => 8,
+        ]), $fixture, $this->config);
+        $this->assertSame(0, $miss->points);
+        $this->assertFalse($miss->isCorrectOutcome);
+        $this->assertSame(0, $miss->teamGoalsHit);
+
+        // An unprojected fixture: nothing.
+        $unprojected = $this->scorer->evaluate(
+            new KnockoutPrediction(['predicted_home_team_id' => 1, 'predicted_away_team_id' => 5, 'advancing_team_id' => 1]),
+            $this->fixture(PhaseKey::RoundOf16, null, null),
+            $this->config,
+        );
+        $this->assertFalse($unprojected->isCorrectOutcome);
+        $this->assertSame(0, $unprojected->teamGoalsHit);
+    }
+
     private function fixture(PhaseKey $key, ?int $homeTeamId, ?int $awayTeamId, ?int $homeGoals = null, ?int $awayGoals = null, ?int $winnerTeamId = null): Fixture
     {
         $phase = new Phase;

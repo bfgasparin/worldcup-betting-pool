@@ -2,15 +2,18 @@
 
 namespace App\Services\Scoring;
 
+use App\Enums\LeaderboardCategory;
 use App\Models\Entry;
 use App\Models\Game;
 use App\Notifications\LeaderboardRankChangedNotification;
 use App\Notifications\TopOfLeaderboardNotification;
 
 /**
- * After ranks are snapshotted, emails players about the two leaderboard moments worth knowing:
- * newly reaching #1 (a milestone), and a significant climb or drop. It diffs each entry's freshly
- * written `rank` against its `previous_rank`, so it must run only once ranks are committed.
+ * After ranks are snapshotted, emails players about the two leaderboard moments worth knowing on the
+ * Overall board: newly reaching #1 (a milestone), and a significant climb or drop. It diffs each
+ * entry's freshly written `rank` against its `previous_rank` (the Overall mirror on the entry), so
+ * it must run only once ranks are committed. Only the Overall board notifies; the other boards would
+ * flood inboxes on every approval.
  */
 class LeaderboardNotifier
 {
@@ -53,6 +56,7 @@ class LeaderboardNotifier
                     $totalEntries,
                     $runnerUp?->user?->name,
                     $this->gap($entry, $runnerUp),
+                    LeaderboardCategory::Overall->label(),
                 ));
 
                 // The milestone replaces the generic climb email — never send both.
@@ -73,6 +77,7 @@ class LeaderboardNotifier
                     $entry->total_points,
                     $ahead?->user?->name,
                     $this->gap($ahead, $entry),
+                    LeaderboardCategory::Overall->label(),
                 ));
             }
         }
