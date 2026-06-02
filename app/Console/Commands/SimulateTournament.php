@@ -239,7 +239,8 @@ class SimulateTournament extends Command
 
     private function closePredictions(Tournament $tournament, PhaseKey $through, bool $predictOnly = false): void
     {
-        // The prediction lock is per-game; the lifecycle status is the competition's.
+        // Force-close every game by writing the explicit predictions_lock_at override (which wins
+        // over the schedule-derived lock); the lifecycle status is the competition's.
         $tournament->games()->update(['predictions_lock_at' => now()->subDay()]);
 
         $tournament->update([

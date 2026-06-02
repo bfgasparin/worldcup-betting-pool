@@ -16,7 +16,8 @@ use Illuminate\Database\Eloquent\Collection;
  * {@see Game::acceptsPredictions()} lock. Phased-bracket games open the group stage on that same
  * lock, then each knockout round on its own: a round is {@see PredictionWindowStatus::Pending}
  * until the official {@see OfficialBracketProjector} has filled in its real participants, then
- * {@see PredictionWindowStatus::Open} until its first kickoff, after which it is
+ * {@see PredictionWindowStatus::Open} until the configured buffer
+ * (scoring.prediction_lock_buffer_minutes) before its first kickoff, after which it is
  * {@see PredictionWindowStatus::Locked}.
  */
 class PredictionWindowResolver
@@ -87,8 +88,9 @@ class PredictionWindowResolver
         }
 
         $firstKickoff = $fixtures->whereNotNull('kicks_off_at')->min('kicks_off_at');
+        $buffer = (int) config('scoring.prediction_lock_buffer_minutes');
 
-        if ($firstKickoff !== null && now()->gte($firstKickoff)) {
+        if ($firstKickoff !== null && now()->gte($firstKickoff->copy()->subMinutes($buffer))) {
             return PredictionWindowStatus::Locked;
         }
 

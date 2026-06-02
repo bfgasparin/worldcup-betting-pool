@@ -125,7 +125,7 @@ export interface GameDetail extends GameSummary {
     scoring_description: string;
     how_to_play: HowToPlay;
     scoring_config: Record<string, Record<string, number>>;
-    /** When predictions lock for this game (ISO 8601), or null if never set. */
+    /** When the group-stage predictions lock (ISO 8601): derived from the first group kickoff (minus the buffer) or an explicit override; null when there is no schedule to derive from. */
     predictions_lock_at: string | null;
     /** Lifecycle statuses this tournament may transition into (admin only). */
     allowed_transitions: GameStatus[];

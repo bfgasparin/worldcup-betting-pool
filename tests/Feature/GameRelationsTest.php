@@ -7,7 +7,9 @@ use App\Enums\TournamentStatus;
 use App\Models\Entry;
 use App\Models\Game;
 use App\Models\Tournament;
+use Database\Seeders\WorldCup2026Seeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class GameRelationsTest extends TestCase
@@ -76,5 +78,60 @@ class GameRelationsTest extends TestCase
             $closed = Game::factory()->for($tournament)->create(['predictions_lock_at' => now()->subMinute()]);
             $this->assertFalse($closed->acceptsPredictions());
         }
+    }
+
+    public function test_lock_derives_from_the_first_group_kickoff_minus_the_buffer_without_an_override(): void
+    {
+        config(['scoring.prediction_lock_buffer_minutes' => 60]);
+        $this->seed(WorldCup2026Seeder::class);
+        $tournament = Tournament::firstOrFail();
+        $game = Game::factory()->for($tournament)->create(['predictions_lock_at' => null]);
+
+        $expected = $tournament->firstGroupKickoffAt()->copy()->subMinutes(60);
+
+        $this->assertTrue($expected->equalTo($game->predictionsLockAt()));
+    }
+
+    public function test_explicit_override_wins_verbatim_and_ignores_the_buffer(): void
+    {
+        config(['scoring.prediction_lock_buffer_minutes' => 60]);
+        $this->seed(WorldCup2026Seeder::class);
+        $tournament = Tournament::firstOrFail();
+        $override = $tournament->firstGroupKickoffAt()->copy()->subDays(3);
+        $game = Game::factory()->for($tournament)->create(['predictions_lock_at' => $override]);
+
+        $this->assertTrue($override->equalTo($game->predictionsLockAt()));
+    }
+
+    public function test_the_buffer_is_applied_to_the_derived_lock(): void
+    {
+        config(['scoring.prediction_lock_buffer_minutes' => 180]);
+        $this->seed(WorldCup2026Seeder::class);
+        $tournament = Tournament::firstOrFail();
+        $game = Game::factory()->for($tournament)->create(['predictions_lock_at' => null]);
+
+        $expected = $tournament->firstGroupKickoffAt()->copy()->subMinutes(180);
+
+        $this->assertTrue($expected->equalTo($game->predictionsLockAt()));
+    }
+
+    public function test_predictions_are_closed_without_an_override_or_any_group_kickoff(): void
+    {
+        // A bare factory tournament has no group fixtures, so there is nothing to derive from.
+        $game = Game::factory()->create(['predictions_lock_at' => null]);
+
+        $this->assertNull($game->tournament->firstGroupKickoffAt());
+        $this->assertNull($game->predictionsLockAt());
+        $this->assertFalse($game->acceptsPredictions());
+    }
+
+    public function test_first_group_kickoff_at_returns_the_earliest_group_fixture_kickoff(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+        $tournament = Tournament::firstOrFail();
+
+        $this->assertTrue(
+            Carbon::parse('2026-06-11 19:00:00', 'UTC')->equalTo($tournament->firstGroupKickoffAt()),
+        );
     }
 }

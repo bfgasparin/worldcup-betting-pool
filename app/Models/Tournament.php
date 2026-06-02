@@ -6,6 +6,8 @@ use App\Enums\PhaseType;
 use App\Enums\Sport;
 use App\Enums\TournamentStatus;
 use App\Events\TournamentStatusChanged;
+use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Database\Factories\TournamentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -118,5 +120,17 @@ class Tournament extends Model
     public function knockoutFixtures(): HasMany
     {
         return $this->fixtures()->whereRelation('phase', 'type', PhaseType::Knockout->value);
+    }
+
+    /**
+     * The earliest scheduled kickoff across all group-stage fixtures, or null when no group
+     * fixture has a kickoff yet. Stored UTC; the source of truth for a game's derived group-stage
+     * prediction lock {@see Game::predictionsLockAt()}.
+     */
+    public function firstGroupKickoffAt(): ?CarbonInterface
+    {
+        $earliest = $this->groupFixtures()->whereNotNull('kicks_off_at')->min('kicks_off_at');
+
+        return $earliest !== null ? CarbonImmutable::parse($earliest) : null;
     }
 }

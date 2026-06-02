@@ -79,7 +79,7 @@ class PredictionController extends Controller
                 'scoring_strategy' => $game->scoring_strategy->value,
                 'starts_on' => $tournament->starts_on?->toDateString(),
                 'ends_on' => $tournament->ends_on?->toDateString(),
-                'predictions_lock_at' => $game->predictions_lock_at?->toIso8601String(),
+                'predictions_lock_at' => $game->predictionsLockAt()?->toIso8601String(),
                 'can_edit' => $canEdit,
                 'scoring_config' => $game->scoring_config,
             ],
