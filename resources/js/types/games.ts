@@ -60,6 +60,11 @@ export interface GroupView {
     fixtures: GroupFixture[];
     /** Official live group table, computed from real match results. */
     standings: StandingRow[];
+    /**
+     * The viewer's projected group table from their own predicted scores, or null when they
+     * have predicted none of this group's fixtures.
+     */
+    predicted_standings: StandingRow[] | null;
 }
 
 export interface BracketFixture {
@@ -97,8 +102,20 @@ export interface BracketPhase {
     fixtures: BracketFixture[];
 }
 
+/** How and when to fill in predictions for a game's scoring strategy. */
+export interface HowToPlay {
+    summary: string;
+    steps: string[];
+}
+
 export interface GameDetail extends GameSummary {
+    scoring_strategy: string;
+    scoring_label: string;
+    scoring_description: string;
+    how_to_play: HowToPlay;
     scoring_config: Record<string, Record<string, number>>;
+    /** When predictions lock for this game (ISO 8601), or null if never set. */
+    predictions_lock_at: string | null;
     /** Lifecycle statuses this tournament may transition into (admin only). */
     allowed_transitions: GameStatus[];
     /** Whether the viewer may open the admin score-review screen. */

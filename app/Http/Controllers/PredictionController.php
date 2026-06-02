@@ -14,8 +14,8 @@ use App\Models\Team;
 use App\Models\Tournament;
 use App\Services\Predictions\BracketResolver;
 use App\Services\Predictions\GroupStandings;
+use App\Services\Predictions\GroupStandingsPresenter;
 use App\Services\Predictions\ResolvedBracket;
-use App\Services\Predictions\TeamStanding;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -176,21 +176,7 @@ class PredictionController extends Controller
                     'venue_timezone' => $fixture->venue_timezone,
                 ];
             })->all(),
-            'standings' => collect($standings->ordered())
-                ->values()
-                ->map(fn (TeamStanding $standing, int $index): array => [
-                    'rank' => $index + 1,
-                    'team' => $this->teamRef($teamsById->get($standing->teamId)),
-                    'played' => $standing->played(),
-                    'won' => $standing->won,
-                    'drawn' => $standing->drawn,
-                    'lost' => $standing->lost,
-                    'goals_for' => $standing->goalsFor,
-                    'goals_against' => $standing->goalsAgainst,
-                    'goal_difference' => $standing->goalDifference(),
-                    'points' => $standing->points(),
-                    'form' => $standing->results,
-                ])->all(),
+            'standings' => GroupStandingsPresenter::rows($standings, $teamsById),
         ];
     }
 

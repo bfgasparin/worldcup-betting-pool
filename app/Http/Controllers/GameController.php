@@ -11,7 +11,7 @@ use App\Models\GroupPrediction;
 use App\Models\KnockoutPrediction;
 use App\Models\Team;
 use App\Services\Predictions\GroupStandings;
-use App\Services\Predictions\TeamStanding;
+use App\Services\Predictions\GroupStandingsPresenter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
@@ -79,7 +79,12 @@ class GameController extends Controller
         return Inertia::render('games/show', [
             'game' => [
                 ...$this->gameHeader($game),
+                'scoring_strategy' => $game->scoring_strategy->value,
+                'scoring_label' => $game->scoring_strategy->label(),
+                'scoring_description' => $game->scoring_strategy->description(),
+                'how_to_play' => $game->scoring_strategy->howToPlay(),
                 'scoring_config' => $game->scoring_config,
+                'predictions_lock_at' => $game->predictions_lock_at?->toIso8601String(),
                 'allowed_transitions' => array_map(
                     fn (TournamentStatus $status): string => $status->value,
                     $tournament->status->allowedTransitions(),
@@ -211,7 +216,7 @@ class GameController extends Controller
 
     /**
      * @param  Collection<int, GroupPrediction>  $predictions
-     * @return array{name: string, teams: list<array<string, mixed>>, fixtures: list<array<string, mixed>>, standings: list<array<string, mixed>>}
+     * @return array{name: string, teams: list<array<string, mixed>>, fixtures: list<array<string, mixed>>, standings: list<array<string, mixed>>, predicted_standings: list<array<string, mixed>>|null}
      */
     private function mapGroup(Group $group, Collection $predictions): array
     {
@@ -245,6 +250,7 @@ class GameController extends Controller
                 ];
             })->all(),
             'standings' => $this->officialStandings($group),
+            'predicted_standings' => $this->predictedStandings($group, $predictions),
         ];
     }
 
@@ -266,25 +272,36 @@ class GameController extends Controller
             ])])
             ->all();
 
-        $standings = new GroupStandings($group, $results);
-        $teamsById = $group->teams->keyBy('id');
+        return GroupStandingsPresenter::rows(
+            new GroupStandings($group, $results),
+            $group->teams->keyBy('id'),
+        );
+    }
 
-        return collect($standings->ordered())
-            ->values()
-            ->map(fn (TeamStanding $standing, int $index): array => [
-                'rank' => $index + 1,
-                'team' => $this->teamRef($teamsById->get($standing->teamId)),
-                'played' => $standing->played(),
-                'won' => $standing->won,
-                'drawn' => $standing->drawn,
-                'lost' => $standing->lost,
-                'goals_for' => $standing->goalsFor,
-                'goals_against' => $standing->goalsAgainst,
-                'goal_difference' => $standing->goalDifference(),
-                'points' => $standing->points(),
-                'form' => $standing->results,
-            ])
+    /**
+     * The viewer's projected group table from their own predicted scores — the same engine as
+     * the official table, so the two can be compared row for row. Returns null when the viewer
+     * has predicted none of this group's fixtures, so the page can show a "no prediction" state
+     * rather than an all-zero table.
+     *
+     * @param  Collection<int, GroupPrediction>  $groupPredictions  the viewer's picks keyed by fixture id
+     * @return list<array<string, mixed>>|null
+     */
+    private function predictedStandings(Group $group, Collection $groupPredictions): ?array
+    {
+        $predictions = $group->fixtures
+            ->filter(fn (Fixture $fixture): bool => $groupPredictions->has($fixture->id))
+            ->mapWithKeys(fn (Fixture $fixture): array => [$fixture->id => $groupPredictions->get($fixture->id)])
             ->all();
+
+        if ($predictions === []) {
+            return null;
+        }
+
+        return GroupStandingsPresenter::rows(
+            new GroupStandings($group, $predictions),
+            $group->teams->keyBy('id'),
+        );
     }
 
     /**
