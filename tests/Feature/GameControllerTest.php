@@ -292,6 +292,79 @@ class GameControllerTest extends TestCase
             );
     }
 
+    public function test_show_exposes_the_scoring_strategy_and_how_to_play(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+        $this->actingAs(User::factory()->create());
+
+        $this->get(route('games.show', 'world-cup-2026'))
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('game.scoring_strategy', 'upfront-bracket')
+                ->where('game.scoring_label', 'Upfront Bracket')
+                ->whereNot('game.scoring_description', null)
+                ->whereNot('game.how_to_play.summary', null)
+                ->has('game.how_to_play.steps')
+                ->whereNot('game.predictions_lock_at', null)
+            );
+    }
+
+    public function test_show_has_no_predicted_standings_without_an_entry(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+        $this->actingAs(User::factory()->create());
+
+        $this->get(route('games.show', 'world-cup-2026'))
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('groups.0.predicted_standings', null)
+            );
+    }
+
+    public function test_show_includes_the_viewers_predicted_standings(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+        $tournament = Tournament::firstOrFail();
+        $groupA = $tournament->groups()->where('name', 'A')->firstOrFail();
+        $user = User::factory()->create();
+        $entry = Entry::factory()->for($tournament->games()->firstOrFail())->for($user)->create();
+
+        $positions = $groupA->teams()->get()->mapWithKeys(
+            fn ($team): array => [$team->id => (int) $team->pivot->position],
+        );
+
+        // The viewer predicts the better-seeded team to win 1–0 in every group A match.
+        foreach ($groupA->fixtures()->get() as $fixture) {
+            $homeWins = $positions[$fixture->home_team_id] < $positions[$fixture->away_team_id];
+
+            GroupPrediction::factory()->create([
+                'entry_id' => $entry->id,
+                'fixture_id' => $fixture->id,
+                'home_goals' => $homeWins ? 1 : 0,
+                'away_goals' => $homeWins ? 0 : 1,
+            ]);
+        }
+
+        $topTeamId = $positions->search(1, true);
+
+        $this->actingAs($user);
+
+        $this->get(route('games.show', $tournament->slug))
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                // The official table is still all zeros (no real results yet)...
+                ->where('groups.0.standings.0.played', 0)
+                // ...while the predicted table reflects the viewer's own picks.
+                ->has('groups.0.predicted_standings', 4)
+                ->where('groups.0.predicted_standings.0.rank', 1)
+                ->where('groups.0.predicted_standings.0.team.id', $topTeamId)
+                ->where('groups.0.predicted_standings.0.played', 3)
+                ->where('groups.0.predicted_standings.0.won', 3)
+                ->where('groups.0.predicted_standings.0.points', 9)
+                ->where('groups.0.predicted_standings.3.points', 0)
+            );
+    }
+
     public function test_the_final_is_seeded_with_its_kick_off_date(): void
     {
         $this->seed(WorldCup2026Seeder::class);

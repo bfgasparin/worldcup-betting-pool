@@ -16,6 +16,7 @@ import {
     phaseDateRange,
 } from '@/components/fixtures';
 import type { Phase } from '@/components/fixtures';
+import { GameInfoDialog } from '@/components/game-info-dialog';
 import { LeaderboardRow } from '@/components/leaderboard-row';
 import { Button } from '@/components/ui/button';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
@@ -173,6 +174,7 @@ function DashboardBanner({
                         </div>
                         {isAdmin && <AdminStatusControl game={game} />}
                     </div>
+                    <GameInfoDialog game={game} />
                 </div>
 
                 <div className="flex flex-wrap items-center gap-8 rounded-2xl border border-border bg-card px-5 py-4">
@@ -328,6 +330,7 @@ function FixturesView({
                                 teams={group.teams}
                                 fixtures={group.fixtures}
                                 standings={group.standings}
+                                predictedStandings={group.predicted_standings}
                             />
                         ))}
                     </div>

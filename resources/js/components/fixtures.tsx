@@ -1,5 +1,6 @@
 import { ChevronDown } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { useState } from 'react';
 import { Flag } from '@/components/flag';
 import { StandingsTable } from '@/components/standings-table';
 import {
@@ -7,6 +8,7 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
 import { cn } from '@/lib/utils';
 import type {
@@ -300,17 +302,78 @@ function MatchRow({ fixture }: { fixture: GroupFixture }) {
     );
 }
 
+/**
+ * The standings shown inside a group card. With only official standings it renders a single
+ * table; when the viewer's predicted standings are also supplied it adds an Official |
+ * Predicted toggle so the two can be compared (and a "no prediction" note when the viewer has
+ * not predicted this group).
+ */
+function StandingsPanel({
+    official,
+    predicted,
+}: {
+    official: StandingRow[];
+    /** Undefined = no comparison; null = comparison offered but nothing predicted yet. */
+    predicted?: StandingRow[] | null;
+}) {
+    const [view, setView] = useState<'official' | 'predicted'>('official');
+
+    if (predicted === undefined) {
+        return <StandingsTable standings={official} />;
+    }
+
+    return (
+        <div className="flex flex-col gap-3">
+            <ToggleGroup
+                type="single"
+                variant="outline"
+                size="sm"
+                value={view}
+                onValueChange={(next) => {
+                    if (next === 'official' || next === 'predicted') {
+                        setView(next);
+                    }
+                }}
+                className="self-center"
+            >
+                <ToggleGroupItem value="official" className="px-4 text-xs">
+                    Official
+                </ToggleGroupItem>
+                <ToggleGroupItem value="predicted" className="px-4 text-xs">
+                    Predicted
+                </ToggleGroupItem>
+            </ToggleGroup>
+
+            {view === 'official' ? (
+                <StandingsTable standings={official} />
+            ) : predicted && predicted.length > 0 ? (
+                <StandingsTable standings={predicted} />
+            ) : (
+                <p className="py-4 text-center text-sm text-muted-foreground">
+                    No prediction yet for this group.
+                </p>
+            )}
+        </div>
+    );
+}
+
 export function GroupFixtureCard({
     name,
     teams,
     fixtures,
     standings,
+    predictedStandings,
 }: {
     name: string;
     teams: GroupTeam[];
     fixtures: GroupFixture[];
     /** When provided, a collapsible "Standings" table is shown beneath the fixtures. */
     standings?: StandingRow[];
+    /**
+     * The viewer's predicted standings. When provided (even as null), the standings section
+     * gains an Official | Predicted toggle.
+     */
+    predictedStandings?: StandingRow[] | null;
 }) {
     return (
         <div className="card-elevated rounded-3xl p-5">
@@ -345,7 +408,10 @@ export function GroupFixtureCard({
                         <ChevronDown className="size-4 transition-transform duration-200" />
                     </CollapsibleTrigger>
                     <CollapsibleContent className="pt-2">
-                        <StandingsTable standings={standings} />
+                        <StandingsPanel
+                            official={standings}
+                            predicted={predictedStandings}
+                        />
                     </CollapsibleContent>
                 </Collapsible>
             )}
