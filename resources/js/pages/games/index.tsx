@@ -2,18 +2,22 @@ import { Head, Link } from '@inertiajs/react';
 import {
     ArrowRight,
     CalendarDays,
+    ChevronLeft,
+    ChevronRight,
     Layers,
     Sparkles,
     Trophy,
 } from 'lucide-react';
 import type { ComponentType, ReactNode } from 'react';
+import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { scoringRules } from '@/lib/scoring';
+import type { ScoringRule } from '@/lib/scoring';
 import { show } from '@/routes/games';
-import type { GameListItem } from '@/types/games';
+import type { GameListItem, Paginated } from '@/types/games';
 
 interface GamesIndexProps {
-    games: GameListItem[];
+    games: Paginated<GameListItem>;
 }
 
 function formatDates(game: GameListItem): string | null {
@@ -61,23 +65,25 @@ function SourceTag({ source }: { source: string }) {
 }
 
 /**
- * How a game scores: the strategy name, a one-line explanation, and the per-rule points so a
- * player can tell games over the same competition apart before entering.
+ * The point pills for one phase, under a small heading. Renders nothing when the phase has no
+ * configured rules.
  */
-function ScoringSummary({ game }: { game: GameListItem }) {
-    const rules = [
-        ...scoringRules(game.scoring_config, 'group'),
-        ...scoringRules(game.scoring_config, 'knockout'),
-    ];
+function PhaseRules({
+    heading,
+    rules,
+}: {
+    heading: string;
+    rules: ScoringRule[];
+}) {
+    if (rules.length === 0) {
+        return null;
+    }
 
     return (
-        <div className="flex flex-col gap-3">
-            <Chip variant="points" className="w-fit px-3 py-1 text-xs">
-                {game.scoring_label}
-            </Chip>
-            <p className="text-sm text-muted-foreground">
-                {game.scoring_description}
-            </p>
+        <div className="flex flex-col gap-1.5">
+            <span className="text-[0.65rem] font-bold tracking-wide text-muted-foreground uppercase">
+                {heading}
+            </span>
             <div className="flex flex-wrap gap-1.5">
                 {rules.map((rule) => (
                     <span
@@ -95,121 +101,141 @@ function ScoringSummary({ game }: { game: GameListItem }) {
     );
 }
 
-function FeaturedCard({ game }: { game: GameListItem }) {
-    const dates = formatDates(game);
-
+/**
+ * How a game scores: the strategy name, a one-line explanation, and the per-rule points — split by
+ * phase so a game that scores the group stage and knockouts the same way doesn't read as a list of
+ * duplicated pills.
+ */
+function ScoringSummary({ game }: { game: GameListItem }) {
     return (
-        <Link
-            href={show(game.slug)}
-            className="group grid overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--sh-md)] transition-transform duration-200 hover:-translate-y-1 md:grid-cols-[1.1fr_1fr]"
-        >
-            <div className="hero relative flex flex-col justify-between gap-6 overflow-hidden border-b border-border p-8 md:border-r md:border-b-0">
-                <div className="hero-lines" />
-                <div className="relative flex flex-wrap items-center gap-2.5">
-                    <StatusBadge status={game.status} />
-                    <SourceTag source={game.source} />
-                </div>
-                <div className="relative">
-                    <h2 className="text-4xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl">
-                        {game.name}
-                    </h2>
-                    {dates && (
-                        <p className="mt-3 inline-flex items-center gap-2 text-sm text-muted-foreground">
-                            <CalendarDays className="size-4" />
-                            {dates}
-                        </p>
-                    )}
-                </div>
+        <div className="flex flex-col gap-3">
+            <Chip variant="points" className="w-fit px-3 py-1 text-xs">
+                {game.scoring_label}
+            </Chip>
+            <p className="text-sm text-muted-foreground">
+                {game.scoring_description}
+            </p>
+            <div className="flex flex-col gap-3">
+                <PhaseRules
+                    heading="Group stage"
+                    rules={scoringRules(game.scoring_config, 'group')}
+                />
+                <PhaseRules
+                    heading="Knockouts"
+                    rules={scoringRules(game.scoring_config, 'knockout')}
+                />
             </div>
-
-            <div className="flex flex-col justify-between gap-6 p-8">
-                <div className="flex flex-wrap gap-2">
-                    <StatPill
-                        icon={Trophy}
-                        label={<span className="capitalize">{game.sport}</span>}
-                    />
-                    {game.groups_count != null && (
-                        <StatPill
-                            icon={Layers}
-                            label={`${game.groups_count} Groups`}
-                        />
-                    )}
-                    {game.fixtures_count != null && (
-                        <StatPill
-                            icon={Sparkles}
-                            label={`${game.fixtures_count} Matches`}
-                        />
-                    )}
-                </div>
-
-                <ScoringSummary game={game} />
-
-                <span className="bg-brand-gradient shadow-glow inline-flex w-fit items-center gap-2 rounded-full px-6 py-3 font-display text-base font-semibold text-white transition-all group-hover:gap-3">
-                    Enter game
-                    <ArrowRight className="size-5" />
-                </span>
-            </div>
-        </Link>
+        </div>
     );
 }
 
+/**
+ * A single game in the list. Every game uses this same card — full width, stacked — so no game is
+ * visually privileged over another.
+ */
 function GameCard({ game }: { game: GameListItem }) {
     const dates = formatDates(game);
 
     return (
         <Link
             href={show(game.slug)}
-            className="card-elevated group flex flex-col gap-4 rounded-3xl p-6 transition-transform duration-200 hover:-translate-y-1"
+            className="card-elevated group flex flex-col gap-4 rounded-3xl p-6 transition-transform duration-200 hover:-translate-y-1 sm:p-8"
         >
-            <div className="flex items-start justify-between gap-2">
-                <div className="app-icon size-11 rounded-2xl shadow-[var(--sh-sm)]">
-                    <Trophy className="size-5 text-white" />
-                </div>
-                <span className="inline-flex items-center rounded-full bg-secondary px-3 py-1 font-display text-xs font-semibold text-secondary-foreground capitalize">
-                    {game.status.replace('_', ' ')}
-                </span>
-            </div>
-            <div className="flex-1">
-                <h3 className="font-display text-lg font-semibold tracking-tight">
-                    {game.name}
-                </h3>
-                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <div className="flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex flex-wrap items-center gap-2.5">
+                    <StatusBadge status={game.status} />
                     <SourceTag source={game.source} />
-                    {dates && (
-                        <span className="text-sm text-muted-foreground">
-                            {dates}
-                        </span>
-                    )}
                 </div>
+                {dates && (
+                    <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                        <CalendarDays className="size-4" />
+                        {dates}
+                    </span>
+                )}
             </div>
+
+            <h2 className="text-2xl font-semibold tracking-tight text-balance text-foreground sm:text-3xl">
+                {game.name}
+            </h2>
+
+            <div className="flex flex-wrap gap-2">
+                <StatPill
+                    icon={Trophy}
+                    label={<span className="capitalize">{game.sport}</span>}
+                />
+                {game.groups_count != null && (
+                    <StatPill
+                        icon={Layers}
+                        label={`${game.groups_count} Groups`}
+                    />
+                )}
+                {game.fixtures_count != null && (
+                    <StatPill
+                        icon={Sparkles}
+                        label={`${game.fixtures_count} Matches`}
+                    />
+                )}
+            </div>
+
             <ScoringSummary game={game} />
-            <span className="inline-flex items-center gap-1 font-display text-sm font-semibold text-primary transition-all group-hover:gap-2">
-                Enter
-                <ArrowRight className="size-4" />
+
+            <span className="bg-brand-gradient shadow-glow inline-flex w-fit items-center gap-2 rounded-full px-6 py-3 font-display text-base font-semibold text-white transition-all group-hover:gap-3">
+                Enter game
+                <ArrowRight className="size-5" />
             </span>
         </Link>
     );
 }
 
-function ComingSoon() {
+/** Previous / next controls, shown only when the list spans more than one page. */
+function Pagination({ games }: { games: Paginated<GameListItem> }) {
+    if (games.last_page <= 1) {
+        return null;
+    }
+
     return (
-        <div className="flex min-h-44 flex-col items-center justify-center gap-2 rounded-3xl border border-dashed border-border p-6 text-center">
-            <Sparkles className="size-5 text-muted-foreground" />
-            <p className="text-sm font-medium text-muted-foreground">
-                More games coming soon
-            </p>
-        </div>
+        <nav className="mt-8 flex items-center justify-between gap-4">
+            {games.prev_page_url ? (
+                <Button variant="outline" asChild>
+                    <Link href={games.prev_page_url} preserveScroll>
+                        <ChevronLeft className="size-4" />
+                        Previous
+                    </Link>
+                </Button>
+            ) : (
+                <Button variant="outline" disabled>
+                    <ChevronLeft className="size-4" />
+                    Previous
+                </Button>
+            )}
+
+            <span className="text-sm font-medium text-muted-foreground">
+                Page {games.current_page} of {games.last_page}
+            </span>
+
+            {games.next_page_url ? (
+                <Button variant="outline" asChild>
+                    <Link href={games.next_page_url} preserveScroll>
+                        Next
+                        <ChevronRight className="size-4" />
+                    </Link>
+                </Button>
+            ) : (
+                <Button variant="outline" disabled>
+                    Next
+                    <ChevronRight className="size-4" />
+                </Button>
+            )}
+        </nav>
     );
 }
 
 export default function GamesIndex({ games }: GamesIndexProps) {
-    const [featured, ...rest] = games;
-
     return (
         <>
             <Head title="Games" />
             <div className="relative min-h-full bg-background">
-                <div className="relative mx-auto w-full max-w-6xl px-6 py-10">
+                <div className="relative mx-auto w-full max-w-4xl px-6 py-10">
                     <header className="hero relative mb-8 overflow-hidden rounded-3xl border border-border p-8">
                         <div className="hero-lines" />
                         <div className="relative flex flex-col gap-3">
@@ -228,20 +254,19 @@ export default function GamesIndex({ games }: GamesIndexProps) {
                         </div>
                     </header>
 
-                    {featured ? (
-                        <FeaturedCard game={featured} />
+                    {games.data.length > 0 ? (
+                        <div className="flex flex-col gap-4">
+                            {games.data.map((game) => (
+                                <GameCard key={game.slug} game={game} />
+                            ))}
+                        </div>
                     ) : (
                         <p className="text-sm text-muted-foreground">
                             No games are available yet.
                         </p>
                     )}
 
-                    <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {rest.map((game) => (
-                            <GameCard key={game.slug} game={game} />
-                        ))}
-                        <ComingSoon />
-                    </div>
+                    <Pagination games={games} />
                 </div>
             </div>
         </>

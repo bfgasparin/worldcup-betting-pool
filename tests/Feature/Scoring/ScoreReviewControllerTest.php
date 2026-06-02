@@ -29,7 +29,7 @@ class ScoreReviewControllerTest extends TestCase
 
         $this->seed(WorldCup2026Seeder::class);
         $this->tournament = Tournament::firstOrFail();
-        $this->game = $this->tournament->games()->firstOrFail();
+        $this->game = $this->tournament->games()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
     }
 
     public function test_an_admin_sees_only_ended_matches_to_review(): void
@@ -40,7 +40,7 @@ class ScoreReviewControllerTest extends TestCase
             ->get(route('games.scores.review', $this->game))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->component('games/scores/review')
-                ->where('game.slug', $this->tournament->slug)
+                ->where('game.slug', $this->game->slug)
                 ->has('rows', 1)
                 ->where('rows.0.fixture_id', $ended->id)
                 ->where('rows.0.has_ended', true)

@@ -238,7 +238,7 @@ class WorldCup2026Seeder extends Seeder
     {
         DB::transaction(function () {
             $tournament = $this->seedTournament();
-            $this->seedGame($tournament);
+            $this->seedGames($tournament);
             $phases = $this->seedPhases($tournament);
             $groupTeams = $this->seedGroupsAndTeams($tournament);
             $this->seedGroupFixtures($tournament, $phases[PhaseKey::Group->value], $groupTeams);
@@ -261,15 +261,20 @@ class WorldCup2026Seeder extends Seeder
     }
 
     /**
-     * The first playable game over the competition: the FF&A pool. The competition structure and
-     * official results are shared; this game layers on its own scoring strategy and prediction lock.
-     * The scoring_config here is duplicated verbatim in {@see GameFactory} —
-     * keep them in sync.
+     * The playable games over the competition. Both share the tournament's structure and official
+     * results but layer on their own scoring strategy and prediction lock:
+     *
+     *  - the FF&A pool (upfront bracket): predict the whole tournament before kickoff;
+     *  - the Brothers Association pool (phased bracket): predict the group stage upfront, then each
+     *    knockout round against the official match-ups, with rising round multipliers.
+     *
+     * The scoring_config for each is duplicated verbatim in {@see GameFactory} (the default state
+     * and the {@see GameFactory::phasedBracket()} state) — keep them in sync.
      */
-    private function seedGame(Tournament $tournament): Game
+    private function seedGames(Tournament $tournament): void
     {
-        return Game::updateOrCreate(
-            ['slug' => 'world-cup-2026'],
+        Game::updateOrCreate(
+            ['slug' => 'world-cup-2026-ffa'],
             [
                 'tournament_id' => $tournament->id,
                 'name' => 'World Cup 2026',
@@ -286,6 +291,40 @@ class WorldCup2026Seeder extends Seeder
                         'correct_team' => 10,
                         'team_goal_count_bonus' => 5,
                         'champion' => 30,
+                    ],
+                ],
+                'predictions_lock_at' => '2026-06-11 16:00:00',
+            ],
+        );
+
+        Game::updateOrCreate(
+            ['slug' => 'world-cup-2026-brothers'],
+            [
+                'tournament_id' => $tournament->id,
+                'name' => 'World Cup 2026',
+                'source' => 'Brothers Association',
+                'scoring_strategy' => ScoringStrategy::PhasedBracket,
+                'scoring_config' => [
+                    'group' => [
+                        'exact_score' => 20,
+                        'winner_and_one_team_exact_goals' => 15,
+                        'correct_outcome_wrong_goals' => 10,
+                        'one_team_exact_goals_wrong_outcome' => 5,
+                    ],
+                    'knockout' => [
+                        'exact_score' => 20,
+                        'winner_and_one_team_exact_goals' => 15,
+                        'correct_outcome_wrong_goals' => 10,
+                        'one_team_exact_goals_wrong_outcome' => 5,
+                        'advancing_team' => 10,
+                        'round_multipliers' => [
+                            'round_of_32' => 1,
+                            'round_of_16' => 2,
+                            'quarter_finals' => 4,
+                            'semi_finals' => 6,
+                            'third_place' => 4,
+                            'final' => 8,
+                        ],
                     ],
                 ],
                 'predictions_lock_at' => '2026-06-11 16:00:00',

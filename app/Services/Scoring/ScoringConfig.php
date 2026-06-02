@@ -2,6 +2,7 @@
 
 namespace App\Services\Scoring;
 
+use App\Enums\PhaseKey;
 use App\Models\Game;
 
 /**
@@ -35,6 +36,33 @@ class ScoringConfig
         );
     }
 
+    /**
+     * The knockout-stage scoreline tiers for a given round, scaled by that round's multiplier
+     * (the phased-bracket strategy: knockouts are scored on the scoreline, exactly like the group
+     * stage, but each round is worth progressively more). Rounds default to a ×1 multiplier.
+     */
+    public function knockoutTiers(PhaseKey $phase): ScorelineTiers
+    {
+        $multiplier = $this->knockoutMultiplier($phase);
+
+        return new ScorelineTiers(
+            $this->knockout('exact_score') * $multiplier,
+            $this->knockout('winner_and_one_team_exact_goals') * $multiplier,
+            $this->knockout('correct_outcome_wrong_goals') * $multiplier,
+            $this->knockout('one_team_exact_goals_wrong_outcome') * $multiplier,
+        );
+    }
+
+    /**
+     * The flat bonus (phased bracket) for correctly calling who advances a knockout tie, on top
+     * of the scoreline tier. Deliberately not round-scaled, so it stays a steady safety net
+     * rather than compounding the late-round swing.
+     */
+    public function knockoutAdvancingBonus(): int
+    {
+        return $this->knockout('advancing_team');
+    }
+
     public function knockoutCorrectTeam(): int
     {
         // The 10-point bonus per team correctly placed in a knockout match. This slot has been
@@ -63,5 +91,14 @@ class ScoringConfig
     private function knockout(string $key): int
     {
         return (int) ($this->config['knockout'][$key] ?? 0);
+    }
+
+    /**
+     * The round-weight multiplier applied to a knockout round's scoreline tiers, defaulting to 1
+     * for any round without an explicit entry in the `round_multipliers` map.
+     */
+    private function knockoutMultiplier(PhaseKey $phase): int
+    {
+        return (int) ($this->config['knockout']['round_multipliers'][$phase->value] ?? 1);
     }
 }

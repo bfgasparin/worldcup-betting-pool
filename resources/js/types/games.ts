@@ -1,5 +1,16 @@
 export type GameStatus = 'upcoming' | 'in_progress' | 'completed';
 
+/** A Laravel length-aware paginator as serialized to Inertia. */
+export interface Paginated<T> {
+    data: T[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    prev_page_url: string | null;
+    next_page_url: string | null;
+}
+
 export interface GameSummary {
     slug: string;
     name: string;
@@ -256,10 +267,19 @@ export interface KnockoutPredictionFixture {
     advancing_team_id: number | null;
 }
 
+/**
+ * Whether a phase currently accepts predictions: `open` is editable now, `locked` has closed
+ * (kicked off / past the lock), `pending` is a phased knockout round whose real teams aren't known
+ * yet so it hasn't opened.
+ */
+export type PredictionWindowStatus = 'open' | 'locked' | 'pending';
+
 export interface PredictBracketPhase {
     phase_key: string;
     phase_name: string;
     sort_order: number;
+    /** This round's prediction window state. */
+    window: PredictionWindowStatus;
     fixtures: KnockoutPredictionFixture[];
 }
 
@@ -273,9 +293,12 @@ export interface PredictGameDetail {
     name: string;
     sport: string;
     status: GameStatus;
+    /** Which scoring strategy this game uses (e.g. 'upfront-bracket', 'phased-bracket'). */
+    scoring_strategy: string;
     starts_on: string | null;
     ends_on: string | null;
     predictions_lock_at: string | null;
+    /** Whether the group stage (and, for upfront games, the whole bracket) accepts edits. */
     can_edit: boolean;
     scoring_config: Record<string, Record<string, number>>;
 }

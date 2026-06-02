@@ -62,6 +62,16 @@ class Game extends Model
     }
 
     /**
+     * Whether predictions lock per phase (a fresh window opening for each knockout round as its
+     * real participants become known), as opposed to the single upfront {@see $predictions_lock_at}
+     * that gates the whole game at once. Drives {@see PredictionWindowResolver}.
+     */
+    public function usesPhasedPredictionWindows(): bool
+    {
+        return $this->scoring_strategy === ScoringStrategy::PhasedBracket;
+    }
+
+    /**
      * The competition this game is played over. The tournament owns the shared structure
      * (phases, groups, fixtures) and official results; the game owns the scoring and entries.
      *

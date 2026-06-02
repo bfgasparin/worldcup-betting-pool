@@ -3,6 +3,7 @@
 namespace App\Services\Scoring;
 
 use App\Enums\ScoringStrategy;
+use App\Services\Scoring\Strategies\PhasedBracketRules;
 use App\Services\Scoring\Strategies\ScoringRules;
 use App\Services\Scoring\Strategies\UpfrontBracketRules;
 
@@ -17,6 +18,7 @@ class ScoringRulesFactory
     {
         return match ($strategy) {
             ScoringStrategy::UpfrontBracket => app(UpfrontBracketRules::class),
+            ScoringStrategy::PhasedBracket => app(PhasedBracketRules::class),
         };
     }
 }

@@ -33,7 +33,7 @@ class EndedFlowTest extends TestCase
 
         $this->seed(WorldCup2026Seeder::class);
         $this->tournament = Tournament::firstOrFail();
-        $this->game = $this->tournament->games()->firstOrFail();
+        $this->game = $this->tournament->games()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
 
         // Let the scheduled fetch propose plausible scores, as it would on local.
         config()->set('scoring.simulated_provider', true);

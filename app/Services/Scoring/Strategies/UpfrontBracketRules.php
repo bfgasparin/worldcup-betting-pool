@@ -37,7 +37,7 @@ class UpfrontBracketRules implements ScoringRules
     {
         if ($prediction->home_goals === null || $prediction->away_goals === null
             || $fixture->home_goals === null || $fixture->away_goals === null) {
-            return new PredictionBreakdown(points: 0, isExactScore: false, isCorrectOutcome: false, teamGoalsHit: 0);
+            return new PredictionBreakdown(points: 0, isCorrectOutcome: false, teamGoalsHit: 0);
         }
 
         return $this->scorelineScorer->evaluate(
