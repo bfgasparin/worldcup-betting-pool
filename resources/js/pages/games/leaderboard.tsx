@@ -169,8 +169,6 @@ export default function Leaderboard({
     );
 }
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Tournaments', href: games.index() },
-];
+const breadcrumbs: BreadcrumbItem[] = [{ title: 'Games', href: games.index() }];
 
 Leaderboard.layout = { breadcrumbs };

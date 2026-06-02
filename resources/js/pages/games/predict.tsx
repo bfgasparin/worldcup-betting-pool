@@ -755,7 +755,7 @@ export default function Predict({
                                 href={games.show(game.slug)}
                                 className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                             >
-                                ← Back to tournament
+                                ← Back to game
                             </Link>
                         </div>
                         <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
@@ -965,8 +965,6 @@ function KnockoutStep({
     );
 }
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Tournaments', href: games.index() },
-];
+const breadcrumbs: BreadcrumbItem[] = [{ title: 'Games', href: games.index() }];
 
 Predict.layout = { breadcrumbs };
