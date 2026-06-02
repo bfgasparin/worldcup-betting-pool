@@ -23,9 +23,9 @@ services:
             - sail
         depends_on:
             - mysql
-            - redis
             - meilisearch
             - mailpit
+            - valkey
     mysql:
         image: 'mysql:8.4'
         ports:
@@ -51,18 +51,18 @@ services:
                 - '-p${DB_PASSWORD}'
             retries: 3
             timeout: 5s
-    redis:
-        image: 'redis:alpine'
+    valkey:
+        image: 'valkey/valkey:alpine'
         ports:
-            - '${FORWARD_REDIS_PORT:-6379}:6379'
+            - '${FORWARD_VALKEY_PORT:-6379}:6379'
         volumes:
-            - 'sail-redis:/data'
+            - 'sail-valkey:/data'
         networks:
             - sail
         healthcheck:
             test:
                 - CMD
-                - redis-cli
+                - valkey-cli
                 - ping
             retries: 3
             timeout: 5s
@@ -114,7 +114,7 @@ networks:
 volumes:
     sail-mysql:
         driver: local
-    sail-redis:
+    sail-valkey:
         driver: local
     sail-meilisearch:
         driver: local
