@@ -17,6 +17,6 @@ You're just {{ $pointsBehind }} pts behind {{ $aheadName }} in {{ $aheadOrdinal 
 
 See the full table: {{ $url }}
 
-Predict the next matchday to keep moving.
+There's plenty of football still to come — keep an eye on the table.
 
 — Brothers Betting Pool
