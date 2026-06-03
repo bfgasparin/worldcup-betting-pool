@@ -23,17 +23,17 @@ return Application::configure(basePath: dirname(__DIR__))
         // ->between() is only a post-boot filter — it would leave the cron at "* * * * *" and the
         // app would still wake every minute, defeating scale-to-zero and costing us money.
         //
-        // `*/30 15-23,0-8 * 6,7 *` = every 30 min, 15:00–08:30 UTC, June & July only.
+        // `*/20 15-23,0-8 * 6,7 *` = every 20 min, 15:00–08:40 UTC, June & July only.
         //   • WC2026 kickoffs span 16:00–04:59 UTC (North-American kickoffs wrap past UTC midnight).
         //   • +150 min (config('scoring.match_duration_minutes')) → last match ends ~07:29 UTC.
-        //   • 15:00 start / 08:30 end is the safety margin. Hibernates daily 09:00–14:59 UTC and
+        //   • 15:00 start / 08:40 end is the safety margin. Hibernates daily 09:00–14:59 UTC and
         //     entirely outside June/July. App timezone is UTC, so the cron is evaluated in UTC.
         //
         // TODO: revisit when the platform hosts more games/tournaments. Other tournaments with a
         // different schedule (or running outside June/July) will NOT have fixtures ticked or
         // scores fetched until this window is widened — or, better, derived from the fixtures
         // table. Covered by tests/Feature/Console/ScheduleConfigurationTest.php.
-        $window = '*/30 15-23,0-8 * 6,7 *';
+        $window = '*/20 15-23,0-8 * 6,7 *';
 
         // Move fixtures from scheduled to live as their kickoff passes, so the "match has
         // ended" gate (live + past full time) can open for score entry.
