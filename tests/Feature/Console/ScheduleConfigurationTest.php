@@ -18,7 +18,7 @@ use Tests\TestCase;
  */
 class ScheduleConfigurationTest extends TestCase
 {
-    private const WINDOW = '*/30 15-23,0-8 * 6,7 *';
+    private const WINDOW = '*/20 15-23,0-8 * 6,7 *';
 
     protected function setUp(): void
     {
@@ -76,8 +76,8 @@ class ScheduleConfigurationTest extends TestCase
     #[DataProvider('scheduledCommands')]
     public function test_command_window_boundaries(string $command): void
     {
-        // Last run of the window is 08:30 UTC (covers the latest match end at ~07:29 + margin).
-        Carbon::setTestNow('2026-06-15 08:30:00');
+        // Last run of the window is 08:40 UTC (covers the latest match end at ~07:29 + margin).
+        Carbon::setTestNow('2026-06-15 08:40:00');
         $this->assertTrue($this->event($command)->isDue($this->app));
 
         Carbon::setTestNow('2026-06-15 09:00:00');
