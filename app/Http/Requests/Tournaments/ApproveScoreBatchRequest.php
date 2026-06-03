@@ -6,6 +6,7 @@ use App\Enums\BatchStatus;
 use App\Enums\ProposalStatus;
 use App\Models\Game;
 use App\Models\ScoreBatch;
+use App\Services\Predictions\TieResolutionState;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -66,6 +67,16 @@ class ApproveScoreBatchRequest extends FormRequest
 
                     return;
                 }
+            }
+
+            // Block approval while the projected results leave a completed group's standings — or
+            // the best-thirds cut — tied, since the bracket cannot be projected (and phased windows
+            // cannot open) until an admin orders those teams by hand.
+            /** @var Game $game */
+            $game = $this->route('game');
+
+            if ((new TieResolutionState)->forTournament($game->tournament, $batch)->blocked()) {
+                $validator->errors()->add('ties', __('Resolve the tied teams in the group standings before approving.'));
             }
         });
     }

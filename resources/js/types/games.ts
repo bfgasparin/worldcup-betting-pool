@@ -257,6 +257,19 @@ export interface PredictGroup {
     teams: GroupTeam[];
     fixtures: PredictGroupFixture[];
     standings: StandingRow[];
+    /**
+     * Clusters of teams the ranking engine could not separate (level on every tiebreaker), each in
+     * its current effective order with whether a saved ordering already resolves it. The player
+     * drags these into order; empty when none. Only for upfront-bracket games, whose bracket is
+     * derived from these standings.
+     */
+    tied_clusters: TiedCluster[];
+}
+
+/** A tied set the player/admin must order, plus whether a saved ordering already resolves it. */
+export interface TiedCluster {
+    team_ids: number[];
+    resolved: boolean;
 }
 
 export interface KnockoutPredictionFixture {
@@ -314,4 +327,10 @@ export interface PredictPageProps {
     groups: PredictGroup[];
     bracket: PredictBracketPhase[];
     thirds: ThirdRanking[] | null;
+    /**
+     * The third-placed teams whose tie straddles the qualifying cut and must be ordered before the
+     * best-third slots can fill (effective order + whether a saved ordering resolves it); null when
+     * there is no such tie.
+     */
+    thirds_tie: { teams: TeamRef[]; resolved: boolean } | null;
 }

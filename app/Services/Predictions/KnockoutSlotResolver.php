@@ -32,11 +32,12 @@ class KnockoutSlotResolver
      * @param  Collection<int, Fixture>  $knockoutFixtures
      * @param  callable(int): ?int  $advancingFor  feeder fixture id => advancing team id (or null)
      * @param  Collection<int, Group>  $groups
+     * @param  list<int>|null  $thirdsOrder  human ordering of a tie that straddles the qualifying cut
      * @return array{rankedThirds: list<int>|null, resolved: array<int, array{home: ?int, away: ?int}>}
      */
-    public function resolve(array $standings, Collection $knockoutFixtures, callable $advancingFor, Collection $groups): array
+    public function resolve(array $standings, Collection $knockoutFixtures, callable $advancingFor, Collection $groups, ?array $thirdsOrder = null): array
     {
-        $rankedThirds = $this->rankThirds($standings, $groups);
+        $rankedThirds = $this->rankThirds($standings, $groups, $thirdsOrder);
         $thirdsByMatchNumber = $this->assignThirds($standings, $rankedThirds);
 
         $resolved = [];
@@ -58,11 +59,47 @@ class KnockoutSlotResolver
      * Rank the third-placed teams across all groups, returning the top-8 team ids in
      * order. Only available once every group is complete.
      *
+     * Teams are ranked by points -> goal difference -> goals for. Where that leaves the 8th/9th
+     * qualifying boundary inside a run of teams level on all three, the set of qualifiers is
+     * ambiguous: a human must order the straddling run ($thirdsOrder). Without a matching
+     * ordering the whole allocation is deferred (null); ties that fall wholly above or below the
+     * cut never change which eight groups qualify, so group sort order stably orders them.
+     *
      * @param  array<string, GroupStandings>  $standings
      * @param  Collection<int, Group>  $groups
+     * @param  list<int>|null  $thirdsOrder
      * @return list<int>|null
      */
-    private function rankThirds(array $standings, Collection $groups): ?array
+    private function rankThirds(array $standings, Collection $groups, ?array $thirdsOrder = null): ?array
+    {
+        $thirds = $this->sortedThirds($standings, $groups);
+
+        if ($thirds === null) {
+            return null;
+        }
+
+        $thirds = $this->resolveThirdsCut($thirds, $thirdsOrder);
+
+        if ($thirds === null) {
+            return null;
+        }
+
+        return array_map(
+            fn (array $third): int => $third['standing']->teamId,
+            array_slice($thirds, 0, 8),
+        );
+    }
+
+    /**
+     * The third-placed team of every group, sorted by points -> goal difference -> goals for ->
+     * group sort order, or null when any group is incomplete or its third is itself an unresolved
+     * tie (so the third's identity is unknown).
+     *
+     * @param  array<string, GroupStandings>  $standings
+     * @param  Collection<int, Group>  $groups
+     * @return list<array{standing: TeamStanding, sortOrder: int}>|null
+     */
+    private function sortedThirds(array $standings, Collection $groups): ?array
     {
         foreach ($standings as $groupStandings) {
             if (! $groupStandings->isComplete()) {
@@ -93,10 +130,122 @@ class KnockoutSlotResolver
                 ?: ($a['sortOrder'] <=> $b['sortOrder']);
         });
 
-        return array_map(
-            fn (array $third): int => $third['standing']->teamId,
-            array_slice($thirds, 0, 8),
+        return $thirds;
+    }
+
+    /**
+     * The third-placed team ids whose tie straddles the 8th/9th qualifying cut and therefore need
+     * a manual ordering, in their default (group sort order) arrangement; an empty list when the
+     * cut is clean or the thirds cannot be ranked yet. Reports the tie itself, regardless of
+     * whether an ordering has been supplied — used by the tie inspector and the default-order helper.
+     *
+     * @param  array<string, GroupStandings>  $standings
+     * @param  Collection<int, Group>  $groups
+     * @param  list<int>|null  $thirdsOrder  apply this ordering to the run when it matches the set
+     * @return list<int>
+     */
+    public function straddlingThirds(array $standings, Collection $groups, ?array $thirdsOrder = null): array
+    {
+        $thirds = $this->sortedThirds($standings, $groups);
+
+        if ($thirds === null || count($thirds) <= 8 || ! $this->thirdsEqual($thirds[7], $thirds[8])) {
+            return [];
+        }
+
+        $start = 7;
+        while ($start > 0 && $this->thirdsEqual($thirds[$start - 1], $thirds[7])) {
+            $start--;
+        }
+
+        $end = 8;
+        while ($end + 1 < count($thirds) && $this->thirdsEqual($thirds[$end + 1], $thirds[8])) {
+            $end++;
+        }
+
+        $run = array_slice($thirds, $start, $end - $start + 1);
+        usort($run, fn (array $a, array $b): int => $a['sortOrder'] <=> $b['sortOrder']);
+        $runIds = array_map(fn (array $third): int => $third['standing']->teamId, $run);
+
+        if ($thirdsOrder !== null) {
+            $chosen = array_values(array_filter($thirdsOrder, fn (int $id): bool => in_array($id, $runIds, true)));
+
+            if (count($chosen) === count($runIds) && count(array_unique($chosen)) === count($runIds)) {
+                return $chosen;
+            }
+        }
+
+        return $runIds;
+    }
+
+    /**
+     * Decide the order of any tie that straddles the 8th/9th qualifying boundary. Returns the
+     * thirds unchanged when the cut is clean, the run re-ordered when a matching manual ordering
+     * is supplied, or null when the straddling run has no matching ordering (defer the cut).
+     *
+     * @param  list<array{standing: TeamStanding, sortOrder: int}>  $thirds  sorted by the criteria
+     * @param  list<int>|null  $thirdsOrder
+     * @return list<array{standing: TeamStanding, sortOrder: int}>|null
+     */
+    private function resolveThirdsCut(array $thirds, ?array $thirdsOrder): ?array
+    {
+        if (count($thirds) <= 8) {
+            return $thirds;
+        }
+
+        // The boundary is between index 7 (8th) and index 8 (9th).
+        if (! $this->thirdsEqual($thirds[7], $thirds[8])) {
+            return $thirds;
+        }
+
+        $start = 7;
+        while ($start > 0 && $this->thirdsEqual($thirds[$start - 1], $thirds[7])) {
+            $start--;
+        }
+
+        $end = 8;
+        while ($end + 1 < count($thirds) && $this->thirdsEqual($thirds[$end + 1], $thirds[8])) {
+            $end++;
+        }
+
+        $run = array_slice($thirds, $start, $end - $start + 1);
+        $runIds = array_map(fn (array $third): int => $third['standing']->teamId, $run);
+
+        $chosen = $thirdsOrder === null
+            ? []
+            : array_values(array_filter($thirdsOrder, fn (int $id): bool => in_array($id, $runIds, true)));
+
+        if (count($chosen) !== count($runIds) || count(array_unique($chosen)) !== count($runIds)) {
+            return null;
+        }
+
+        $byId = [];
+        foreach ($run as $third) {
+            $byId[$third['standing']->teamId] = $third;
+        }
+
+        $orderedRun = array_map(fn (int $id): array => $byId[$id], $chosen);
+
+        return array_merge(
+            array_slice($thirds, 0, $start),
+            $orderedRun,
+            array_slice($thirds, $end + 1),
         );
+    }
+
+    /**
+     * @param  array{standing: TeamStanding, sortOrder: int}  $a
+     * @param  array{standing: TeamStanding, sortOrder: int}  $b
+     */
+    private function thirdsEqual(array $a, array $b): bool
+    {
+        /** @var TeamStanding $standingA */
+        $standingA = $a['standing'];
+        /** @var TeamStanding $standingB */
+        $standingB = $b['standing'];
+
+        return $standingA->points() === $standingB->points()
+            && $standingA->goalDifference() === $standingB->goalDifference()
+            && $standingA->goalsFor === $standingB->goalsFor;
     }
 
     /**

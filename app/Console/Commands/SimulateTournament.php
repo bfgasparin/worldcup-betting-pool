@@ -2,17 +2,21 @@
 
 namespace App\Console\Commands;
 
+use App\Enums\BatchStatus;
 use App\Enums\FixtureStatus;
 use App\Enums\PhaseKey;
+use App\Enums\ProposalStatus;
 use App\Enums\TournamentStatus;
 use App\Models\Entry;
 use App\Models\Fixture;
 use App\Models\Game;
 use App\Models\GroupPrediction;
 use App\Models\Phase;
+use App\Models\ScoreProposal;
 use App\Models\Tournament;
 use App\Models\User;
 use App\Services\Predictions\BracketResolver;
+use App\Services\Predictions\DefaultTieOrdering;
 use App\Services\Predictions\OfficialBracketProjector;
 use App\Services\Scoring\RankSnapshotter;
 use App\Services\Scoring\ScoreEngine;
@@ -32,6 +36,7 @@ use Illuminate\Support\Collection;
     {--until= : Play official results for matches ended on or before this datetime (UTC), e.g. "2026-06-18 22:00" — like --through but date-granular, so you can land mid-phase. Also advances the dev clock (local)}
     {--seed= : Optional seed string to generate a different but reproducible world}
     {--predict-only : Set up players + predictions only; leave fixtures scheduled with no official results}
+    {--tie= : Stage an UNRESOLVED official tie for an admin to resolve on the review screen — "thirds" (a best-thirds cut tie) or "group" (every group level). Skips the normal results play.}
     {--reset : Clear official results + scoring for the tournament before simulating}')]
 #[Description('Locally simulate a closed, fully-scored tournament: demo players + predictions, official results, computed board.')]
 class SimulateTournament extends Command
@@ -43,6 +48,7 @@ class SimulateTournament extends Command
         OfficialBracketProjector $projector,
         ScoreEngine $engine,
         RankSnapshotter $snapshotter,
+        DefaultTieOrdering $defaultTieOrdering,
     ): int {
         $tournament = Tournament::where('slug', $this->argument('slug'))->first();
 
@@ -70,6 +76,14 @@ class SimulateTournament extends Command
             return self::FAILURE;
         }
 
+        $tie = $this->option('tie');
+
+        if ($tie !== null && ! in_array($tie, ['thirds', 'group'], true)) {
+            $this->components->error("Unknown --tie [{$tie}]. Use one of: thirds, group.");
+
+            return self::FAILURE;
+        }
+
         $until = ($untilOption = $this->option('until')) !== null
             ? CarbonImmutable::parse($untilOption, 'UTC')
             : null;
@@ -91,15 +105,26 @@ class SimulateTournament extends Command
             }
 
             $this->generateGroupPredictions($tournament, $entry, $seedIndex);
+            // No human to break ties in a simulation: fall back to the deterministic default order
+            // so the self-derived bracket resolves fully before knockout picks are generated.
+            $defaultTieOrdering->applyToEntry($entry);
             $this->generateKnockoutPredictions($tournament, $entry, $seedIndex, $resolver);
         }
 
         $predictOnly = (bool) $this->option('predict-only');
 
-        $this->closePredictions($tournament, $through, $predictOnly || $until !== null);
+        // A staged tie leaves the group stage mid-flight (awaiting the admin), so keep the
+        // tournament In Progress rather than marking it Completed.
+        $this->closePredictions($tournament, $through, $predictOnly || $until !== null || $tie !== null);
+
+        if ($tie !== null) {
+            $this->stageUnresolvedTie($tournament, $game, $tie);
+
+            return self::SUCCESS;
+        }
 
         if (! $predictOnly) {
-            $this->playResults($tournament, $through, $until, $projector, $engine, $snapshotter);
+            $this->playResults($tournament, $through, $until, $projector, $engine, $snapshotter, $defaultTieOrdering);
         }
 
         if ($until !== null) {
@@ -109,6 +134,78 @@ class SimulateTournament extends Command
         $this->summarise($game, $through, $predictOnly, $until);
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Stage an UNRESOLVED official tie as an open batch of proposals — the one state the normal
+     * simulation auto-resolves past — so an admin can order the tied teams on the review screen.
+     * "thirds" leaves the best-thirds cut tied (seed order resolves every group cleanly but leaves
+     * all twelve thirds level); "group" leaves every group level (all goalless draws). Proposals
+     * alone surface the fixtures on the review screen, so this touches no fixture/schedule state.
+     */
+    private function stageUnresolvedTie(Tournament $tournament, Game $game, string $tie): void
+    {
+        $rule = $tie === 'group'
+            ? fn (int $home, int $away): array => [0, 0]
+            : fn (int $home, int $away): array => $home < $away ? [1, 0] : [0, 1];
+
+        $batch = $tournament->scoreBatches()->firstOrCreate(
+            ['status' => BatchStatus::Open],
+            ['source' => 'manual', 'fetched_at' => now()],
+        );
+
+        $proposals = 0;
+
+        foreach ($tournament->groups()->with(['teams', 'fixtures'])->orderBy('sort_order')->get() as $group) {
+            $positions = $group->teams->mapWithKeys(
+                fn ($team): array => [$team->id => (int) $team->pivot->position],
+            );
+
+            foreach ($group->fixtures as $fixture) {
+                [$home, $away] = $rule($positions[$fixture->home_team_id], $positions[$fixture->away_team_id]);
+
+                ScoreProposal::updateOrCreate(
+                    ['score_batch_id' => $batch->id, 'fixture_id' => $fixture->id],
+                    [
+                        'home_goals' => $home,
+                        'away_goals' => $away,
+                        'winner_team_id' => $home === $away
+                            ? null
+                            : ($home > $away ? $fixture->home_team_id : $fixture->away_team_id),
+                        'status' => ProposalStatus::Pending,
+                    ],
+                );
+
+                $proposals++;
+            }
+        }
+
+        $this->reportStagedTie($game, $tie, $proposals);
+    }
+
+    /**
+     * Tell the operator what was staged and how to drive the admin tie-resolution flow.
+     */
+    private function reportStagedTie(Game $game, string $tie, int $proposals): void
+    {
+        $me = (string) $this->option('me');
+
+        $description = $tie === 'group'
+            ? 'every group is level (all goalless draws) — order who finishes 1st/2nd/3rd in each'
+            : 'the best third-placed teams are tied across the qualifying cut — order which thirds classify';
+
+        $this->newLine();
+        $this->components->info("Staged {$proposals} group results as an open batch with an UNRESOLVED tie: {$description}.");
+
+        if ($me !== '') {
+            $admin = User::firstWhere('email', $me);
+
+            if ($admin === null || ! $admin->isAdmin()) {
+                $this->components->warn("Add {$me} to ADMIN_EMAILS in .env so it can open the review screen (it is behind the admin gate).");
+            }
+        }
+
+        $this->components->info('Next: log in at /login as '.($me !== '' ? $me : 'an admin').' (the 6-digit code is written to the log — `php artisan pail`), open '.route('games.scores.review', $game).' — the "Resolve tied teams" section lists the tied teams. Drag them into order, then Approve & publish; the bracket projects and the board updates.');
     }
 
     /**
@@ -255,7 +352,7 @@ class SimulateTournament extends Command
      * movement reflects each round. Bounded either by phase (--through) or, when $until is given,
      * by match end time — filling only matches finished by that datetime, which can land mid-phase.
      */
-    private function playResults(Tournament $tournament, PhaseKey $through, ?CarbonImmutable $until, OfficialBracketProjector $projector, ScoreEngine $engine, RankSnapshotter $snapshotter): void
+    private function playResults(Tournament $tournament, PhaseKey $through, ?CarbonImmutable $until, OfficialBracketProjector $projector, ScoreEngine $engine, RankSnapshotter $snapshotter, DefaultTieOrdering $defaultTieOrdering): void
     {
         $throughOrder = (int) $tournament->phases()->where('key', $through->value)->value('sort_order');
 
@@ -265,9 +362,14 @@ class SimulateTournament extends Command
                 break;
             }
 
-            $phase->key === PhaseKey::Group
-                ? $this->fillGroupResults($tournament, $until)
-                : $this->fillKnockoutResults($phase, $until);
+            if ($phase->key === PhaseKey::Group) {
+                $this->fillGroupResults($tournament, $until);
+                // No human to break ties in a simulation: apply the deterministic default order so
+                // the official bracket projects fully.
+                $defaultTieOrdering->applyToTournament($tournament);
+            } else {
+                $this->fillKnockoutResults($phase, $until);
+            }
 
             // Official results are shared; re-project once, then re-score each game over them.
             $projector->project($tournament);

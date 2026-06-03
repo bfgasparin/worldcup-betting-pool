@@ -71,19 +71,121 @@ class GroupStandingsTest extends TestCase
         );
     }
 
-    public function test_breaks_ties_by_group_seed_position_when_everything_equal(): void
+    public function test_unresolvable_tie_is_not_auto_broken_by_seed_position(): void
     {
         [$group, $entry, $teams] = $this->makeGroup();
 
-        // Every match a goalless draw: identical records and head-to-head -> seed order.
+        // Every match a goalless draw: identical records and head-to-head. The engine no longer
+        // silently falls back to seed order -- it reports the whole group as one unresolved tie.
         $this->predict($entry, $group, [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]]);
 
-        $ordered = $this->orderedTeamIds($group, $entry);
+        $standings = $this->standings($group, $entry);
 
-        $this->assertSame(
+        $this->assertTrue($standings->hasUnresolvedTies());
+        $this->assertCount(4, $standings->ordered()); // still listed (default seed order) for display
+        $this->assertNull($standings->winner());
+        $this->assertNull($standings->runnerUp());
+        $this->assertNull($standings->thirdStanding());
+
+        $ties = $standings->unresolvedTies();
+        $this->assertCount(1, $ties);
+        $this->assertEqualsCanonicalizing(
             [$teams[1]->id, $teams[2]->id, $teams[3]->id, $teams[4]->id],
-            $ordered,
+            $ties[0],
         );
+    }
+
+    public function test_a_manual_ordering_resolves_a_full_cluster(): void
+    {
+        [$group, $entry, $teams] = $this->makeGroup();
+        $this->predict($entry, $group, [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]]);
+
+        $manualOrder = [$teams[3]->id, $teams[1]->id, $teams[4]->id, $teams[2]->id];
+
+        $standings = $this->standings($group, $entry, $manualOrder);
+
+        $this->assertFalse($standings->hasUnresolvedTies());
+        $this->assertSame($manualOrder, $this->orderedTeamIds($group, $entry, $manualOrder));
+        $this->assertSame($teams[3]->id, $standings->winner());
+        $this->assertSame($teams[1]->id, $standings->runnerUp());
+    }
+
+    public function test_a_partial_tie_only_marks_the_tied_subset(): void
+    {
+        [$group, $entry, $teams] = $this->makeGroup();
+
+        // T1 wins all (9), T2 next (6); T3 & T4 perfectly level on 1pt (drew each other, lost the rest).
+        $this->predict($entry, $group, [[1, 0], [0, 0], [1, 0], [0, 1], [0, 1], [1, 0]]);
+
+        $standings = $this->standings($group, $entry);
+
+        $this->assertTrue($standings->hasUnresolvedTies());
+        $this->assertSame($teams[1]->id, $standings->winner());
+        $this->assertSame($teams[2]->id, $standings->runnerUp());
+        $this->assertNull($standings->thirdStanding()); // rank 3 sits inside the tied {T3,T4}
+
+        $ties = $standings->unresolvedTies();
+        $this->assertCount(1, $ties);
+        $this->assertEqualsCanonicalizing([$teams[3]->id, $teams[4]->id], $ties[0]);
+    }
+
+    public function test_multiple_independent_clusters_are_each_marked(): void
+    {
+        [$group, $entry, $teams] = $this->makeGroup();
+
+        // T1 & T2 level on 7pts; T3 & T4 level on 1pt.
+        $this->predict($entry, $group, [[0, 0], [0, 0], [1, 0], [0, 1], [0, 1], [1, 0]]);
+
+        $ties = $this->standings($group, $entry)->unresolvedTies();
+
+        $this->assertCount(2, $ties);
+        $sets = array_map(fn (array $set): array => $this->sorted($set), $ties);
+        $this->assertContains($this->sorted([$teams[1]->id, $teams[2]->id]), $sets);
+        $this->assertContains($this->sorted([$teams[3]->id, $teams[4]->id]), $sets);
+    }
+
+    public function test_a_manual_order_resolves_only_the_matching_cluster(): void
+    {
+        [$group, $entry, $teams] = $this->makeGroup();
+        $this->predict($entry, $group, [[0, 0], [0, 0], [1, 0], [0, 1], [0, 1], [1, 0]]);
+
+        // Resolve only the top {T1,T2} cluster, leaving {T3,T4} tied.
+        $standings = $this->standings($group, $entry, [$teams[2]->id, $teams[1]->id]);
+
+        $this->assertSame($teams[2]->id, $standings->winner());
+        $this->assertSame($teams[1]->id, $standings->runnerUp());
+
+        $ties = $standings->unresolvedTies();
+        $this->assertCount(1, $ties);
+        $this->assertEqualsCanonicalizing([$teams[3]->id, $teams[4]->id], $ties[0]);
+    }
+
+    public function test_a_stale_manual_ordering_is_ignored(): void
+    {
+        [$group, $entry, $teams] = $this->makeGroup();
+        $this->predict($entry, $group, [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]]);
+
+        // Order references only two of the four tied teams -> set mismatch -> ignored.
+        $standings = $this->standings($group, $entry, [$teams[2]->id, $teams[1]->id]);
+
+        $this->assertTrue($standings->hasUnresolvedTies());
+        $this->assertNull($standings->winner());
+    }
+
+    public function test_a_manual_ordering_is_ignored_once_the_tie_disappears(): void
+    {
+        [$group, $entry, $teams] = $this->makeGroup();
+
+        // Decisive scores: T1 9, T2 6, T3 3, T4 0 -- no tie at all.
+        $this->predict($entry, $group, [[1, 0], [1, 0], [1, 0], [0, 1], [0, 1], [1, 0]]);
+
+        // A leftover ordering from a previous all-square prediction.
+        $manualOrder = [$teams[4]->id, $teams[3]->id, $teams[2]->id, $teams[1]->id];
+
+        $standings = $this->standings($group, $entry, $manualOrder);
+
+        $this->assertFalse($standings->hasUnresolvedTies());
+        $this->assertSame($teams[1]->id, $standings->winner());
     }
 
     public function test_incomplete_group_is_not_complete_but_still_totally_ordered(): void
@@ -151,22 +253,37 @@ class GroupStandingsTest extends TestCase
         }
     }
 
-    private function standings(Group $group, Entry $entry): GroupStandings
+    /**
+     * @param  list<int>  $manualOrder
+     */
+    private function standings(Group $group, Entry $entry, array $manualOrder = []): GroupStandings
     {
         $group->load(['teams', 'fixtures']);
         $predictions = $entry->groupPredictions()->get()->keyBy('fixture_id')->all();
 
-        return new GroupStandings($group, $predictions);
+        return new GroupStandings($group, $predictions, $manualOrder);
     }
 
     /**
+     * @param  list<int>  $manualOrder
      * @return list<int>
      */
-    private function orderedTeamIds(Group $group, Entry $entry): array
+    private function orderedTeamIds(Group $group, Entry $entry, array $manualOrder = []): array
     {
         return array_map(
             fn ($standing): int => $standing->teamId,
-            $this->standings($group, $entry)->ordered(),
+            $this->standings($group, $entry, $manualOrder)->ordered(),
         );
+    }
+
+    /**
+     * @param  list<int>  $ids
+     * @return list<int>
+     */
+    private function sorted(array $ids): array
+    {
+        sort($ids);
+
+        return $ids;
     }
 }
