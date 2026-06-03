@@ -41,12 +41,8 @@ export function ScoreStepper({
     const s = SIZES[size];
 
     const step = (delta: number): void => {
-        // Don't fabricate a score from an unpredicted field on decrement; '' stays '' until
-        // the user adds a goal (or types one), preserving the "'' = not predicted" contract.
-        if (value === '' && delta < 0) {
-            return;
-        }
-
+        // Treat an empty field as 0 so either stepper produces a concrete score: '+' goes to 1,
+        // '−' settles at 0 (clamped). Untouched fields stay '' = "not predicted".
         const current = value === '' ? 0 : Number(value);
         const next = Math.max(0, Math.min(99, current + delta));
         onChange(String(next));
