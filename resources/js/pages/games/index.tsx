@@ -1,4 +1,4 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import {
     ArrowRight,
     CalendarDays,
@@ -27,6 +27,20 @@ interface GamesIndexProps {
 interface TournamentGroup {
     tournament: GameListItem['tournament'];
     games: GameListItem[];
+}
+
+function greeting(): string {
+    const hour = new Date().getHours();
+
+    if (hour < 12) {
+        return 'Good morning';
+    }
+
+    if (hour < 18) {
+        return 'Good afternoon';
+    }
+
+    return 'Good evening';
 }
 
 /**
@@ -445,6 +459,9 @@ function Pagination({ games }: { games: Paginated<GameListItem> }) {
 
 export default function GamesIndex({ games }: GamesIndexProps) {
     const groups = groupByTournament(games.data);
+    const { auth } = usePage().props;
+    const name = auth.user?.name ?? 'there';
+    const firstName = name.split(' ')[0] || name;
 
     return (
         <>
@@ -457,6 +474,9 @@ export default function GamesIndex({ games }: GamesIndexProps) {
                             <span className="inline-flex w-fit items-center gap-2 text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">
                                 <span className="bg-brand-gradient size-2 rounded-full" />
                                 Brothers Betting Pool
+                            </span>
+                            <span className="text-sm font-semibold text-muted-foreground">
+                                {greeting()}, {firstName} 👋
                             </span>
                             <h1 className="text-4xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl">
                                 Choose your game
