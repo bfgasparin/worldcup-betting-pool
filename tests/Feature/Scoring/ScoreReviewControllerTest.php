@@ -41,6 +41,10 @@ class ScoreReviewControllerTest extends TestCase
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->component('games/scores/review')
                 ->where('game.slug', $this->game->slug)
+                // The review header (and sidebar) carries the game identity to disambiguate siblings.
+                ->where('game.source', 'FF&A')
+                ->where('game.accent', 'pitch')
+                ->where('game.scoring_label', 'Upfront Bracket')
                 ->has('rows', 1)
                 ->where('rows.0.fixture_id', $ended->id)
                 ->where('rows.0.has_ended', true)

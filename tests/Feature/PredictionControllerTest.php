@@ -50,6 +50,10 @@ class PredictionControllerTest extends TestCase
                 ->component('games/predict')
                 ->where('game.slug', 'world-cup-2026-ffa')
                 ->where('game.can_edit', true)
+                // The predict page (and its sidebar) carries the game identity to disambiguate siblings.
+                ->where('game.source', 'FF&A')
+                ->where('game.accent', 'pitch')
+                ->where('game.scoring_label', 'Upfront Bracket')
                 ->has('groups', 12)
                 ->has('groups.0.standings', 4)
                 ->where('groups.0.teams.0.flag_url', '/flags/MEX.svg')

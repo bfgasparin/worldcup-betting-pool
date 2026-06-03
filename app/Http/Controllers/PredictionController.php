@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\OrderingScope;
 use App\Enums\PredictionWindowStatus;
+use App\Http\Controllers\Concerns\BuildsGameIdentity;
 use App\Http\Requests\Predictions\UpdateGroupOrderingRequest;
 use App\Http\Requests\Predictions\UpdateGroupPredictionsRequest;
 use App\Http\Requests\Predictions\UpdateKnockoutPredictionsRequest;
@@ -31,6 +32,8 @@ use Inertia\Response;
 
 class PredictionController extends Controller
 {
+    use BuildsGameIdentity;
+
     public function __construct(
         private readonly BracketResolver $resolver,
         private readonly PredictionWindowResolver $windowResolver,
@@ -76,8 +79,7 @@ class PredictionController extends Controller
 
         return Inertia::render('games/predict', [
             'game' => [
-                'slug' => $game->slug,
-                'name' => $game->name,
+                ...$this->gameIdentity($game),
                 'sport' => $tournament->sport->value,
                 'status' => $tournament->status->value,
                 'scoring_strategy' => $game->scoring_strategy->value,

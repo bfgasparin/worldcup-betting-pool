@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\GameAccent;
 use App\Enums\ScoringStrategy;
 use App\Enums\TournamentStatus;
 use Carbon\CarbonInterface;
@@ -17,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'slug',
     'name',
     'source',
+    'accent',
     'scoring_strategy',
     'scoring_config',
     'predictions_lock_at',
@@ -39,6 +41,7 @@ class Game extends Model
     protected function casts(): array
     {
         return [
+            'accent' => GameAccent::class,
             'scoring_strategy' => ScoringStrategy::class,
             'scoring_config' => 'array',
             'predictions_lock_at' => 'datetime',

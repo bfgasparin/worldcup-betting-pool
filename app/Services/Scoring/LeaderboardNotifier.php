@@ -2,6 +2,7 @@
 
 namespace App\Services\Scoring;
 
+use App\Enums\GameAccent;
 use App\Enums\LeaderboardCategory;
 use App\Models\Entry;
 use App\Models\Game;
@@ -34,6 +35,10 @@ class LeaderboardNotifier
         $byRank = $ranked->keyBy('rank');
         $totalEntries = $ranked->count();
 
+        // The game's colour identity carried into the emails so they match the in-app look; the
+        // house pitch is the fallback for a game without an explicit accent.
+        $accent = $game->accent ?? GameAccent::Pitch;
+
         foreach ($ranked as $entry) {
             $user = $entry->user;
 
@@ -52,6 +57,8 @@ class LeaderboardNotifier
                 $user->notify(new TopOfLeaderboardNotification(
                     $game->name,
                     $game->slug,
+                    $game->source,
+                    $accent,
                     $entry->total_points,
                     $totalEntries,
                     $runnerUp?->user?->name,
@@ -70,6 +77,8 @@ class LeaderboardNotifier
                 $user->notify(new LeaderboardRankChangedNotification(
                     $game->name,
                     $game->slug,
+                    $game->source,
+                    $accent,
                     $rank < $previousRank ? 'up' : 'down',
                     $rank,
                     $previousRank,

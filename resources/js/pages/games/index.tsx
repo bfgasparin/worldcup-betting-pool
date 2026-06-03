@@ -12,7 +12,7 @@ import {
 import type { ComponentType, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
-import { gameAccent, sourceMonogram } from '@/lib/accents';
+import { resolveAccent, sourceMonogram } from '@/lib/accents';
 import type { GameAccent } from '@/lib/accents';
 import { scoringRules } from '@/lib/scoring';
 import { cn } from '@/lib/utils';
@@ -307,7 +307,7 @@ function GameTicket({
      */
     grouped: boolean;
 }) {
-    const accent = gameAccent(game.accent_index);
+    const accent = resolveAccent(game.accent, game.accent_index);
 
     return (
         <Link

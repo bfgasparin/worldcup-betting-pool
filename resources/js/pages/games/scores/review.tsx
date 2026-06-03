@@ -2,11 +2,13 @@ import { Head, router } from '@inertiajs/react';
 import { ClipboardCheck, Trophy } from 'lucide-react';
 import { useState } from 'react';
 import { Flag } from '@/components/flag';
+import { GameIdentity } from '@/components/game-identity';
 import { StandingsTable } from '@/components/standings-table';
 import { TieResolutionPanel } from '@/components/tie-resolution-panel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { gameTitle } from '@/lib/game-title';
 import games from '@/routes/games';
 import type { StandingRow, TeamRef, TiedCluster } from '@/types/games';
 import type { BreadcrumbItem } from '@/types/navigation';
@@ -45,7 +47,13 @@ interface ThirdsTieData {
 }
 
 interface ReviewPageProps {
-    game: { slug: string; name: string };
+    game: {
+        slug: string;
+        name: string;
+        source: string;
+        accent?: string | null;
+        scoring_label?: string;
+    };
     rows: ReviewRowData[];
     tied_groups: TiedGroupData[];
     thirds_tie: ThirdsTieData | null;
@@ -384,7 +392,7 @@ export default function ScoreReview({
 
     return (
         <>
-            <Head title={`Review scores — ${game.name}`} />
+            <Head title={gameTitle(game.source, game.name, 'Review scores')} />
             <div className="flex h-full flex-1 flex-col gap-6 p-4">
                 <header className="hero relative overflow-hidden rounded-3xl border border-border p-8">
                     <div className="hero-lines" />
@@ -397,6 +405,11 @@ export default function ScoreReview({
                             <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
                                 {game.name}
                             </h1>
+                            <GameIdentity
+                                source={game.source}
+                                scoringLabel={game.scoring_label}
+                                accent={game.accent}
+                            />
                             <p className="max-w-xl text-sm text-muted-foreground">
                                 Enter or correct each final score, set the
                                 advancing team for knockout matches, then

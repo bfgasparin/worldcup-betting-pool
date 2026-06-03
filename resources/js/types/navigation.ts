@@ -12,3 +12,15 @@ export type NavItem = {
     icon?: LucideIcon | null;
     isActive?: boolean;
 };
+
+/**
+ * The subset of the page-level `game` prop the sidebar reads to render tournament-context nav.
+ * `source`/`accent` let the sidebar show which game is in context (sibling games share the name).
+ */
+export type TournamentNavInfo = {
+    slug: string;
+    name: string;
+    status: string;
+    source: string;
+    accent?: string | null;
+};

@@ -1,11 +1,14 @@
 /**
  * Per-game "kit" accents. Games played over the *same* tournament are near-identical (same name,
  * dates, sport, counts) and otherwise read as duplicates, so each is given a distinct accent —
- * colour, glow and rail texture — keyed on its position among the tournament's games. The order
- * starts pitch (the house green) so a tournament's first game keeps the brand look.
+ * colour, glow and rail texture. A game's stored `accent` (see the `App\Enums\GameAccent` enum,
+ * the server-side source of truth) is preferred; absent that, the colour falls back to the game's
+ * position among the tournament's games. The order starts pitch (the house green) so a
+ * tournament's first game keeps the brand look.
  *
- * Pitch & gold reuse the existing house helpers; teal & violet add the two extra kits (see the
- * `.kit-rail-*` / `.bg-*-gradient` / `.shadow-glow-*` utilities in `resources/css/app.css`).
+ * Keep these keys in sync with `App\Enums\GameAccent`. Pitch & gold reuse the existing house
+ * helpers; teal & violet add the two extra kits (see the `.kit-rail-*` / `.bg-*-gradient` /
+ * `.shadow-glow-*` utilities in `resources/css/app.css`).
  */
 export interface GameAccent {
     key: 'pitch' | 'teal' | 'gold' | 'violet';
@@ -61,6 +64,21 @@ export function gameAccent(index: number): GameAccent {
     return ACCENTS[
         ((index % ACCENTS.length) + ACCENTS.length) % ACCENTS.length
     ];
+}
+
+const ACCENTS_BY_KEY: Record<string, GameAccent> = Object.fromEntries(
+    ACCENTS.map((accent) => [accent.key, accent]),
+);
+
+/**
+ * Resolve a game's accent: prefer its stored `accent` key (set on the game itself), and otherwise
+ * fall back to the positional colour for the given 0-based index among its tournament's games.
+ */
+export function resolveAccent(
+    accent: string | null | undefined,
+    index = 0,
+): GameAccent {
+    return (accent ? ACCENTS_BY_KEY[accent] : undefined) ?? gameAccent(index);
 }
 
 /**

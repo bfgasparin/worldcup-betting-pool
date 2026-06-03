@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\BatchStatus;
 use App\Enums\OrderingScope;
 use App\Enums\ProposalStatus;
+use App\Http\Controllers\Concerns\BuildsGameIdentity;
 use App\Http\Requests\Tournaments\ApproveScoreBatchRequest;
 use App\Http\Requests\Tournaments\UpdateGroupOrderingRequest;
 use App\Http\Requests\Tournaments\UpdateScoreProposalRequest;
@@ -26,6 +27,8 @@ use Inertia\Response;
 
 class ScoreReviewController extends Controller
 {
+    use BuildsGameIdentity;
+
     /**
      * The admin screen for reviewing, editing and approving a batch of proposed official scores.
      */
@@ -62,10 +65,7 @@ class ScoreReviewController extends Controller
         }
 
         return Inertia::render('games/scores/review', [
-            'game' => [
-                'slug' => $game->slug,
-                'name' => $game->name,
-            ],
+            'game' => $this->gameIdentity($game),
             'tied_groups' => $tiedGroups,
             'thirds_tie' => $thirdsTie,
             'rows' => $fixtures->map(function (Fixture $fixture) use ($proposals): array {
@@ -131,7 +131,9 @@ class ScoreReviewController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Results approved and points updated.')]);
 
-        return to_route('games.show', $game);
+        // Stay on the review screen and re-render it: the approved batch is now closed, so the page
+        // refreshes to the post-approval state (its proposals and resolved ties clear) in place.
+        return to_route('games.scores.review', $game);
     }
 
     /**

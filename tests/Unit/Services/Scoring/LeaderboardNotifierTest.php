@@ -53,7 +53,10 @@ class LeaderboardNotifierTest extends TestCase
                 && $notification->leadOverRunnerUp === 50
                 && $notification->points === 200
                 && $notification->totalEntries === 2
-                && $notification->tournamentSlug === $this->game->slug;
+                && $notification->gameSlug === $this->game->slug
+                // The game's identity rides along so the email leads with the right pool.
+                && $notification->source === $this->game->source
+                && $notification->accent === $this->game->accent;
         });
         Notification::assertNotSentTo($ada, LeaderboardRankChangedNotification::class);
         // Bo only dropped one place, which is below the threshold.
@@ -82,7 +85,9 @@ class LeaderboardNotifierTest extends TestCase
                 && $notification->previousRank === 4
                 && $notification->aheadName === 'Ada'
                 && $notification->pointsBehind === 60
-                && $notification->totalEntries === 4;
+                && $notification->totalEntries === 4
+                && $notification->source === $this->game->source
+                && $notification->accent === $this->game->accent;
         });
         Notification::assertNotSentTo($cy, LeaderboardRankChangedNotification::class);
         Notification::assertNotSentTo($di, LeaderboardRankChangedNotification::class);
@@ -109,7 +114,9 @@ class LeaderboardNotifierTest extends TestCase
                 && $notification->rank === 4
                 && $notification->previousRank === 2
                 && $notification->aheadName === 'Cy'
-                && $notification->pointsBehind === 60;
+                && $notification->pointsBehind === 60
+                && $notification->source === $this->game->source
+                && $notification->accent === $this->game->accent;
         });
         Notification::assertNotSentTo($ada, TopOfLeaderboardNotification::class);
         Notification::assertNotSentTo($bo, LeaderboardRankChangedNotification::class);

@@ -16,6 +16,10 @@ export interface GameSummary {
     name: string;
     /** The group/source that created the game, e.g. "FF&A". */
     source: string;
+    /** The game's colour identity key (pitch|teal|gold|violet); null falls back to a positional colour. */
+    accent?: string | null;
+    /** Short human-readable scoring style, e.g. "Upfront Bracket". */
+    scoring_label?: string;
     sport: string;
     status: GameStatus;
     starts_on: string | null;
@@ -310,6 +314,12 @@ export interface ThirdRanking {
 export interface PredictGameDetail {
     slug: string;
     name: string;
+    /** The group/source that created the game, e.g. "FF&A". */
+    source: string;
+    /** The game's colour identity key (pitch|teal|gold|violet); null falls back to a positional colour. */
+    accent?: string | null;
+    /** Short human-readable scoring style, e.g. "Upfront Bracket". */
+    scoring_label?: string;
     sport: string;
     status: GameStatus;
     /** Which scoring strategy this game uses (e.g. 'upfront-bracket', 'phased-bracket'). */

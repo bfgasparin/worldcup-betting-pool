@@ -1,7 +1,9 @@
 import { Head } from '@inertiajs/react';
 import { ListOrdered, Scale, Trophy, Users } from 'lucide-react';
 import { useState } from 'react';
+import { GameIdentity } from '@/components/game-identity';
 import { LeaderboardRow } from '@/components/leaderboard-row';
+import { gameTitle } from '@/lib/game-title';
 import { tiebreakRule } from '@/lib/leaderboards';
 import { cn } from '@/lib/utils';
 import games from '@/routes/games';
@@ -73,7 +75,7 @@ export default function Leaderboard({
 
     return (
         <>
-            <Head title={`Leaderboards — ${game.name}`} />
+            <Head title={gameTitle(game.source, game.name, 'Leaderboards')} />
             <div className="flex h-full flex-1 flex-col gap-6 p-4">
                 <header className="hero relative overflow-hidden rounded-3xl border border-border p-8">
                     <div className="hero-lines" />
@@ -88,9 +90,15 @@ export default function Leaderboard({
                         <p className="inline-flex items-center gap-2 text-sm text-muted-foreground">
                             <Users className="size-4" />
                             {participants}{' '}
-                            {participants === 1 ? 'player' : 'players'} ·{' '}
-                            {game.name}
+                            {participants === 1 ? 'player' : 'players'}
                         </p>
+                        <GameIdentity
+                            source={game.source}
+                            name={game.name}
+                            scoringLabel={game.scoring_label}
+                            accent={game.accent}
+                            className="mt-1"
+                        />
                     </div>
                 </header>
 
