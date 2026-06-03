@@ -33,6 +33,12 @@ export interface GameListItem extends GameSummary {
     scoring_label: string;
     scoring_description: string;
     scoring_config: Record<string, Record<string, number>>;
+    /** The competition this game is played over. Sibling games share this identity. */
+    tournament: { id: number; name: string };
+    /** 0-based position among the tournament's games (by id) — drives the per-game kit colour. */
+    accent_index: number;
+    /** Size of this game's pool (number of entries) — distinct per game. */
+    players_count: number;
 }
 
 export interface TeamRef {

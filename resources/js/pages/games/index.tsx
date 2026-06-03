@@ -7,17 +7,49 @@ import {
     Layers,
     Sparkles,
     Trophy,
+    Users,
 } from 'lucide-react';
 import type { ComponentType, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
+import { gameAccent, sourceMonogram } from '@/lib/accents';
+import type { GameAccent } from '@/lib/accents';
 import { scoringRules } from '@/lib/scoring';
-import type { ScoringRule } from '@/lib/scoring';
+import { cn } from '@/lib/utils';
 import { show } from '@/routes/games';
 import type { GameListItem, Paginated } from '@/types/games';
 
 interface GamesIndexProps {
     games: Paginated<GameListItem>;
+}
+
+/** A tournament and the games played over it, in the order they arrived from the server. */
+interface TournamentGroup {
+    tournament: GameListItem['tournament'];
+    games: GameListItem[];
+}
+
+/**
+ * Cluster the page's games by the tournament they're played over, preserving order. Sibling games
+ * arrive adjacent (the server orders by tournament then id), so each tournament forms one run.
+ */
+function groupByTournament(games: GameListItem[]): TournamentGroup[] {
+    const groups: TournamentGroup[] = [];
+    const byId = new Map<number, TournamentGroup>();
+
+    for (const game of games) {
+        let group = byId.get(game.tournament.id);
+
+        if (!group) {
+            group = { tournament: game.tournament, games: [] };
+            byId.set(game.tournament.id, group);
+            groups.push(group);
+        }
+
+        group.games.push(game);
+    }
+
+    return groups;
 }
 
 function formatDates(game: GameListItem): string | null {
@@ -45,10 +77,71 @@ function StatPill({
     );
 }
 
+/** "12 players" / "1 player" / "No players yet" — the size of a game's pool. */
+function playersLabel(count: number): string {
+    if (count === 0) {
+        return 'No players yet';
+    }
+
+    return count === 1 ? '1 player' : `${count} players`;
+}
+
+/** A game's pool size — its own per-game stat, the same shape as the tournament stat pills. */
+function PlayersStat({ count }: { count: number }) {
+    return <StatPill icon={Users} label={playersLabel(count)} />;
+}
+
+/**
+ * The shared tournament facts (sport, group & match counts) — identical for every sibling game.
+ * `playersCount`, when given, appends the game's own pool size (used on a solo game's card, where
+ * the shared facts and the per-game count sit on one row).
+ */
+function StatPills({
+    game,
+    playersCount,
+}: {
+    game: GameListItem;
+    playersCount?: number;
+}) {
+    return (
+        <div className="flex flex-wrap gap-2">
+            <StatPill
+                icon={Trophy}
+                label={<span className="capitalize">{game.sport}</span>}
+            />
+            {game.groups_count != null && (
+                <StatPill icon={Layers} label={`${game.groups_count} Groups`} />
+            )}
+            {game.fixtures_count != null && (
+                <StatPill
+                    icon={Sparkles}
+                    label={`${game.fixtures_count} Matches`}
+                />
+            )}
+            {playersCount != null && <PlayersStat count={playersCount} />}
+        </div>
+    );
+}
+
 function StatusBadge({ status }: { status: string }) {
     return (
         <span className="bg-brand-gradient inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-display text-xs font-semibold text-white capitalize shadow-[var(--sh-sm)]">
             {status.replace('_', ' ')}
+        </span>
+    );
+}
+
+function DateRange({ game }: { game: GameListItem }) {
+    const dates = formatDates(game);
+
+    if (!dates) {
+        return null;
+    }
+
+    return (
+        <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+            <CalendarDays className="size-4" />
+            {dates}
         </span>
     );
 }
@@ -73,7 +166,7 @@ function PhaseRules({
     rules,
 }: {
     heading: string;
-    rules: ScoringRule[];
+    rules: { label: string; points: number }[];
 }) {
     if (rules.length === 0) {
         return null;
@@ -101,17 +194,10 @@ function PhaseRules({
     );
 }
 
-/**
- * How a game scores: the strategy name, a one-line explanation, and the per-rule points — split by
- * phase so a game that scores the group stage and knockouts the same way doesn't read as a list of
- * duplicated pills.
- */
-function ScoringSummary({ game }: { game: GameListItem }) {
+/** The one-line explanation plus the per-rule points, split by phase. */
+function ScoringDetails({ game }: { game: GameListItem }) {
     return (
-        <div className="flex flex-col gap-3">
-            <Chip variant="points" className="w-fit px-3 py-1 text-xs">
-                {game.scoring_label}
-            </Chip>
+        <>
             <p className="text-sm text-muted-foreground">
                 {game.scoring_description}
             </p>
@@ -125,65 +211,192 @@ function ScoringSummary({ game }: { game: GameListItem }) {
                     rules={scoringRules(game.scoring_config, 'knockout')}
                 />
             </div>
+        </>
+    );
+}
+
+/** Solo-game scoring: the strategy chip leads, since the headline is the game name (not the source). */
+function ScoringSummary({ game }: { game: GameListItem }) {
+    return (
+        <div className="flex flex-col gap-3">
+            <Chip variant="points" className="w-fit px-3 py-1 text-xs">
+                {game.scoring_label}
+            </Chip>
+            <ScoringDetails game={game} />
+        </div>
+    );
+}
+
+/** The accent-coloured call-to-action at the foot of a ticket. */
+function EnterButton({ accent }: { accent: GameAccent }) {
+    return (
+        <span
+            className={cn(
+                'inline-flex w-fit items-center gap-2 rounded-full px-6 py-3 font-display text-base font-semibold transition-all group-hover:gap-3',
+                accent.buttonClass,
+                accent.glowClass,
+                accent.textClass,
+            )}
+        >
+            Enter game
+            <ArrowRight className="size-5" />
+        </span>
+    );
+}
+
+/**
+ * The source rail — the ticket's coloured stub. Carries the source emblem (a monogram) in the
+ * game's kit colour + texture; it's the per-game visual anchor. Sits as a left rail on `sm+` and a
+ * top banner on mobile.
+ */
+function SourceRail({
+    source,
+    accent,
+}: {
+    source: string;
+    accent: GameAccent;
+}) {
+    return (
+        <div
+            className={cn(
+                'flex shrink-0 items-center justify-center gap-2.5 px-6 py-5 sm:w-36 sm:flex-col sm:gap-1.5 sm:py-8',
+                accent.railClass,
+                accent.textClass,
+            )}
+        >
+            <span className="font-display text-[0.6rem] font-bold tracking-[0.2em] uppercase opacity-75">
+                Game by
+            </span>
+            <span className="font-display text-4xl leading-none font-bold sm:text-5xl">
+                {sourceMonogram(source)}
+            </span>
         </div>
     );
 }
 
 /**
- * A single game in the list. Every game uses this same card — full width, stacked — so no game is
- * visually privileged over another.
+ * A single game as a ticket: the source rail (kit colour) + the body. A game over a tournament that
+ * has more than one game leads with its *source* (the thing that differs from its siblings) so the
+ * shared name never reads as a duplicate; a game that's alone over its tournament keeps the full
+ * header (status, dates, stats, name) in the house pitch kit.
  */
-function GameCard({ game }: { game: GameListItem }) {
-    const dates = formatDates(game);
+function GameTicket({
+    game,
+    grouped,
+}: {
+    game: GameListItem;
+    /**
+     * Whether this ticket sits in a multi-game group on this page (and so under a
+     * {@see TournamentHeader} carrying the shared facts). Driven by the visible group, not a global
+     * count, so the body and the header can never disagree — a game shown on its own always renders
+     * the full solo layout rather than an orphaned, contextless compact ticket.
+     */
+    grouped: boolean;
+}) {
+    const accent = gameAccent(game.accent_index);
 
     return (
         <Link
             href={show(game.slug)}
-            className="card-elevated group flex flex-col gap-4 rounded-3xl p-6 transition-transform duration-200 hover:-translate-y-1 sm:p-8"
+            className={cn(
+                'group card-elevated flex flex-col overflow-hidden rounded-3xl transition-transform duration-200 hover:-translate-y-1 sm:flex-row',
+                accent.ringClass,
+            )}
         >
+            <SourceRail source={game.source} accent={accent} />
+
+            <div className="flex flex-1 flex-col gap-4 p-6 sm:p-7">
+                {grouped ? (
+                    <>
+                        <div className="flex flex-wrap items-start justify-between gap-2.5">
+                            <div className="flex flex-col gap-1">
+                                <h3 className="text-2xl font-semibold tracking-tight text-balance text-foreground">
+                                    {game.source}
+                                </h3>
+                                <span className="font-display text-sm font-semibold text-muted-foreground">
+                                    {game.scoring_label}
+                                </span>
+                            </div>
+                            <PlayersStat count={game.players_count} />
+                        </div>
+                        <ScoringDetails game={game} />
+                    </>
+                ) : (
+                    <>
+                        <div className="flex flex-wrap items-center justify-between gap-2.5">
+                            <div className="flex flex-wrap items-center gap-2.5">
+                                <StatusBadge status={game.status} />
+                                <SourceTag source={game.source} />
+                            </div>
+                            <DateRange game={game} />
+                        </div>
+                        <h2 className="text-2xl font-semibold tracking-tight text-balance text-foreground sm:text-3xl">
+                            {game.name}
+                        </h2>
+                        <StatPills
+                            game={game}
+                            playersCount={game.players_count}
+                        />
+                        <ScoringSummary game={game} />
+                    </>
+                )}
+
+                <EnterButton accent={accent} />
+            </div>
+        </Link>
+    );
+}
+
+/**
+ * A header above a cluster of same-tournament games. It carries the facts every sibling shares —
+ * name, status, dates, sport & counts — once, so the tickets beneath it only have to show what
+ * makes each different. Framed as multiple games over one competition, not as a pick-one choice.
+ * The "N games" chip counts the games shown here, so it always matches the tickets beneath it.
+ */
+function TournamentHeader({ group }: { group: TournamentGroup }) {
+    const lead = group.games[0];
+
+    return (
+        <div className="flex flex-col gap-3 border-b border-border pb-5">
             <div className="flex flex-wrap items-center justify-between gap-2.5">
                 <div className="flex flex-wrap items-center gap-2.5">
-                    <StatusBadge status={game.status} />
-                    <SourceTag source={game.source} />
+                    <StatusBadge status={lead.status} />
+                    <DateRange game={lead} />
                 </div>
-                {dates && (
-                    <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-                        <CalendarDays className="size-4" />
-                        {dates}
-                    </span>
-                )}
+                <Chip variant="outline" className="px-3 py-1 text-xs">
+                    {group.games.length} games
+                </Chip>
             </div>
-
             <h2 className="text-2xl font-semibold tracking-tight text-balance text-foreground sm:text-3xl">
-                {game.name}
+                {group.tournament.name}
             </h2>
+            <StatPills game={lead} />
+            <p className="max-w-xl text-sm text-muted-foreground">
+                Each game below scores this competition its own way — play as
+                many as you like.
+            </p>
+        </div>
+    );
+}
 
-            <div className="flex flex-wrap gap-2">
-                <StatPill
-                    icon={Trophy}
-                    label={<span className="capitalize">{game.sport}</span>}
-                />
-                {game.groups_count != null && (
-                    <StatPill
-                        icon={Layers}
-                        label={`${game.groups_count} Groups`}
-                    />
-                )}
-                {game.fixtures_count != null && (
-                    <StatPill
-                        icon={Sparkles}
-                        label={`${game.fixtures_count} Matches`}
-                    />
-                )}
+/**
+ * One tournament's block: a single game renders as a lone ticket; multiple games render under a
+ * shared tournament header, each in its own kit colour.
+ */
+function TournamentGroupSection({ group }: { group: TournamentGroup }) {
+    if (group.games.length === 1) {
+        return <GameTicket game={group.games[0]} grouped={false} />;
+    }
+
+    return (
+        <section className="flex flex-col gap-4">
+            <TournamentHeader group={group} />
+            <div className="flex flex-col gap-4">
+                {group.games.map((game) => (
+                    <GameTicket key={game.slug} game={game} grouped />
+                ))}
             </div>
-
-            <ScoringSummary game={game} />
-
-            <span className="bg-brand-gradient shadow-glow inline-flex w-fit items-center gap-2 rounded-full px-6 py-3 font-display text-base font-semibold text-white transition-all group-hover:gap-3">
-                Enter game
-                <ArrowRight className="size-5" />
-            </span>
-        </Link>
+        </section>
     );
 }
 
@@ -231,6 +444,8 @@ function Pagination({ games }: { games: Paginated<GameListItem> }) {
 }
 
 export default function GamesIndex({ games }: GamesIndexProps) {
+    const groups = groupByTournament(games.data);
+
     return (
         <>
             <Head title="Games" />
@@ -255,9 +470,12 @@ export default function GamesIndex({ games }: GamesIndexProps) {
                     </header>
 
                     {games.data.length > 0 ? (
-                        <div className="flex flex-col gap-4">
-                            {games.data.map((game) => (
-                                <GameCard key={game.slug} game={game} />
+                        <div className="flex flex-col gap-10">
+                            {groups.map((group) => (
+                                <TournamentGroupSection
+                                    key={group.tournament.id}
+                                    group={group}
+                                />
                             ))}
                         </div>
                     ) : (
