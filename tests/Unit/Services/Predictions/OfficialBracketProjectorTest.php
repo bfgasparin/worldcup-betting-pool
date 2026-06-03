@@ -98,6 +98,21 @@ class OfficialBracketProjectorTest extends TestCase
         $this->assertSame($m79->fresh()->away_team_id, $r16_4->fresh()->home_team_id);
     }
 
+    public function test_a_straddling_thirds_tie_defers_the_best_third_slots(): void
+    {
+        // seedOrderScores makes every group's third identical (3pts, GD -1, GF 1): a 12-way tie
+        // that straddles the 8th/9th qualifying cut, so the eight best-third slots cannot be
+        // projected until a human orders the tie (no tournament ordering recorded here).
+        $this->recordOfficialGroupResults($this->tournament, $this->seedOrderScores(), resolveTies: false);
+
+        $this->projector->project($this->tournament);
+
+        $r32_7 = $this->knockoutFixture($this->tournament, 'R32-7')->fresh(); // M79: Winner A vs 3rd …
+
+        $this->assertSame($this->groupTeam('A', 1)->id, $r32_7->home_team_id); // a group winner still resolves
+        $this->assertNull($r32_7->away_team_id); // the best-third side is deferred
+    }
+
     private function groupTeam(string $groupName, int $position): Team
     {
         $group = $this->tournament->groups()->where('name', $groupName)->firstOrFail();

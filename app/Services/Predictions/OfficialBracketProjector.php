@@ -39,9 +39,11 @@ class OfficialBracketProjector
             'knockoutFixtures.phase',
         ]);
 
+        $ordering = ManualTieOrdering::fromTournament($tournament);
+
         $standings = [];
         foreach ($tournament->groups as $group) {
-            $standings[$group->name] = new GroupStandings($group, $this->officialResults($group));
+            $standings[$group->name] = new GroupStandings($group, $this->officialResults($group), $ordering->forGroup($group->name));
         }
 
         $winnerByFixtureId = $tournament->knockoutFixtures->keyBy('id');
@@ -51,6 +53,7 @@ class OfficialBracketProjector
             $tournament->knockoutFixtures,
             fn (int $feederId): ?int => $winnerByFixtureId->get($feederId)?->winner_team_id,
             $tournament->groups,
+            $ordering->thirds,
         )['resolved'];
 
         DB::transaction(function () use ($tournament, $resolved): void {

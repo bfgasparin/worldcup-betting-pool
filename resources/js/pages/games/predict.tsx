@@ -13,6 +13,7 @@ import { GroupBadge, TeamChip } from '@/components/fixtures';
 import { Flag } from '@/components/flag';
 import { ScoreStepper } from '@/components/score-stepper';
 import { StandingsTable } from '@/components/standings-table';
+import { TieResolutionPanel } from '@/components/tie-resolution-panel';
 import { Button } from '@/components/ui/button';
 import { chipVariants } from '@/components/ui/chip';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -20,6 +21,7 @@ import { scoringRules } from '@/lib/scoring';
 import { cn } from '@/lib/utils';
 import games from '@/routes/games';
 import type {
+    GroupTeam,
     KnockoutPredictionFixture,
     PredictBracketPhase,
     PredictGroup,
@@ -253,13 +255,24 @@ function GroupCard({
     canEdit,
     onChange,
     onCommit,
+    orderingUrl,
 }: {
     group: PredictGroup;
     scores: GroupScores;
     canEdit: boolean;
     onChange: (fixtureId: number, side: 'home' | 'away', value: string) => void;
     onCommit: () => void;
+    orderingUrl: string;
 }) {
+    const tiedClusters = group.tied_clusters
+        .map((cluster) => ({
+            teams: cluster.team_ids
+                .map((id) => group.teams.find((team) => team.id === id))
+                .filter((team): team is GroupTeam => Boolean(team)),
+            resolved: cluster.resolved,
+        }))
+        .filter((cluster) => cluster.teams.length > 1);
+
     return (
         <div className="card-elevated rounded-3xl p-5">
             <div className="mb-3 flex items-center justify-between gap-2">
@@ -343,6 +356,23 @@ function GroupCard({
             <div className="mt-4 border-t border-border pt-2">
                 <StandingsTable standings={group.standings} />
             </div>
+
+            {tiedClusters.length > 0 && (
+                <div className="mt-3">
+                    <TieResolutionPanel
+                        title="Resolve the tie"
+                        description="These teams are level on every tiebreaker. Drag them into the order you want them to finish — your bracket can't fill until you do."
+                        clusters={tiedClusters}
+                        editable={canEdit}
+                        url={orderingUrl}
+                        payloadFor={(orderedTeamIds) => ({
+                            scope: 'within-group',
+                            group: group.name,
+                            ordered_team_ids: orderedTeamIds,
+                        })}
+                    />
+                </div>
+            )}
         </div>
     );
 }
@@ -555,6 +585,7 @@ export default function Predict({
     groups,
     bracket,
     thirds,
+    thirds_tie: thirdsTie,
 }: PredictPageProps) {
     const canEdit = game.can_edit;
     const [step, setStep] = useState(0);
@@ -800,6 +831,10 @@ export default function Predict({
         setStep(target);
     };
 
+    // Each tie panel saves its order to this endpoint (a discrete commit, separate from the
+    // debounced score auto-save); the server re-cascades and returns the bracket with slots filled.
+    const orderingUrl = games.predict.ordering(game.slug).url;
+
     const dates = game.starts_on
         ? game.ends_on
             ? `${game.starts_on} – ${game.ends_on}`
@@ -875,18 +910,41 @@ export default function Predict({
 
                 <section className="flex flex-1 flex-col gap-4">
                     {step === 0 ? (
-                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                            {groups.map((group) => (
-                                <GroupCard
-                                    key={group.name}
-                                    group={group}
-                                    scores={groupScores}
-                                    canEdit={canEdit}
-                                    onChange={updateGroupScore}
-                                    onCommit={flush}
-                                />
-                            ))}
-                        </div>
+                        <>
+                            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                                {groups.map((group) => (
+                                    <GroupCard
+                                        key={group.name}
+                                        group={group}
+                                        scores={groupScores}
+                                        canEdit={canEdit}
+                                        onChange={updateGroupScore}
+                                        onCommit={flush}
+                                        orderingUrl={orderingUrl}
+                                    />
+                                ))}
+                            </div>
+                            {game.scoring_strategy === 'upfront-bracket' &&
+                                thirdsTie &&
+                                thirdsTie.teams.length > 0 && (
+                                    <TieResolutionPanel
+                                        title="Tied for the last third-place spots"
+                                        description="These third-placed teams are level. Drag them into order — the ones you rank highest take the final qualifying spots."
+                                        clusters={[
+                                            {
+                                                teams: thirdsTie.teams,
+                                                resolved: thirdsTie.resolved,
+                                            },
+                                        ]}
+                                        editable={canEdit}
+                                        url={orderingUrl}
+                                        payloadFor={(orderedTeamIds) => ({
+                                            scope: 'thirds',
+                                            ordered_team_ids: orderedTeamIds,
+                                        })}
+                                    />
+                                )}
+                        </>
                     ) : (
                         <>
                             {step === 1 &&

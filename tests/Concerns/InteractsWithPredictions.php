@@ -9,6 +9,7 @@ use App\Models\GroupPrediction;
 use App\Models\LeaderboardStanding;
 use App\Models\Tournament;
 use App\Services\Predictions\BracketResolver;
+use App\Services\Predictions\DefaultTieOrdering;
 
 /**
  * Test helpers for building predicted scores against the seeded World Cup structure.
@@ -59,11 +60,17 @@ trait InteractsWithPredictions
      * Apply the same result rule to every group of the tournament.
      *
      * @param  callable(int, int): array{int, int}  $rule
+     * @param  bool  $resolveTies  record a default entry ordering for a straddling thirds tie
      */
-    protected function predictAllGroups(Entry $entry, Tournament $tournament, callable $rule): void
+    protected function predictAllGroups(Entry $entry, Tournament $tournament, callable $rule, bool $resolveTies = true): void
     {
         foreach ($tournament->groups()->orderBy('sort_order')->get() as $group) {
             $this->predictGroup($entry, $tournament, $group->name, $rule);
+        }
+
+        if ($resolveTies) {
+            // No human to break ties in a fixture: fall back to the deterministic default order.
+            (new DefaultTieOrdering)->applyToEntry($entry);
         }
     }
 

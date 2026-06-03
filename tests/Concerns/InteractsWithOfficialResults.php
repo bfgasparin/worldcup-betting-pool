@@ -3,9 +3,15 @@
 namespace Tests\Concerns;
 
 use App\Enums\FixtureStatus;
+use App\Enums\OrderingScope;
+use App\Enums\ProposalStatus;
 use App\Models\Fixture;
+use App\Models\ScoreBatch;
+use App\Models\ScoreProposal;
 use App\Models\Tournament;
+use App\Services\Predictions\DefaultTieOrdering;
 use App\Services\Predictions\OfficialBracketProjector;
+use App\Services\Predictions\TieResolutionState;
 
 /**
  * Test helpers for recording official (already-played) results against the seeded World Cup
@@ -33,8 +39,9 @@ trait InteractsWithOfficialResults
      *
      * @param  callable(int, int): array{int, int}  $rule
      * @param  list<string>|null  $onlyGroups  restrict to these group names (all when null)
+     * @param  bool  $resolveTies  record a default admin ordering for a straddling thirds tie
      */
-    protected function recordOfficialGroupResults(Tournament $tournament, callable $rule, ?array $onlyGroups = null): void
+    protected function recordOfficialGroupResults(Tournament $tournament, callable $rule, ?array $onlyGroups = null, bool $resolveTies = true): void
     {
         $groups = $tournament->groups()->with('teams')->orderBy('sort_order')->get();
 
@@ -62,6 +69,75 @@ trait InteractsWithOfficialResults
                     'status' => FixtureStatus::Finished,
                 ]);
             }
+        }
+
+        if ($resolveTies) {
+            // No human to break ties in a fixture: fall back to the deterministic default order.
+            (new DefaultTieOrdering)->applyToTournament($tournament);
+        }
+    }
+
+    /**
+     * Propose every group fixture's score into a batch by applying a position-based rule, as if an
+     * admin entered them for review: rule($homePosition, $awayPosition) => [homeGoals, awayGoals].
+     *
+     * @param  callable(int, int): array{int, int}  $rule
+     * @param  list<string>|null  $onlyGroups  restrict to these group names (all when null)
+     */
+    protected function proposeGroupResults(ScoreBatch $batch, callable $rule, ?array $onlyGroups = null): void
+    {
+        foreach ($batch->tournament->groups()->with('teams')->orderBy('sort_order')->get() as $group) {
+            if ($onlyGroups !== null && ! in_array($group->name, $onlyGroups, true)) {
+                continue;
+            }
+
+            $positions = $group->teams->mapWithKeys(fn ($team) => [$team->id => $team->pivot->position]);
+
+            foreach ($group->fixtures()->get() as $fixture) {
+                [$home, $away] = $rule($positions[$fixture->home_team_id], $positions[$fixture->away_team_id]);
+
+                ScoreProposal::updateOrCreate(
+                    ['score_batch_id' => $batch->id, 'fixture_id' => $fixture->id],
+                    [
+                        'home_goals' => $home,
+                        'away_goals' => $away,
+                        'winner_team_id' => $home === $away ? null : ($home > $away ? $fixture->home_team_id : $fixture->away_team_id),
+                        'status' => ProposalStatus::Pending,
+                    ],
+                );
+            }
+        }
+    }
+
+    /**
+     * Record the default admin orderings for whatever ties the projected official results (with the
+     * given pending batch) leave unresolved — the test analogue of an admin dragging the tied teams
+     * into order on the review screen before approving.
+     */
+    protected function resolveProjectedTies(Tournament $tournament, ?ScoreBatch $batch = null): void
+    {
+        $state = (new TieResolutionState)->forTournament($tournament, $batch);
+
+        foreach ($state->groupTies as $groupName => $clusters) {
+            $ordered = array_merge(...$clusters);
+            $tied = $ordered;
+            sort($tied);
+
+            $tournament->groupOrderings()->updateOrCreate(
+                ['group_id' => $tournament->groups()->where('name', $groupName)->value('id'), 'scope' => OrderingScope::WithinGroup],
+                ['tied_team_ids' => $tied, 'ordered_team_ids' => $ordered],
+            );
+        }
+
+        if ($state->thirds !== [] && ! $state->thirdsResolved) {
+            $ordered = $state->thirds;
+            $tied = $ordered;
+            sort($tied);
+
+            $tournament->groupOrderings()->updateOrCreate(
+                ['group_id' => null, 'scope' => OrderingScope::Thirds],
+                ['tied_team_ids' => $tied, 'ordered_team_ids' => $ordered],
+            );
         }
     }
 

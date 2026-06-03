@@ -17,11 +17,13 @@ use App\Notifications\TopOfLeaderboardNotification;
 use Database\Seeders\WorldCup2026Seeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
+use Tests\Concerns\InteractsWithOfficialResults;
 use Tests\Concerns\InteractsWithPredictions;
 use Tests\TestCase;
 
 class ApproveScoreBatchTest extends TestCase
 {
+    use InteractsWithOfficialResults;
     use InteractsWithPredictions;
     use RefreshDatabase;
 
@@ -46,6 +48,7 @@ class ApproveScoreBatchTest extends TestCase
     {
         $batch = $this->openBatch();
         $this->proposeAllGroupResults($batch);
+        $this->resolveProjectedTies($this->tournament, $batch);
 
         $this->actingAs($this->admin())
             ->post(route('games.scores.approve', $this->game))
@@ -81,7 +84,9 @@ class ApproveScoreBatchTest extends TestCase
     {
         Notification::fake();
 
-        $this->proposeAllGroupResults($this->openBatch());
+        $batch = $this->openBatch();
+        $this->proposeAllGroupResults($batch);
+        $this->resolveProjectedTies($this->tournament, $batch);
 
         $this->actingAs($this->admin())
             ->post(route('games.scores.approve', $this->game));
@@ -94,6 +99,7 @@ class ApproveScoreBatchTest extends TestCase
     {
         $batch = $this->openBatch();
         $this->proposeAllGroupResults($batch);
+        $this->resolveProjectedTies($this->tournament, $batch);
 
         $this->actingAs($this->admin())->post(route('games.scores.approve', $this->game));
         $firstTotal = $this->entry->fresh()->total_points;
@@ -108,6 +114,7 @@ class ApproveScoreBatchTest extends TestCase
             'away_goals' => 5,
             'status' => ProposalStatus::Pending,
         ]);
+        $this->resolveProjectedTies($this->tournament, $newBatch);
 
         $this->actingAs($this->admin())->post(route('games.scores.approve', $this->game));
 

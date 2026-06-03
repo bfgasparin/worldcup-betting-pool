@@ -107,6 +107,16 @@ class Tournament extends Model
     }
 
     /**
+     * Admin orderings of ties in the official group results the ranking engine could not resolve.
+     *
+     * @return HasMany<TournamentGroupOrdering, $this>
+     */
+    public function groupOrderings(): HasMany
+    {
+        return $this->hasMany(TournamentGroupOrdering::class);
+    }
+
+    /**
      * @return HasMany<Fixture, $this>
      */
     public function groupFixtures(): HasMany

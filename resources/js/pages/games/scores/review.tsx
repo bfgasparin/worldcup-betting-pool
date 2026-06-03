@@ -2,11 +2,13 @@ import { Head, router } from '@inertiajs/react';
 import { ClipboardCheck, Trophy } from 'lucide-react';
 import { useState } from 'react';
 import { Flag } from '@/components/flag';
+import { StandingsTable } from '@/components/standings-table';
+import { TieResolutionPanel } from '@/components/tie-resolution-panel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import games from '@/routes/games';
-import type { TeamRef } from '@/types/games';
+import type { StandingRow, TeamRef, TiedCluster } from '@/types/games';
 import type { BreadcrumbItem } from '@/types/navigation';
 
 interface ReviewRowData {
@@ -31,9 +33,22 @@ interface ReviewRowData {
     } | null;
 }
 
+interface TiedGroupData {
+    name: string;
+    standings: StandingRow[];
+    tied: TiedCluster[];
+}
+
+interface ThirdsTieData {
+    teams: TeamRef[];
+    resolved: boolean;
+}
+
 interface ReviewPageProps {
     game: { slug: string; name: string };
     rows: ReviewRowData[];
+    tied_groups: TiedGroupData[];
+    thirds_tie: ThirdsTieData | null;
 }
 
 function toNumberOrNull(value: string): number | null {
@@ -256,7 +271,102 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
     );
 }
 
-export default function ScoreReview({ game, rows }: ReviewPageProps) {
+function TieResolutionSection({
+    slug,
+    tiedGroups,
+    thirdsTie,
+}: {
+    slug: string;
+    tiedGroups: TiedGroupData[];
+    thirdsTie: ThirdsTieData | null;
+}) {
+    if (tiedGroups.length === 0 && !thirdsTie) {
+        return null;
+    }
+
+    const orderingUrl = games.scores.ordering(slug).url;
+
+    return (
+        <div className="flex flex-col gap-5 rounded-3xl border border-amber/40 bg-card p-5">
+            <div>
+                <h2 className="font-display text-lg font-semibold">
+                    Resolve tied teams
+                </h2>
+                <p className="max-w-2xl text-sm text-muted-foreground">
+                    These results are level on every tiebreaker. Drag the tied
+                    teams into the official finishing order before approving —
+                    the bracket can&apos;t be published until you do.
+                </p>
+            </div>
+
+            {tiedGroups.map((group) => {
+                const teamById = new Map<number, TeamRef>();
+
+                for (const row of group.standings) {
+                    if (row.team) {
+                        teamById.set(row.team.id, row.team);
+                    }
+                }
+
+                const clusters = group.tied
+                    .map((cluster) => ({
+                        teams: cluster.team_ids
+                            .map((id) => teamById.get(id))
+                            .filter((team): team is TeamRef => Boolean(team)),
+                        resolved: cluster.resolved,
+                    }))
+                    .filter((cluster) => cluster.teams.length > 1);
+
+                return (
+                    <div key={group.name} className="flex flex-col gap-3">
+                        <h3 className="font-display text-sm font-semibold">
+                            Group {group.name}
+                        </h3>
+                        <StandingsTable standings={group.standings} />
+                        <TieResolutionPanel
+                            title="Order the tied teams"
+                            description="Drag to set the official finishing order."
+                            clusters={clusters}
+                            editable
+                            url={orderingUrl}
+                            payloadFor={(orderedTeamIds) => ({
+                                scope: 'within-group',
+                                group: group.name,
+                                ordered_team_ids: orderedTeamIds,
+                            })}
+                        />
+                    </div>
+                );
+            })}
+
+            {thirdsTie && (
+                <TieResolutionPanel
+                    title="Order the tied third-placed teams"
+                    description="These third-placed teams are level across the qualifying cut. Drag them into order — the highest take the last spots."
+                    clusters={[
+                        {
+                            teams: thirdsTie.teams,
+                            resolved: thirdsTie.resolved,
+                        },
+                    ]}
+                    editable
+                    url={orderingUrl}
+                    payloadFor={(orderedTeamIds) => ({
+                        scope: 'thirds',
+                        ordered_team_ids: orderedTeamIds,
+                    })}
+                />
+            )}
+        </div>
+    );
+}
+
+export default function ScoreReview({
+    game,
+    rows,
+    tied_groups: tiedGroups,
+    thirds_tie: thirdsTie,
+}: ReviewPageProps) {
     const [approving, setApproving] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -301,11 +411,17 @@ export default function ScoreReview({ game, rows }: ReviewPageProps) {
                     </div>
                 </header>
 
-                {(errors.proposals || errors.batch) && (
+                {(errors.proposals || errors.batch || errors.ties) && (
                     <div className="rounded-2xl border border-destructive/30 bg-destructive/[0.06] p-4 text-sm font-medium text-destructive">
-                        {errors.proposals ?? errors.batch}
+                        {errors.proposals ?? errors.batch ?? errors.ties}
                     </div>
                 )}
+
+                <TieResolutionSection
+                    slug={game.slug}
+                    tiedGroups={tiedGroups}
+                    thirdsTie={thirdsTie}
+                />
 
                 {rows.length > 0 ? (
                     <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--sh-sm)]">

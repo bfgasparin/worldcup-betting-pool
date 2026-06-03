@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\OrderingScope;
 use App\Enums\PredictionWindowStatus;
+use App\Http\Requests\Predictions\UpdateGroupOrderingRequest;
 use App\Http\Requests\Predictions\UpdateGroupPredictionsRequest;
 use App\Http\Requests\Predictions\UpdateKnockoutPredictionsRequest;
 use App\Models\Entry;
@@ -16,6 +18,8 @@ use App\Models\Tournament;
 use App\Services\Predictions\BracketResolver;
 use App\Services\Predictions\GroupStandings;
 use App\Services\Predictions\GroupStandingsPresenter;
+use App\Services\Predictions\KnockoutSlotResolver;
+use App\Services\Predictions\ManualTieOrdering;
 use App\Services\Predictions\PredictionWindowResolver;
 use App\Services\Predictions\ResolvedBracket;
 use Illuminate\Http\RedirectResponse;
@@ -84,12 +88,13 @@ class PredictionController extends Controller
                 'scoring_config' => $game->scoring_config,
             ],
             'groups' => $tournament->groups->map(
-                fn (Group $group): array => $this->mapGroup($group, $bracket, $groupPredictions, $teamsById),
+                fn (Group $group): array => $this->mapGroup($group, $bracket, $groupPredictions, $teamsById, $game->predictsKnockoutBracket()),
             )->all(),
             'bracket' => $game->predictsKnockoutBracket()
                 ? $this->mapBracket($tournament->knockoutFixtures, $bracket, $knockoutPredictions, $teamsById, $windows)
                 : $this->mapOfficialBracket($tournament->knockoutFixtures, $knockoutPredictions, $teamsById, $windows),
             'thirds' => $game->predictsKnockoutBracket() ? $this->mapThirds($bracket, $teamsById) : null,
+            'thirds_tie' => $this->mapThirdsTie($game, $bracket, $tournament, $teamsById, $entry !== null ? ManualTieOrdering::fromEntry($entry)->thirds : null),
         ]);
     }
 
@@ -171,6 +176,32 @@ class PredictionController extends Controller
     }
 
     /**
+     * Save the player's manual ordering of an unresolved tie (a within-group cluster or the
+     * thirds cut), then re-cascade so the newly-ordered teams fill their bracket slots.
+     */
+    public function updateOrdering(UpdateGroupOrderingRequest $request, Game $game): RedirectResponse
+    {
+        $entry = $request->entry();
+        $scope = OrderingScope::from($request->string('scope')->value());
+        $ordered = array_map('intval', $request->input('ordered_team_ids'));
+        $tied = $ordered;
+        sort($tied);
+
+        $groupId = $scope === OrderingScope::WithinGroup
+            ? $game->tournament->groups()->where('name', $request->input('group'))->value('id')
+            : null;
+
+        $entry->groupOrderings()->updateOrCreate(
+            ['group_id' => $groupId, 'scope' => $scope],
+            ['tied_team_ids' => $tied, 'ordered_team_ids' => $ordered],
+        );
+
+        $this->resolver->persist($entry);
+
+        return to_route('games.predict.edit', $game);
+    }
+
+    /**
      * Resolve the bracket for the entry, or an empty read-only bracket when the user has
      * no entry (e.g. a locked game they never entered).
      */
@@ -193,7 +224,7 @@ class PredictionController extends Controller
      * @param  Collection<int, Team>  $teamsById
      * @return array<string, mixed>
      */
-    private function mapGroup(Group $group, ResolvedBracket $bracket, Collection $predictions, Collection $teamsById): array
+    private function mapGroup(Group $group, ResolvedBracket $bracket, Collection $predictions, Collection $teamsById, bool $surfaceTies): array
     {
         $standings = $bracket->standings[$group->name];
 
@@ -219,6 +250,41 @@ class PredictionController extends Controller
                 ];
             })->all(),
             'standings' => GroupStandingsPresenter::rows($standings, $teamsById),
+            // Tied clusters the player drags into order (only for self-derived, complete groups), in
+            // their effective order, each flagged resolved so the UI can confirm a saved choice.
+            'tied_clusters' => $surfaceTies && $standings->isComplete()
+                ? array_map(fn (array $cluster): array => [
+                    'team_ids' => array_values($cluster['teamIds']),
+                    'resolved' => $cluster['resolved'],
+                ], $standings->tieClustersWithStatus())
+                : [],
+        ];
+    }
+
+    /**
+     * The third-placed teams whose tie straddles the qualifying cut and so must be ordered before
+     * the player's bracket can fill the best-third slots, in effective order plus whether an
+     * ordering already resolves the cut, or null when there is no such tie.
+     *
+     * @param  Collection<int, Team>  $teamsById
+     * @param  list<int>|null  $thirdsOrder
+     * @return array{teams: list<array<string, mixed>>, resolved: bool}|null
+     */
+    private function mapThirdsTie(Game $game, ResolvedBracket $bracket, Tournament $tournament, Collection $teamsById, ?array $thirdsOrder): ?array
+    {
+        if (! $game->predictsKnockoutBracket()) {
+            return null;
+        }
+
+        $straddling = (new KnockoutSlotResolver)->straddlingThirds($bracket->standings, $tournament->groups, $thirdsOrder);
+
+        if ($straddling === []) {
+            return null;
+        }
+
+        return [
+            'teams' => array_map(fn (int $teamId): ?array => $this->teamRef($teamsById->get($teamId)), $straddling),
+            'resolved' => $bracket->rankedThirds !== null,
         ];
     }
 

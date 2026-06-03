@@ -12,11 +12,14 @@ use App\Models\Team;
  * predicted scores (the prediction wizard) or the official, already-played results (the
  * tournament group page). Only fixtures present in the score map are counted.
  *
- * Ranking follows the official FIFA World Cup 2026 group tie-breaking order, made fully
- * deterministic (no fair-play score, FIFA ranking or drawing of lots): points -> head-to-head
- * among the level teams (points -> goal difference -> goals for, re-applied to any still-level
- * subset) -> overall goal difference -> overall goals for -> group seed position (the
- * group_team pivot position, which is unique within a group and so guarantees a total order).
+ * Ranking follows the official FIFA World Cup 2026 group tie-breaking order: points ->
+ * head-to-head among the level teams (points -> goal difference -> goals for, re-applied to any
+ * still-level subset) -> overall goal difference -> overall goals for. Where FIFA would break a
+ * remaining tie by a drawing of lots, this engine does NOT silently fall back to seed position;
+ * instead the still-level teams form an "unresolved tie" that a human must order by hand. An
+ * optional $manualOrder (an ordered list of team ids, matched per tied cluster by set equality)
+ * supplies that human ordering; the seed position is used only as the default display order of
+ * the rows offered for dragging, never as an automatic resolver.
  */
 class GroupStandings
 {
@@ -28,11 +31,35 @@ class GroupStandings
     private bool $complete;
 
     /**
+     * Tied clusters (each a list of team ids) the engine could not separate and for which no
+     * matching manual ordering was supplied. Populated as a side effect of {@see ordered()}.
+     *
+     * @var list<list<int>>
+     */
+    private array $unresolved = [];
+
+    /**
+     * Every truly-tied cluster (size > 1, level on all criteria), in its current effective order
+     * (a matching manual ordering applied, else seed order) — whether or not it is resolved, so the
+     * UI can keep offering it for (re-)ordering. Populated as a side effect of {@see ordered()}.
+     *
+     * @var list<list<int>>
+     */
+    private array $tiedClusters = [];
+
+    /**
+     * @var list<TeamStanding>|null memoized result of {@see ordered()}
+     */
+    private ?array $orderedCache = null;
+
+    /**
      * @param  array<int, GroupPrediction>  $predictionsByFixtureId
+     * @param  list<int>  $manualOrder  human-supplied team order, matched per tied cluster by set
      */
     public function __construct(
         private readonly Group $group,
         private readonly array $predictionsByFixtureId,
+        private readonly array $manualOrder = [],
     ) {
         $this->build();
     }
@@ -73,6 +100,14 @@ class GroupStandings
      */
     public function ordered(): array
     {
+        if ($this->orderedCache !== null) {
+            return $this->orderedCache;
+        }
+
+        // Ranking mutates $unresolved/$tiedClusters as a side effect, so reset and compute once.
+        $this->unresolved = [];
+        $this->tiedClusters = [];
+
         $teams = array_values($this->standings);
 
         // Overall points come first; everything else only separates teams level on points.
@@ -98,7 +133,67 @@ class GroupStandings
             $index = $end + 1;
         }
 
-        return $result;
+        return $this->orderedCache = $result;
+    }
+
+    /**
+     * The tied clusters (each a list of team ids, in default seed order) the engine could not
+     * separate and that have no matching manual ordering. Empty when the group is fully ranked.
+     *
+     * @return list<list<int>>
+     */
+    public function unresolvedTies(): array
+    {
+        $this->ordered();
+
+        return $this->unresolved;
+    }
+
+    public function hasUnresolvedTies(): bool
+    {
+        return $this->unresolvedTies() !== [];
+    }
+
+    /**
+     * Every truly-tied cluster in its current effective order, resolved or not — the surface the
+     * UI offers for ordering (so a player can keep adjusting a tie they have already ordered).
+     *
+     * @return list<list<int>>
+     */
+    public function tiedClusters(): array
+    {
+        $this->ordered();
+
+        return $this->tiedClusters;
+    }
+
+    /**
+     * Each tied cluster paired with whether a matching manual ordering currently resolves it, so
+     * the UI can confirm to the player that their choice was read (resolved) versus still pending.
+     *
+     * @return list<array{teamIds: list<int>, resolved: bool}>
+     */
+    public function tieClustersWithStatus(): array
+    {
+        $this->ordered();
+
+        $unresolvedSets = array_map(fn (array $set): array => $this->sortedSet($set), $this->unresolved);
+
+        return array_map(fn (array $cluster): array => [
+            'teamIds' => $cluster,
+            'resolved' => ! in_array($this->sortedSet($cluster), $unresolvedSets, true),
+        ], $this->tiedClusters);
+    }
+
+    /**
+     * @param  list<int>  $ids
+     * @return list<int>
+     */
+    private function sortedSet(array $ids): array
+    {
+        sort($ids);
+
+        return $ids;
     }
 
     public function isComplete(): bool
@@ -107,37 +202,59 @@ class GroupStandings
     }
 
     /**
-     * The 1st-placed team id, or null when the group is not fully predicted yet.
+     * The 1st-placed team id, or null when the group is not fully predicted yet, or when that
+     * rank sits inside an unresolved tie that still needs a manual ordering.
      */
     public function winner(): ?int
     {
-        return $this->teamIdAtRank(0);
+        return $this->resolvedTeamIdAtRank(0);
     }
 
     public function runnerUp(): ?int
     {
-        return $this->teamIdAtRank(1);
+        return $this->resolvedTeamIdAtRank(1);
     }
 
     /**
-     * The 3rd-placed team's full record, used to rank thirds across groups.
+     * The 3rd-placed team's full record, used to rank thirds across groups. Null when the group
+     * is incomplete or 3rd place is inside an unresolved tie.
      */
     public function thirdStanding(): ?TeamStanding
     {
-        if (! $this->complete) {
+        if (! $this->complete || $this->isRankUnresolved(2)) {
             return null;
         }
 
         return $this->ordered()[2] ?? null;
     }
 
-    private function teamIdAtRank(int $rank): ?int
+    private function resolvedTeamIdAtRank(int $rank): ?int
     {
-        if (! $this->complete) {
+        if (! $this->complete || $this->isRankUnresolved($rank)) {
             return null;
         }
 
         return $this->ordered()[$rank]->teamId ?? null;
+    }
+
+    /**
+     * Whether the team occupying the given rank belongs to an unresolved tied cluster.
+     */
+    private function isRankUnresolved(int $rank): bool
+    {
+        $teamId = $this->ordered()[$rank]->teamId ?? null;
+
+        if ($teamId === null) {
+            return false;
+        }
+
+        foreach ($this->unresolved as $set) {
+            if (in_array($teamId, $set, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -235,20 +352,105 @@ class GroupStandings
     }
 
     /**
-     * Order teams that head-to-head cannot separate: overall GD -> overall GF -> seed position.
+     * Order teams that head-to-head cannot separate: overall GD -> overall GF. Teams still level
+     * on both form a truly-unresolvable cluster — resolved by a matching manual ordering if one
+     * was supplied, otherwise left in seed order and recorded as an unresolved tie.
      *
      * @param  list<TeamStanding>  $subset
      * @return list<TeamStanding>
      */
     private function rankByOverall(array $subset): array
     {
-        usort($subset, function (TeamStanding $a, TeamStanding $b): int {
-            return ($b->goalDifference() <=> $a->goalDifference())
-                ?: ($b->goalsFor <=> $a->goalsFor)
-                ?: ($a->position <=> $b->position);
-        });
+        usort($subset, fn (TeamStanding $a, TeamStanding $b): int => ($b->goalDifference() <=> $a->goalDifference())
+            ?: ($b->goalsFor <=> $a->goalsFor));
 
-        return $subset;
+        $result = [];
+
+        foreach ($this->clustersEqualOnOverall($subset) as $run) {
+            if (count($run) === 1) {
+                $result[] = $run[0];
+
+                continue;
+            }
+
+            $result = array_merge($result, $this->applyManualOrDefer($run));
+        }
+
+        return $result;
+    }
+
+    /**
+     * Group a GD/GF-sorted subset into runs that are equal on both overall goal difference and
+     * overall goals for. A run of more than one team is truly unresolvable by the FIFA criteria.
+     *
+     * @param  list<TeamStanding>  $sorted
+     * @return list<list<TeamStanding>>
+     */
+    private function clustersEqualOnOverall(array $sorted): array
+    {
+        $clusters = [];
+        $current = [];
+
+        foreach ($sorted as $standing) {
+            if ($current === [] || $this->equalOnOverall($current[0], $standing)) {
+                $current[] = $standing;
+
+                continue;
+            }
+
+            $clusters[] = $current;
+            $current = [$standing];
+        }
+
+        if ($current !== []) {
+            $clusters[] = $current;
+        }
+
+        return $clusters;
+    }
+
+    private function equalOnOverall(TeamStanding $a, TeamStanding $b): bool
+    {
+        return $a->goalDifference() === $b->goalDifference()
+            && $a->goalsFor === $b->goalsFor;
+    }
+
+    /**
+     * Resolve a truly-tied cluster with the manual ordering when it is a permutation of exactly
+     * the tied set; otherwise leave it in seed order and record it as an unresolved tie.
+     *
+     * @param  list<TeamStanding>  $run
+     * @return list<TeamStanding>
+     */
+    private function applyManualOrDefer(array $run): array
+    {
+        $ids = array_map(fn (TeamStanding $standing): int => $standing->teamId, $run);
+
+        $chosen = array_values(array_filter(
+            $this->manualOrder,
+            fn (int $id): bool => in_array($id, $ids, true),
+        ));
+
+        if (count($chosen) === count($ids) && count(array_unique($chosen)) === count($ids)) {
+            $byId = [];
+            foreach ($run as $standing) {
+                $byId[$standing->teamId] = $standing;
+            }
+
+            $resolved = array_map(fn (int $id): TeamStanding => $byId[$id], $chosen);
+            $this->tiedClusters[] = $chosen;
+
+            return $resolved;
+        }
+
+        // No matching manual ordering: present the tied teams in seed order (a stable default for
+        // the drag UI) and flag the cluster so winner()/runnerUp()/thirdStanding() defer to null.
+        usort($run, fn (TeamStanding $a, TeamStanding $b): int => $a->position <=> $b->position);
+        $clusterIds = array_map(fn (TeamStanding $standing): int => $standing->teamId, $run);
+        $this->tiedClusters[] = $clusterIds;
+        $this->unresolved[] = $clusterIds;
+
+        return $run;
     }
 
     /**

@@ -106,6 +106,31 @@ class PredictionWindowResolverTest extends TestCase
         );
     }
 
+    public function test_phased_round_stays_pending_until_an_unresolved_thirds_tie_is_ordered(): void
+    {
+        $game = $this->game(ScoringStrategy::PhasedBracket, now()->subDay());
+
+        // Results that tie all twelve thirds, with no ordering recorded — the best-third R32 slots
+        // cannot be projected, so the round cannot open.
+        $this->recordOfficialGroupResults($this->tournament, $this->seedOrderScores(), resolveTies: false);
+        (new OfficialBracketProjector)->project($this->tournament);
+        $this->setPhaseKickoff(PhaseKey::RoundOf32, now()->addDay());
+
+        $this->assertSame(
+            PredictionWindowStatus::Pending,
+            $this->resolver->windows($game)[PhaseKey::RoundOf32->value],
+        );
+
+        // Once an admin orders the tied thirds, the round's teams are all known and it opens.
+        $this->resolveProjectedTies($this->tournament);
+        (new OfficialBracketProjector)->project($this->tournament);
+
+        $this->assertSame(
+            PredictionWindowStatus::Open,
+            $this->resolver->windows($game)[PhaseKey::RoundOf32->value],
+        );
+    }
+
     public function test_phased_knockout_round_locks_the_buffer_before_its_first_kickoff(): void
     {
         config(['scoring.prediction_lock_buffer_minutes' => 60]);

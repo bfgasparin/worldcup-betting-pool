@@ -42,6 +42,7 @@ class BracketResolver
         $tournament = $entry->game->tournament;
         $groupPredictions = $entry->groupPredictions->keyBy('fixture_id');
         $knockoutPredictions = $entry->knockoutPredictions->keyBy('fixture_id');
+        $ordering = ManualTieOrdering::fromEntry($entry);
 
         $standings = [];
         foreach ($tournament->groups as $group) {
@@ -52,7 +53,7 @@ class BracketResolver
                 }
             }
 
-            $standings[$group->name] = new GroupStandings($group, $predictionsForGroup);
+            $standings[$group->name] = new GroupStandings($group, $predictionsForGroup, $ordering->forGroup($group->name));
         }
 
         // The advancing team of each feeder is the user's own "who advances" pick.
@@ -61,6 +62,7 @@ class BracketResolver
             $tournament->knockoutFixtures,
             fn (int $feederId): ?int => $knockoutPredictions->get($feederId)?->advancing_team_id,
             $tournament->groups,
+            $ordering->thirds,
         );
 
         return new ResolvedBracket($standings, $resolved['rankedThirds'], $resolved['resolved']);

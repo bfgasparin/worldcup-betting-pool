@@ -63,6 +63,16 @@ class Entry extends Model
     }
 
     /**
+     * This entry's manual orderings of ties the ranking engine could not resolve.
+     *
+     * @return HasMany<EntryGroupOrdering, $this>
+     */
+    public function groupOrderings(): HasMany
+    {
+        return $this->hasMany(EntryGroupOrdering::class);
+    }
+
+    /**
      * This entry's per-leaderboard standings, one row per {@see LeaderboardCategory}.
      *
      * @return HasMany<LeaderboardStanding, $this>
