@@ -102,15 +102,14 @@ export function GameInfoDialog({ game }: { game: GameDetail }) {
             typeof window !== 'undefined' &&
             localStorage.getItem(dismissKey(game.slug)) === null,
     );
+    // Mirrors the first-visit auto-open decision; only true on the initial mount auto-open.
+    // The "Don't show this again" opt-out is only relevant for that auto-open, not manual re-reads.
+    const [autoOpened, setAutoOpened] = useState(
+        () =>
+            typeof window !== 'undefined' &&
+            localStorage.getItem(dismissKey(game.slug)) === null,
+    );
     const [dontShowAgain, setDontShowAgain] = useState(false);
-
-    const handleOpenChange = (next: boolean) => {
-        if (!next && dontShowAgain) {
-            localStorage.setItem(dismissKey(game.slug), '1');
-        }
-
-        setOpen(next);
-    };
 
     const lock = lockLine(game, tz);
     const groupRules = scoringRules(game.scoring_config, 'group');
@@ -121,14 +120,17 @@ export function GameInfoDialog({ game }: { game: GameDetail }) {
             <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setOpen(true)}
+                onClick={() => {
+                    setAutoOpened(false);
+                    setOpen(true);
+                }}
                 className="gap-1.5"
             >
                 <Info className="size-4" />
                 How it works
             </Button>
 
-            <Dialog open={open} onOpenChange={handleOpenChange}>
+            <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent className="max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="font-display text-xl">
@@ -216,15 +218,30 @@ export function GameInfoDialog({ game }: { game: GameDetail }) {
                         )}
                     </div>
 
-                    <label className="flex cursor-pointer items-center gap-2 border-t border-border pt-4 text-sm text-muted-foreground select-none">
-                        <Checkbox
-                            checked={dontShowAgain}
-                            onCheckedChange={(checked) =>
-                                setDontShowAgain(checked === true)
-                            }
-                        />
-                        Don&apos;t show this again
-                    </label>
+                    {autoOpened && (
+                        <label className="flex cursor-pointer items-center gap-2 border-t border-border pt-4 text-sm text-muted-foreground select-none">
+                            <Checkbox
+                                checked={dontShowAgain}
+                                onCheckedChange={(checked) => {
+                                    const dismiss = checked === true;
+
+                                    setDontShowAgain(dismiss);
+
+                                    if (dismiss) {
+                                        localStorage.setItem(
+                                            dismissKey(game.slug),
+                                            '1',
+                                        );
+                                    } else {
+                                        localStorage.removeItem(
+                                            dismissKey(game.slug),
+                                        );
+                                    }
+                                }}
+                            />
+                            Don&apos;t show this again
+                        </label>
+                    )}
                 </DialogContent>
             </Dialog>
         </>
