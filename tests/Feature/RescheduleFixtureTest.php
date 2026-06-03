@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\FixtureStatus;
+use App\Enums\TournamentStatus;
 use App\Models\Fixture;
 use App\Models\Game;
 use App\Models\ScoreBatch;
@@ -105,6 +106,23 @@ class RescheduleFixtureTest extends TestCase
             ->assertRedirect(route('games.schedule.index', $this->game));
 
         $this->assertSame(FixtureStatus::Scheduled, $fixture->fresh()->status);
+    }
+
+    public function test_rescheduling_the_only_live_fixture_reverts_the_tournament_to_upcoming(): void
+    {
+        $fixture = $this->markEnded($this->groupFixture());
+        $this->tournament->syncStatus();
+        $this->assertSame(TournamentStatus::InProgress, $this->tournament->fresh()->status);
+
+        $this->actingAs($this->admin())
+            ->patch(route('games.fixtures.reschedule', [$this->game, $fixture]), [
+                'kicks_off_at' => '2026-07-01T21:30',
+                'venue' => 'Miami Stadium',
+            ])
+            ->assertRedirect(route('games.schedule.index', $this->game));
+
+        // Nothing is live or played anymore, so the tournament is no longer underway.
+        $this->assertSame(TournamentStatus::Upcoming, $this->tournament->fresh()->status);
     }
 
     public function test_rescheduling_a_live_fixture_deletes_its_pending_open_batch_proposal(): void

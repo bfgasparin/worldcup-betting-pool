@@ -7,6 +7,7 @@ use App\Enums\FixtureStatus;
 use App\Enums\LeaderboardCategory;
 use App\Enums\PhaseType;
 use App\Enums\ProposalStatus;
+use App\Enums\TournamentStatus;
 use App\Models\Entry;
 use App\Models\Game;
 use App\Models\ScoreBatch;
@@ -79,6 +80,21 @@ class ApproveScoreBatchTest extends TestCase
         // The batch and its proposals are marked applied.
         $this->assertSame(BatchStatus::Approved, $batch->fresh()->status);
         $this->assertSame(ProposalStatus::Applied, $batch->proposals()->first()->fresh()->status);
+    }
+
+    public function test_approving_results_advances_the_tournament_to_in_progress(): void
+    {
+        $batch = $this->openBatch();
+        $this->proposeAllGroupResults($batch);
+        $this->resolveProjectedTies($this->tournament, $batch);
+
+        $this->assertSame(TournamentStatus::Upcoming, $this->tournament->fresh()->status);
+
+        $this->actingAs($this->admin())->post(route('games.scores.approve', $this->game));
+
+        // The group results are in, but the knockout fixtures are still scheduled — the tournament
+        // is underway, not finished.
+        $this->assertSame(TournamentStatus::InProgress, $this->tournament->fresh()->status);
     }
 
     public function test_approving_a_batch_notifies_the_new_leader(): void

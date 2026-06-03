@@ -3,9 +3,12 @@
 namespace Tests\Feature\Console;
 
 use App\Enums\FixtureStatus;
+use App\Enums\TournamentStatus;
+use App\Events\TournamentStatusChanged;
 use App\Models\Fixture;
 use App\Models\Tournament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
 
 class TickFixturesTest extends TestCase
@@ -82,5 +85,42 @@ class TickFixturesTest extends TestCase
 
         $this->assertSame(FixtureStatus::Live, $inTarget->fresh()->status);
         $this->assertSame(FixtureStatus::Scheduled, $inOther->fresh()->status);
+
+        // Only the targeted tournament advances.
+        $this->assertSame(TournamentStatus::InProgress, $target->fresh()->status);
+        $this->assertSame(TournamentStatus::Upcoming, $other->fresh()->status);
+    }
+
+    public function test_it_advances_the_tournament_to_in_progress_when_a_fixture_kicks_off(): void
+    {
+        Event::fake([TournamentStatusChanged::class]);
+
+        $tournament = Tournament::factory()->create();
+        Fixture::factory()->for($tournament)->create([
+            'status' => FixtureStatus::Scheduled,
+            'kicks_off_at' => now()->subHour(),
+        ]);
+
+        $this->artisan('fixtures:tick')->assertSuccessful();
+
+        $this->assertSame(TournamentStatus::InProgress, $tournament->fresh()->status);
+        Event::assertDispatched(
+            TournamentStatusChanged::class,
+            fn (TournamentStatusChanged $event): bool => $event->tournament->is($tournament)
+                && $event->to === TournamentStatus::InProgress,
+        );
+    }
+
+    public function test_it_leaves_the_tournament_upcoming_when_no_fixture_starts(): void
+    {
+        $tournament = Tournament::factory()->create();
+        Fixture::factory()->for($tournament)->create([
+            'status' => FixtureStatus::Scheduled,
+            'kicks_off_at' => now()->addHour(),
+        ]);
+
+        $this->artisan('fixtures:tick')->assertSuccessful();
+
+        $this->assertSame(TournamentStatus::Upcoming, $tournament->fresh()->status);
     }
 }

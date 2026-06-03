@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Enums\LeaderboardCategory;
-use App\Enums\TournamentStatus;
 use App\Http\Controllers\Concerns\BuildsGameIdentity;
 use App\Models\Entry;
 use App\Models\Fixture;
@@ -114,10 +113,6 @@ class GameController extends Controller
                 'how_to_play' => $game->scoring_strategy->howToPlay(),
                 'scoring_config' => $game->scoring_config,
                 'predictions_lock_at' => $game->predictionsLockAt()?->toIso8601String(),
-                'allowed_transitions' => array_map(
-                    fn (TournamentStatus $status): string => $status->value,
-                    $tournament->status->allowedTransitions(),
-                ),
                 'can_review_scores' => (bool) $request->user()?->can('manage-tournament'),
                 'leaderboards' => $this->boardDescriptors(),
             ],

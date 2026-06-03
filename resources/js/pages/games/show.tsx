@@ -1,4 +1,4 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import {
     ArrowRight,
     CalendarClock,
@@ -31,7 +31,6 @@ import type {
     BoardSummary,
     BracketPhase,
     GameDetail,
-    GameStatus,
     GroupView,
     PoolSummary,
 } from '@/types/games';
@@ -70,57 +69,6 @@ function heroContextLine(
     }
 
     return null;
-}
-
-const STATUS_LABELS: Record<GameStatus, string> = {
-    upcoming: 'Upcoming',
-    in_progress: 'In Progress',
-    completed: 'Completed',
-};
-
-function AdminStatusControl({ game }: { game: GameDetail }) {
-    const [submitting, setSubmitting] = useState<GameStatus | null>(null);
-    const [errors, setErrors] = useState<Record<string, string>>({});
-
-    const advance = (status: GameStatus) => {
-        setSubmitting(status);
-        router.patch(
-            games.status.update(game.slug).url,
-            { status },
-            {
-                preserveScroll: true,
-                onError: (formErrors) => setErrors(formErrors),
-                onSuccess: () => setErrors({}),
-                onFinish: () => setSubmitting(null),
-            },
-        );
-    };
-
-    return (
-        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl border border-dashed border-border bg-card/60 p-3">
-            <span className="font-display text-[11px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
-                Admin
-            </span>
-            {game.allowed_transitions.map((status) => (
-                <Button
-                    key={status}
-                    size="sm"
-                    variant="outline"
-                    disabled={submitting !== null}
-                    onClick={() => advance(status)}
-                >
-                    {submitting === status
-                        ? 'Saving…'
-                        : `Set ${STATUS_LABELS[status]}`}
-                </Button>
-            ))}
-            {errors.status && (
-                <span className="text-xs text-destructive">
-                    {errors.status}
-                </span>
-            )}
-        </div>
-    );
 }
 
 function DashboardBanner({
@@ -180,7 +128,6 @@ function DashboardBanner({
                                 {contextLine}
                             </p>
                         )}
-                        {isAdmin && <AdminStatusControl game={game} />}
                     </div>
                     <GameInfoDialog game={game} />
                 </div>

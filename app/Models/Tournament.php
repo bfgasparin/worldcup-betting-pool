@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\FixtureStatus;
 use App\Enums\PhaseType;
 use App\Enums\Sport;
 use App\Enums\TournamentStatus;
@@ -43,24 +44,45 @@ class Tournament extends Model
     }
 
     /**
-     * Move the tournament to a new lifecycle status, guarding against illegal
-     * transitions and announcing the change for downstream listeners.
-     *
-     * @throws \InvalidArgumentException when the transition is not allowed
+     * The lifecycle status implied purely by the current fixture states: Upcoming until a fixture
+     * kicks off, InProgress while matches are underway or partly played, Completed once every
+     * fixture has finished. A tournament with no fixtures stays Upcoming.
      */
-    public function transitionTo(TournamentStatus $to): void
+    public function deriveStatus(): TournamentStatus
     {
-        if (! $this->status->canTransitionTo($to)) {
-            throw new \InvalidArgumentException(
-                "Cannot transition tournament from [{$this->status->value}] to [{$to->value}].",
-            );
+        if (! $this->fixtures()->exists()) {
+            return TournamentStatus::Upcoming;
+        }
+
+        if (! $this->fixtures()->where('status', '!=', FixtureStatus::Finished)->exists()) {
+            return TournamentStatus::Completed;
+        }
+
+        if ($this->fixtures()->whereIn('status', [FixtureStatus::Live, FixtureStatus::Finished])->exists()) {
+            return TournamentStatus::InProgress;
+        }
+
+        return TournamentStatus::Upcoming;
+    }
+
+    /**
+     * Recompute the lifecycle status from the current fixtures and persist it when it changes,
+     * announcing the change for downstream listeners. Idempotent and bidirectional — rescheduling
+     * the only live fixture back into the future reverts the tournament to Upcoming.
+     */
+    public function syncStatus(): void
+    {
+        $derived = $this->deriveStatus();
+
+        if ($derived === $this->status) {
+            return;
         }
 
         $from = $this->status;
 
-        $this->update(['status' => $to]);
+        $this->update(['status' => $derived]);
 
-        event(new TournamentStatusChanged($this, $from, $to));
+        event(new TournamentStatusChanged($this, $from, $derived));
     }
 
     /**

@@ -66,6 +66,10 @@ class FixtureScheduleController extends Controller
 
         $fixture->reschedule($request->newKickoff(), $request->venue(), $request->venueTimezone());
 
+        // Moving a fixture out of "live" can change the lifecycle status — e.g. rescheduling the
+        // only kicked-off match into the future reverts the tournament to Upcoming.
+        $game->tournament->syncStatus();
+
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Fixture rescheduled.')]);
 
         return to_route('games.schedule.index', $game);
