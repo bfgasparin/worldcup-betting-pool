@@ -49,9 +49,36 @@ class GameControllerTest extends TestCase
                 ->has('games.data', 2)
                 ->where('games.data.0.slug', 'world-cup-2026-ffa')
                 ->where('games.data.1.slug', 'world-cup-2026-brothers')
+                // Both games are played over the one tournament, so each carries its shared
+                // identity plus a stable, distinct accent position used to tell them apart.
+                ->where('games.data.0.tournament.name', 'World Cup 2026')
+                ->where('games.data.0.accent_index', 0)
+                ->where('games.data.1.accent_index', 1)
                 ->where('games.current_page', 1)
                 ->where('games.last_page', 1)
                 ->where('games.total', 2)
+            );
+    }
+
+    public function test_the_index_reports_each_games_player_count(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+        $tournament = Tournament::firstOrFail();
+        $ffa = $tournament->games()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
+
+        // Two players have entered the FF&A pool; nobody has entered the Brothers pool yet. The
+        // count is per game, so the two sibling games report different pool sizes.
+        Entry::factory()->count(2)->for($ffa)->create();
+
+        $this->actingAs(User::factory()->create());
+
+        $this->get(route('games.index'))
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('games.data.0.slug', 'world-cup-2026-ffa')
+                ->where('games.data.0.players_count', 2)
+                ->where('games.data.1.slug', 'world-cup-2026-brothers')
+                ->where('games.data.1.players_count', 0)
             );
     }
 

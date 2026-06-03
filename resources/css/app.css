@@ -118,12 +118,19 @@
     --g-night: linear-gradient(160deg, #16271f 0%, #0b1410 70%);
     --gradient-brand: var(--g-pitch);
 
+    /* Per-game "kit" accents — used to tell games over the same tournament apart. Teal/violet
+       extend the pitch & gold house gradients; they're theme-independent like the two above. */
+    --g-teal: linear-gradient(135deg, #4cc6da 0%, #1d8aa6 100%);
+    --g-violet: linear-gradient(135deg, #9a8cff 0%, #6a5fd6 100%);
+
     /* Shadows */
     --sh-sm: 0 2px 8px rgba(11, 20, 16, 0.06);
     --sh-md: 0 14px 32px rgba(11, 20, 16, 0.1);
     --sh-lg: 0 34px 72px rgba(11, 20, 16, 0.18);
     --glow-primary: 0 18px 46px -12px rgba(15, 169, 104, 0.55);
     --glow-accent: 0 18px 40px -10px rgba(255, 159, 28, 0.5);
+    --glow-teal: 0 18px 44px -12px rgba(28, 138, 166, 0.5);
+    --glow-violet: 0 18px 44px -12px rgba(106, 95, 214, 0.5);
 }
 
 .dark {
@@ -166,6 +173,8 @@
     --sh-lg: 0 34px 72px rgba(0, 0, 0, 0.6);
     --glow-primary: 0 18px 46px -12px rgba(47, 209, 137, 0.5);
     --glow-accent: 0 18px 40px -10px rgba(255, 198, 69, 0.45);
+    --glow-teal: 0 18px 44px -12px rgba(76, 198, 218, 0.45);
+    --glow-violet: 0 18px 44px -12px rgba(154, 140, 255, 0.45);
 }
 
 @layer base {
@@ -293,6 +302,66 @@
 
     .shadow-glow-accent {
         box-shadow: var(--glow-accent);
+    }
+
+    /* Kit accent fills + glows — the teal/violet counterparts to the pitch & gold helpers above,
+       so a game's button and rail can carry its own colour. */
+    .bg-teal-gradient {
+        background-image: var(--g-teal);
+    }
+
+    .bg-violet-gradient {
+        background-image: var(--g-violet);
+    }
+
+    .shadow-glow-teal {
+        box-shadow: var(--glow-teal);
+    }
+
+    .shadow-glow-violet {
+        box-shadow: var(--glow-violet);
+    }
+
+    /* Per-game ticket rails: each kit pairs its gradient with a distinct, faint white texture so
+       the rails read as different even at a glance (colour + pattern, not colour alone). The
+       texture is the first background layer; the gradient fills behind it. */
+    .kit-rail-pitch {
+        background-image:
+            repeating-linear-gradient(
+                0deg,
+                rgba(255, 255, 255, 0.08) 0 1px,
+                transparent 1px 20px
+            ),
+            var(--g-pitch);
+    }
+
+    .kit-rail-teal {
+        background-image:
+            radial-gradient(rgba(255, 255, 255, 0.18) 1.2px, transparent 1.4px),
+            var(--g-teal);
+        background-size:
+            13px 13px,
+            cover;
+    }
+
+    .kit-rail-gold {
+        background-image:
+            repeating-linear-gradient(
+                45deg,
+                rgba(255, 255, 255, 0.12) 0 2px,
+                transparent 2px 11px
+            ),
+            var(--g-gold);
+    }
+
+    .kit-rail-violet {
+        background-image:
+            repeating-linear-gradient(
+                135deg,
+                rgba(255, 255, 255, 0.1) 0 2px,
+                transparent 2px 12px
+            ),
+            var(--g-violet);
     }
 
     /* Elevated surface with soft depth */

@@ -28,22 +28,42 @@ class GameController extends Controller
     public function index(): Response
     {
         $games = Game::query()
-            ->with(['tournament' => fn ($query) => $query->withCount(['groups', 'fixtures'])])
+            // The size of each game's pool — distinct per game (sibling games each have their own
+            // entries), so it helps a player choose which to enter.
+            ->withCount('entries')
+            ->with(['tournament' => fn ($query) => $query
+                ->withCount(['groups', 'fixtures'])
+                // The tournament's sibling game ids, so each list item can carry its position among
+                // them — used by the frontend to give same-tournament games distinct kit colors.
+                ->with('games:id,tournament_id'),
+            ])
             // Newest competition first; games over the same tournament keep a stable order by id.
             ->orderByDesc(
                 Tournament::select('starts_on')->whereColumn('tournaments.id', 'games.tournament_id'),
             )
             ->orderBy('id')
             ->paginate(12)
-            ->through(fn (Game $game): array => [
-                ...$this->gameHeader($game),
-                'scoring_strategy' => $game->scoring_strategy->value,
-                'scoring_label' => $game->scoring_strategy->label(),
-                'scoring_description' => $game->scoring_strategy->description(),
-                'scoring_config' => $game->scoring_config,
-                'groups_count' => $game->tournament->groups_count,
-                'fixtures_count' => $game->tournament->fixtures_count,
-            ]);
+            ->through(function (Game $game): array {
+                $siblingIds = $game->tournament->games->sortBy('id')->pluck('id')->values();
+
+                return [
+                    ...$this->gameHeader($game),
+                    'scoring_strategy' => $game->scoring_strategy->value,
+                    'scoring_label' => $game->scoring_strategy->label(),
+                    'scoring_description' => $game->scoring_strategy->description(),
+                    'scoring_config' => $game->scoring_config,
+                    'groups_count' => $game->tournament->groups_count,
+                    'fixtures_count' => $game->tournament->fixtures_count,
+                    'tournament' => [
+                        'id' => $game->tournament->id,
+                        'name' => $game->tournament->name,
+                    ],
+                    // 0-based position among the tournament's games (by id), stable across pages, so
+                    // a game's accent colour never shifts when the list paginates.
+                    'accent_index' => $siblingIds->search($game->id),
+                    'players_count' => $game->entries_count,
+                ];
+            });
 
         return Inertia::render('games/index', ['games' => $games]);
     }
