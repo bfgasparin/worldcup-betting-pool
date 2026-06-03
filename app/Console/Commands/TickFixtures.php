@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Enums\FixtureStatus;
+use App\Enums\TournamentStatus;
 use App\Models\Fixture;
 use App\Models\Tournament;
 use Illuminate\Console\Attributes\Description;
@@ -18,10 +19,7 @@ class TickFixtures extends Command
      */
     public function handle(): int
     {
-        $query = Fixture::query()
-            ->where('status', FixtureStatus::Scheduled)
-            ->whereNotNull('kicks_off_at')
-            ->where('kicks_off_at', '<=', now());
+        $tournament = null;
 
         if (($slug = $this->argument('tournament')) !== null) {
             $tournament = Tournament::where('slug', $slug)->first();
@@ -31,16 +29,38 @@ class TickFixtures extends Command
 
                 return self::FAILURE;
             }
-
-            $query->where('tournament_id', $tournament->id);
         }
 
-        $started = $query->update(['status' => FixtureStatus::Live]);
+        $started = Fixture::query()
+            ->where('status', FixtureStatus::Scheduled)
+            ->whereNotNull('kicks_off_at')
+            ->where('kicks_off_at', '<=', now())
+            ->when($tournament, fn ($query) => $query->where('tournament_id', $tournament->id))
+            ->update(['status' => FixtureStatus::Live]);
+
+        if ($started > 0) {
+            $this->syncTournamentStatuses($tournament);
+        }
 
         $this->components->info($started > 0
             ? "Marked {$started} fixture(s) live."
             : 'No fixtures to start.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Bring the lifecycle status of the affected tournament(s) in line with the freshly-started
+     * fixtures (e.g. Upcoming → InProgress). Scoped to the targeted tournament when a slug was
+     * given, otherwise every tournament that has not already completed.
+     */
+    private function syncTournamentStatuses(?Tournament $tournament): void
+    {
+        Tournament::query()
+            ->when($tournament, fn ($query) => $query->whereKey($tournament->id))
+            ->where('status', '!=', TournamentStatus::Completed)
+            ->get()
+            ->each
+            ->syncStatus();
     }
 }

@@ -6,7 +6,6 @@ use App\Enums\BatchStatus;
 use App\Enums\FixtureStatus;
 use App\Enums\PhaseKey;
 use App\Enums\ProposalStatus;
-use App\Enums\TournamentStatus;
 use App\Models\Entry;
 use App\Models\Fixture;
 use App\Models\Game;
@@ -113,12 +112,11 @@ class SimulateTournament extends Command
 
         $predictOnly = (bool) $this->option('predict-only');
 
-        // A staged tie leaves the group stage mid-flight (awaiting the admin), so keep the
-        // tournament In Progress rather than marking it Completed.
-        $this->closePredictions($tournament, $through, $predictOnly || $until !== null || $tie !== null);
+        $this->closePredictions($tournament);
 
         if ($tie !== null) {
             $this->stageUnresolvedTie($tournament, $game, $tie);
+            $tournament->syncStatus();
 
             return self::SUCCESS;
         }
@@ -130,6 +128,9 @@ class SimulateTournament extends Command
         if ($until !== null) {
             $this->advanceTo($tournament, $until);
         }
+
+        // The simulated results are in place; derive the lifecycle status from the fixtures.
+        $tournament->syncStatus();
 
         $this->summarise($game, $through, $predictOnly, $until);
 
@@ -334,17 +335,12 @@ class SimulateTournament extends Command
         }
     }
 
-    private function closePredictions(Tournament $tournament, PhaseKey $through, bool $predictOnly = false): void
+    private function closePredictions(Tournament $tournament): void
     {
         // Force-close every game by writing the explicit predictions_lock_at override (which wins
-        // over the schedule-derived lock); the lifecycle status is the competition's.
+        // over the schedule-derived lock). The lifecycle status is derived from the fixtures, so it
+        // is synced separately once the simulated results are in place.
         $tournament->games()->update(['predictions_lock_at' => now()->subDay()]);
-
-        $tournament->update([
-            'status' => (! $predictOnly && $through === PhaseKey::Final)
-                ? TournamentStatus::Completed
-                : TournamentStatus::InProgress,
-        ]);
     }
 
     /**

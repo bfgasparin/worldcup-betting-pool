@@ -60,6 +60,11 @@ class ApproveScoreBatch
             }
         });
 
+        // The fixtures now reflect their official results; bring the tournament's lifecycle status
+        // in line (e.g. Completed once this batch finished the last fixture). Kept outside the
+        // transaction so the status-changed event can't fire and then roll back.
+        $tournament->syncStatus();
+
         // Ranks are committed; email each game's players about milestones and significant moves.
         // Kept outside the transaction so a later game's failure can't fire and then roll back.
         foreach ($games as $game) {

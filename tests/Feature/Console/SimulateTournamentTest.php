@@ -110,9 +110,10 @@ class SimulateTournamentTest extends TestCase
         $this->assertSame(0, $this->tournament->fixtures()->where('status', FixtureStatus::Finished)->count());
         $this->assertDatabaseCount('score_batches', 0);
 
-        // Predictions are locked and the tournament is under way (not completed).
+        // Predictions are locked (independent of status); no match has kicked off, so the
+        // fixture-derived status is still Upcoming.
         $this->assertTrue($this->game->fresh()->predictions_lock_at->isPast());
-        $this->assertSame(TournamentStatus::InProgress, $this->tournament->fresh()->status);
+        $this->assertSame(TournamentStatus::Upcoming, $this->tournament->fresh()->status);
     }
 
     public function test_until_plays_results_only_up_to_a_date(): void

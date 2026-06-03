@@ -4,7 +4,6 @@ use App\Http\Controllers\FixtureScheduleController;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\PredictionController;
 use App\Http\Controllers\ScoreReviewController;
-use App\Http\Controllers\TransitionTournamentController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth'])->group(function () {
@@ -15,7 +14,6 @@ Route::middleware(['auth'])->group(function () {
     Route::put('games/{game:slug}/predict/group', [PredictionController::class, 'updateGroupStage'])->name('games.predict.group');
     Route::put('games/{game:slug}/predict/knockout', [PredictionController::class, 'updateKnockout'])->name('games.predict.knockout');
     Route::put('games/{game:slug}/predict/ordering', [PredictionController::class, 'updateOrdering'])->name('games.predict.ordering');
-    Route::patch('games/{game:slug}/status', TransitionTournamentController::class)->name('games.status.update');
 
     // Admin-only score review & approval.
     Route::middleware('can:manage-tournament')->group(function () {

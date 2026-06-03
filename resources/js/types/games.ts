@@ -163,8 +163,6 @@ export interface GameDetail extends GameSummary {
     scoring_config: Record<string, Record<string, number>>;
     /** When the group-stage predictions lock (ISO 8601): derived from the first group kickoff (minus the buffer) or an explicit override; null when there is no schedule to derive from. */
     predictions_lock_at: string | null;
-    /** Lifecycle statuses this tournament may transition into (admin only). */
-    allowed_transitions: GameStatus[];
     /** Whether the viewer may open the admin score-review screen. */
     can_review_scores: boolean;
     /** Board descriptors for the "How this game works" dialog. */
