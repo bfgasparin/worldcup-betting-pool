@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\FixtureScheduleController;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\PredictionController;
 use App\Http\Controllers\ScoreReviewController;
@@ -22,5 +23,9 @@ Route::middleware(['auth'])->group(function () {
         Route::patch('games/{game:slug}/scores/fixtures/{fixture}', [ScoreReviewController::class, 'updateProposal'])->name('games.scores.proposal');
         Route::put('games/{game:slug}/scores/ordering', [ScoreReviewController::class, 'updateOrdering'])->name('games.scores.ordering');
         Route::post('games/{game:slug}/scores/approve', [ScoreReviewController::class, 'approve'])->name('games.scores.approve');
+
+        // Admin-only fixture rescheduling (delays, venue moves).
+        Route::get('games/{game:slug}/schedule', [FixtureScheduleController::class, 'index'])->name('games.schedule.index');
+        Route::patch('games/{game:slug}/fixtures/{fixture}/reschedule', [FixtureScheduleController::class, 'reschedule'])->name('games.fixtures.reschedule');
     });
 });

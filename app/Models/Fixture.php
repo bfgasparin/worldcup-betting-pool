@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Enums\BatchStatus;
 use App\Enums\FeederOutcome;
 use App\Enums\FixtureStatus;
 use App\Enums\PhaseType;
+use Carbon\CarbonInterface;
 use Database\Factories\FixtureFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -12,6 +14,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use RuntimeException;
 
 #[Fillable([
     'tournament_id',
@@ -141,6 +144,41 @@ class Fixture extends Model
     public function knockoutPredictions(): HasMany
     {
         return $this->hasMany(KnockoutPrediction::class);
+    }
+
+    /**
+     * @return HasMany<ScoreProposal, $this>
+     */
+    public function scoreProposals(): HasMany
+    {
+        return $this->hasMany(ScoreProposal::class);
+    }
+
+    /**
+     * Move this fixture to a new kickoff and venue. Only a not-yet-finished match can move: its
+     * result is not yet official, so shifting it is safe. A live match reverts to Scheduled (it
+     * will now happen in the future), and any pending proposed result for it in an open,
+     * unapproved batch is discarded — that proposal describes a match that was not actually played
+     * to completion, so it must not survive the move.
+     *
+     * @throws RuntimeException when the fixture is already Finished.
+     */
+    public function reschedule(CarbonInterface $kickoff, string $venue, string $venueTimezone): void
+    {
+        if ($this->status === FixtureStatus::Finished) {
+            throw new RuntimeException('A finished fixture cannot be rescheduled.');
+        }
+
+        $this->scoreProposals()
+            ->whereRelation('batch', 'status', BatchStatus::Open)
+            ->delete();
+
+        $this->update([
+            'kicks_off_at' => $kickoff,
+            'venue' => $venue,
+            'venue_timezone' => $venueTimezone,
+            'status' => FixtureStatus::Scheduled,
+        ]);
     }
 
     public function isGroup(): bool
