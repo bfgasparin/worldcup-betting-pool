@@ -143,4 +143,21 @@ class Tournament extends Model
 
         return $earliest !== null ? CarbonImmutable::parse($earliest) : null;
     }
+
+    /**
+     * The distinct venues used by this tournament's fixtures, each mapped to its registered IANA
+     * timezone. Venues are denormalised onto fixtures (there is no venues table), so this is the
+     * authoritative list an admin may reschedule a fixture into — no free-text venues.
+     *
+     * @return array<string, string>
+     */
+    public function venueTimezones(): array
+    {
+        return $this->fixtures()
+            ->whereNotNull('venue')
+            ->distinct()
+            ->orderBy('venue')
+            ->pluck('venue_timezone', 'venue')
+            ->all();
+    }
 }

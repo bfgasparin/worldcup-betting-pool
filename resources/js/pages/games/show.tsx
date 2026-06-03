@@ -1,6 +1,7 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     ArrowRight,
+    CalendarClock,
     CalendarDays,
     ClipboardCheck,
     PencilLine,
@@ -198,6 +199,14 @@ function DashboardBanner({
                             <Link href={games.scores.review(game.slug)}>
                                 <ClipboardCheck className="size-4" />
                                 Review scores
+                            </Link>
+                        </Button>
+                    )}
+                    {isAdmin && (
+                        <Button asChild variant="outline">
+                            <Link href={games.schedule.index(game.slug)}>
+                                <CalendarClock className="size-4" />
+                                Manage schedule
                             </Link>
                         </Button>
                     )}

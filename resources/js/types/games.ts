@@ -57,6 +57,32 @@ export interface GroupTeam extends TeamRef {
     position: number;
 }
 
+export type FixtureStatus = 'scheduled' | 'live' | 'finished';
+
+/** A venue an admin may reschedule a fixture into, paired with its registered IANA timezone. */
+export interface VenueOption {
+    name: string;
+    timezone: string;
+}
+
+/** One fixture as listed on the admin "Manage schedule" screen. */
+export interface ScheduleFixtureRow {
+    id: number;
+    match_number: number;
+    phase: string;
+    is_knockout: boolean;
+    status: FixtureStatus;
+    kicks_off_at: string | null;
+    venue: string | null;
+    venue_timezone: string | null;
+    home: TeamRef | null;
+    away: TeamRef | null;
+    home_label: string | null;
+    away_label: string | null;
+    /** Whether this fixture's kickoff currently sets a prediction deadline (warn before moving). */
+    governs_prediction_lock: boolean;
+}
+
 export interface GroupFixture {
     match_number: number;
     home: TeamRef | null;
