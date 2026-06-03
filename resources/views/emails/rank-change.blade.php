@@ -68,7 +68,7 @@
                 @if ($aheadName && $pointsBehind !== null && $pointsBehind > 0)
                     <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#5E6B64;">{{ $isUp ? 'Keep it going — ' : 'Still in it — ' }}you're just <b style="color:#0D2E23;font-weight:700;">{{ $pointsBehind }} pts</b> behind {{ $aheadName }} in {{ $aheadOrdinal }}.</p>
                 @else
-                    <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#5E6B64;">{{ $isUp ? 'Keep it going — the next matchday could lift you higher.' : 'Plenty of football left — the next matchday is a chance to climb back.' }}</p>
+                    <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#5E6B64;">{{ $isUp ? "Keep it going — there's plenty of football still to play." : "Plenty of football left — there's still time to climb back." }}</p>
                 @endif
             </td>
         </tr>
@@ -79,7 +79,7 @@
         </tr>
         <tr>
             <td class="ffa-pad-narrow" align="center" style="padding:14px 48px 34px;text-align:center;">
-                <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12.5px;line-height:1.55;color:#7A847E;">Predict the next matchday to keep moving.</p>
+                <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12.5px;line-height:1.55;color:#7A847E;">There's plenty of football still to come — keep an eye on the table.</p>
             </td>
         </tr>
     </table>

@@ -35,9 +35,9 @@
         <tr>
             <td class="ffa-pad-narrow" align="center" style="padding:16px 48px 0;text-align:center;">
                 @if ($runnerUpName && $leadOverRunnerUp > 0)
-                    <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#5E6B64;">You're <b style="color:#0D2E23;font-weight:700;">{{ $leadOverRunnerUp }} pts</b> clear of {{ $runnerUpName }}. Enjoy the view — keep predicting to stay there.</p>
+                    <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#5E6B64;">You're <b style="color:#0D2E23;font-weight:700;">{{ $leadOverRunnerUp }} pts</b> clear of {{ $runnerUpName }}. Enjoy the view — there's plenty of football still to play.</p>
                 @else
-                    <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#5E6B64;">You've taken the lead. Enjoy the view — keep predicting to stay there.</p>
+                    <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#5E6B64;">You've taken the lead. Enjoy the view — there's plenty of football still to play.</p>
                 @endif
             </td>
         </tr>
