@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\FeederOutcome;
+use App\Enums\GameAccent;
 use App\Enums\PhaseKey;
 use App\Enums\PhaseType;
 use App\Enums\ScoringStrategy;
@@ -279,6 +280,7 @@ class WorldCup2026Seeder extends Seeder
                 'tournament_id' => $tournament->id,
                 'name' => 'World Cup 2026',
                 'source' => 'FF&A',
+                'accent' => GameAccent::Pitch,
                 'scoring_strategy' => ScoringStrategy::UpfrontBracket,
                 'scoring_config' => [
                     'group' => [
@@ -304,6 +306,7 @@ class WorldCup2026Seeder extends Seeder
                 'tournament_id' => $tournament->id,
                 'name' => 'World Cup 2026',
                 'source' => 'Brothers Association',
+                'accent' => GameAccent::Teal,
                 'scoring_strategy' => ScoringStrategy::PhasedBracket,
                 'scoring_config' => [
                     'group' => [

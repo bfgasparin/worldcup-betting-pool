@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\LeaderboardCategory;
 use App\Enums\TournamentStatus;
+use App\Http\Controllers\Concerns\BuildsGameIdentity;
 use App\Models\Entry;
 use App\Models\Fixture;
 use App\Models\Game;
@@ -22,6 +23,8 @@ use Inertia\Response;
 
 class GameController extends Controller
 {
+    use BuildsGameIdentity;
+
     /**
      * List the available games (tournaments).
      */
@@ -47,9 +50,9 @@ class GameController extends Controller
                 $siblingIds = $game->tournament->games->sortBy('id')->pluck('id')->values();
 
                 return [
+                    // gameHeader() already carries scoring_label (via the game-identity payload).
                     ...$this->gameHeader($game),
                     'scoring_strategy' => $game->scoring_strategy->value,
-                    'scoring_label' => $game->scoring_strategy->label(),
                     'scoring_description' => $game->scoring_strategy->description(),
                     'scoring_config' => $game->scoring_config,
                     'groups_count' => $game->tournament->groups_count,
@@ -104,9 +107,9 @@ class GameController extends Controller
 
         return Inertia::render('games/show', [
             'game' => [
+                // gameHeader() already carries scoring_label (via the game-identity payload).
                 ...$this->gameHeader($game),
                 'scoring_strategy' => $game->scoring_strategy->value,
-                'scoring_label' => $game->scoring_strategy->label(),
                 'scoring_description' => $game->scoring_strategy->description(),
                 'how_to_play' => $game->scoring_strategy->howToPlay(),
                 'scoring_config' => $game->scoring_config,
@@ -369,19 +372,17 @@ class GameController extends Controller
 
     /**
      * Shared header fields for a game across the games screens. The game carries its own
-     * identity (slug/name/source) while the lifecycle, sport and dates come from the shared
-     * competition it is played over.
+     * identity (slug/name/source/accent/scoring style {@see BuildsGameIdentity}) while the
+     * lifecycle, sport and dates come from the shared competition it is played over.
      *
-     * @return array{slug: string, name: string, source: string, sport: string, status: string, starts_on: ?string, ends_on: ?string}
+     * @return array{slug: string, name: string, source: string, accent: ?string, scoring_label: string, sport: string, status: string, starts_on: ?string, ends_on: ?string}
      */
     private function gameHeader(Game $game): array
     {
         $tournament = $game->tournament;
 
         return [
-            'slug' => $game->slug,
-            'name' => $game->name,
-            'source' => $game->source,
+            ...$this->gameIdentity($game),
             'sport' => $tournament->sport->value,
             'status' => $tournament->status->value,
             'starts_on' => $tournament->starts_on?->toDateString(),

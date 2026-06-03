@@ -72,8 +72,9 @@
                     </tr>
 
                     {{-- ============ BRAND BAR ============ --}}
+                    {{-- A game email may tint this to its accent via @section('accentBar*'); defaults to pitch. --}}
                     <tr>
-                        <td height="6" style="height:6px;line-height:6px;font-size:0;background-color:#0FA968;background-image:linear-gradient(135deg,#16C07A 0%,#0A6B49 100%);">&nbsp;</td>
+                        <td height="6" style="height:6px;line-height:6px;font-size:0;background-color:@yield('accentBarSolid', '#0FA968');background-image:@yield('accentBarGradient', 'linear-gradient(135deg,#16C07A 0%,#0A6B49 100%)');">&nbsp;</td>
                     </tr>
 
                 </table>

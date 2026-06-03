@@ -54,6 +54,11 @@ class GameControllerTest extends TestCase
                 ->where('games.data.0.tournament.name', 'World Cup 2026')
                 ->where('games.data.0.accent_index', 0)
                 ->where('games.data.1.accent_index', 1)
+                // Each game also carries its own stored accent colour, distinct per sibling.
+                ->where('games.data.0.source', 'FF&A')
+                ->where('games.data.0.accent', 'pitch')
+                ->where('games.data.1.source', 'Brothers Association')
+                ->where('games.data.1.accent', 'teal')
                 ->where('games.current_page', 1)
                 ->where('games.last_page', 1)
                 ->where('games.total', 2)
@@ -341,6 +346,27 @@ class GameControllerTest extends TestCase
                 ->has('game.how_to_play.steps')
                 ->whereNot('game.predictions_lock_at', null)
             );
+    }
+
+    public function test_show_and_leaderboard_expose_the_game_identity(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+        $this->actingAs(User::factory()->create());
+
+        // The source, accent and scoring style let a player tell which game they're in even though
+        // sibling games share the "World Cup 2026" name.
+        $identity = fn (AssertableInertia $page) => $page
+            ->where('game.source', 'FF&A')
+            ->where('game.accent', 'pitch')
+            ->where('game.scoring_label', 'Upfront Bracket');
+
+        $this->get(route('games.show', 'world-cup-2026-ffa'))
+            ->assertOk()
+            ->assertInertia($identity);
+
+        $this->get(route('games.leaderboard', 'world-cup-2026-ffa'))
+            ->assertOk()
+            ->assertInertia($identity);
     }
 
     public function test_show_has_no_predicted_standings_without_an_entry(): void

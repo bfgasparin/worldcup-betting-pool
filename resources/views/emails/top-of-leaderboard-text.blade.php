@@ -2,7 +2,7 @@ Brothers Betting Pool — Milestone
 
 You're top of the table, {{ $userName }}!
 
-1st on the {{ $leaderboardLabel }} leaderboard in {{ $tournamentName }} — {{ $points }} pts, out of {{ $totalEntries }} {{ \Illuminate\Support\Str::plural('player', $totalEntries) }}.
+1st on the {{ $leaderboardLabel }} leaderboard in {!! $source !!}'s {!! $gameName !!} — {{ $points }} pts, out of {{ $totalEntries }} {{ \Illuminate\Support\Str::plural('player', $totalEntries) }}.
 @if ($runnerUpName && $leadOverRunnerUp > 0)
 
 You're {{ $leadOverRunnerUp }} pts clear of {{ $runnerUpName }}. Enjoy the view — keep predicting to stay there.

@@ -11,12 +11,14 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { GroupBadge, TeamChip } from '@/components/fixtures';
 import { Flag } from '@/components/flag';
+import { GameIdentity } from '@/components/game-identity';
 import { ScoreStepper } from '@/components/score-stepper';
 import { StandingsTable } from '@/components/standings-table';
 import { TieResolutionPanel } from '@/components/tie-resolution-panel';
 import { Button } from '@/components/ui/button';
 import { chipVariants } from '@/components/ui/chip';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { gameTitle } from '@/lib/game-title';
 import { scoringRules } from '@/lib/scoring';
 import { cn } from '@/lib/utils';
 import games from '@/routes/games';
@@ -843,7 +845,7 @@ export default function Predict({
 
     return (
         <>
-            <Head title={`Predict — ${game.name}`} />
+            <Head title={gameTitle(game.source, game.name, 'Predict')} />
             <div className="flex h-full flex-1 flex-col gap-6 p-4">
                 <header className="hero relative overflow-hidden rounded-3xl border border-border p-6 sm:p-8">
                     <div className="hero-lines" />
@@ -862,9 +864,12 @@ export default function Predict({
                         <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
                             My Predictions
                         </h1>
-                        <p className="text-sm text-muted-foreground">
-                            {game.name}
-                        </p>
+                        <GameIdentity
+                            source={game.source}
+                            name={game.name}
+                            scoringLabel={game.scoring_label}
+                            accent={game.accent}
+                        />
                         {dates && (
                             <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
                                 <CalendarDays className="size-4" />

@@ -2,16 +2,19 @@
 
 @section('title', 'Top of the table')
 
-@section('preheader', "You're now #1 in {$tournamentName} — see how the table looks.")
+@section('preheader', "You're now #1 in {$source}'s {$gameName} — see how the table looks.")
 
 @section('headerTag', 'Milestone')
+
+@section('accentBarSolid', $accentSolid)
+@section('accentBarGradient', $accentGradient)
 
 @section('content')
     {{-- Hero --}}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
             <td class="ffa-pad" align="center" style="padding:36px 32px 4px;text-align:center;">
-                <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#0A6B49;">{{ $tournamentName }} &middot; {{ $leaderboardLabel }} leaderboard</p>
+                <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:{{ $accentInk }};">Game by {{ $source }} &middot; {{ $leaderboardLabel }} leaderboard</p>
                 <h1 class="ffa-h1" style="margin:12px 0 0;font-family:'Fredoka','Trebuchet MS',Verdana,sans-serif;font-size:30px;font-weight:600;line-height:1.1;letter-spacing:-0.02em;color:#0D2E23;">You're top of the table, {{ $userName }}!</h1>
             </td>
         </tr>
@@ -52,5 +55,5 @@
 @endsection
 
 @section('footerNote')
-    You're getting this because you're playing <b style="color:#5E6B64;font-weight:700;">{{ $tournamentName }}</b> on Brothers Betting Pool. We only email about your standings.
+    You're getting this because you're playing <b style="color:#5E6B64;font-weight:700;">{{ $source }}'s {{ $gameName }}</b> on Brothers Betting Pool. We only email about your standings.
 @endsection

@@ -50,9 +50,10 @@ class ApproveScoreBatchTest extends TestCase
         $this->proposeAllGroupResults($batch);
         $this->resolveProjectedTies($this->tournament, $batch);
 
+        // Approval keeps the admin on the review screen (re-rendered to its post-approval state).
         $this->actingAs($this->admin())
             ->post(route('games.scores.approve', $this->game))
-            ->assertRedirect(route('games.show', $this->game));
+            ->assertRedirect(route('games.scores.review', $this->game));
 
         // Official scores are written onto the fixtures.
         $firstGroupFixture = $this->tournament->groupFixtures()->orderBy('match_number')->first();

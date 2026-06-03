@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\GameAccent;
 use App\Enums\ScoringStrategy;
 use App\Models\Game;
 use App\Models\Tournament;
@@ -14,6 +15,12 @@ use Illuminate\Support\Str;
  */
 class GameFactory extends Factory
 {
+    /**
+     * Cycles distinct accents across the games a factory builds, so sibling games over one
+     * tournament read as distinct rather than collapsing to a single colour.
+     */
+    private static int $accentSequence = 0;
+
     /**
      * Define the model's default state.
      *
@@ -31,6 +38,7 @@ class GameFactory extends Factory
             'slug' => Str::slug($name),
             'name' => Str::title($name),
             'source' => fake()->company(),
+            'accent' => GameAccent::forIndex(self::$accentSequence++),
             'scoring_strategy' => ScoringStrategy::UpfrontBracket,
             'scoring_config' => [
                 'group' => [

@@ -17,11 +17,13 @@ import {
     phaseDateRange,
 } from '@/components/fixtures';
 import type { Phase } from '@/components/fixtures';
+import { GameIdentity } from '@/components/game-identity';
 import { GameInfoDialog } from '@/components/game-info-dialog';
 import { LeaderboardRow } from '@/components/leaderboard-row';
 import { MovementArrow } from '@/components/movement-arrow';
 import { Button } from '@/components/ui/button';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
+import { gameTitle } from '@/lib/game-title';
 import { ordinal } from '@/lib/leaderboards';
 import games from '@/routes/games';
 import type {
@@ -145,6 +147,13 @@ function DashboardBanner({
             <div className="relative flex flex-col gap-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
+                        <GameIdentity
+                            variant="banner"
+                            source={game.source}
+                            scoringLabel={game.scoring_label}
+                            accent={game.accent}
+                            className="mb-3"
+                        />
                         <h1 className="text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-4xl">
                             {game.name}
                         </h1>
@@ -485,7 +494,7 @@ export default function GameShow({
 
     return (
         <>
-            <Head title={game.name} />
+            <Head title={gameTitle(game.source, game.name)} />
             <div className="flex h-full flex-1 flex-col gap-10 p-4">
                 <DashboardBanner
                     game={game}

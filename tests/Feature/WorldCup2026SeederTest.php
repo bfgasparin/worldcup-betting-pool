@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\FeederOutcome;
+use App\Enums\GameAccent;
 use App\Enums\PhaseType;
 use App\Enums\ScoringStrategy;
 use App\Models\Fixture;
@@ -227,6 +228,7 @@ class WorldCup2026SeederTest extends TestCase
         $this->assertTrue($game->tournament->is($tournament));
         $this->assertSame('World Cup 2026', $game->name);
         $this->assertSame('FF&A', $game->source);
+        $this->assertSame(GameAccent::Pitch, $game->accent);
         $this->assertSame(ScoringStrategy::UpfrontBracket, $game->scoring_strategy);
         $this->assertSame(20, $game->scoring_config['group']['exact_score']);
     }
@@ -241,12 +243,23 @@ class WorldCup2026SeederTest extends TestCase
         $this->assertTrue($game->tournament->is($tournament));
         $this->assertSame('World Cup 2026', $game->name);
         $this->assertSame('Brothers Association', $game->source);
+        $this->assertSame(GameAccent::Teal, $game->accent);
         $this->assertSame(ScoringStrategy::PhasedBracket, $game->scoring_strategy);
 
         // Rising-stakes knockout config: a flat advancing bonus plus per-round multipliers.
         $this->assertSame(10, $game->scoring_config['knockout']['advancing_team']);
         $this->assertSame(8, $game->scoring_config['knockout']['round_multipliers']['final']);
         $this->assertSame(1, $game->scoring_config['knockout']['round_multipliers']['round_of_32']);
+    }
+
+    public function test_the_two_seeded_games_get_distinct_accents(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+
+        $accents = Game::pluck('accent');
+
+        // Sibling games over the one tournament must read as distinct, so their accents differ.
+        $this->assertCount(2, $accents->unique());
     }
 
     public function test_it_is_idempotent(): void

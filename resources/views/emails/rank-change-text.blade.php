@@ -5,7 +5,7 @@
     $isUp = $direction === 'up';
     $places = \Illuminate\Support\Str::plural('place', $delta);
 @endphp
-Brothers Betting Pool — {{ $leaderboardLabel }} leaderboard update
+{!! $source !!}'s {!! $gameName !!} — {{ $leaderboardLabel }} leaderboard update
 
 {{ $isUp ? "You climbed to {$rankOrdinal}!" : "You slipped to {$rankOrdinal}" }}
 

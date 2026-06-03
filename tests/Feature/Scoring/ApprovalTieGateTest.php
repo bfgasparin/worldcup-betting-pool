@@ -62,7 +62,7 @@ class ApprovalTieGateTest extends TestCase
 
         $this->actingAs($this->admin())
             ->post(route('games.scores.approve', $this->game))
-            ->assertRedirect(route('games.show', $this->game));
+            ->assertRedirect(route('games.scores.review', $this->game));
 
         $this->assertSame(BatchStatus::Approved, $batch->fresh()->status);
         $this->assertNotNull($this->knockoutFixture($this->tournament, 'R32-1')->fresh()->home_team_id);
@@ -81,7 +81,7 @@ class ApprovalTieGateTest extends TestCase
 
         $this->actingAs($this->admin())
             ->post(route('games.scores.approve', $this->game))
-            ->assertRedirect(route('games.show', $this->game));
+            ->assertRedirect(route('games.scores.review', $this->game));
 
         // Once approved there is no open batch, so the tie section is gone — like an approved match.
         $this->actingAs($this->admin())

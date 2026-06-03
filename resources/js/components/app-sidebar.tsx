@@ -14,12 +14,7 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { index as games } from '@/routes/games';
-
-interface TournamentNavInfo {
-    slug: string;
-    name: string;
-    status: string;
-}
+import type { TournamentNavInfo } from '@/types/navigation';
 
 export function AppSidebar() {
     const game = usePage<{ game?: TournamentNavInfo }>().props.game;
@@ -40,7 +35,12 @@ export function AppSidebar() {
 
             <SidebarContent>
                 {game ? (
-                    <NavTournament slug={game.slug} name={game.name} />
+                    <NavTournament
+                        slug={game.slug}
+                        name={game.name}
+                        source={game.source}
+                        accent={game.accent}
+                    />
                 ) : (
                     <SidebarGroup className="px-2 py-0">
                         <SidebarMenu>
