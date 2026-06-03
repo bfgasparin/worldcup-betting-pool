@@ -41,20 +41,6 @@ interface GameShowProps {
     boardSummaries: BoardSummary[];
 }
 
-function greeting(): string {
-    const hour = new Date().getHours();
-
-    if (hour < 12) {
-        return 'Good morning';
-    }
-
-    if (hour < 18) {
-        return 'Good afternoon';
-    }
-
-    return 'Good evening';
-}
-
 /**
  * The hero's one-line context, by state: not entered yet, predictions still open (lock date),
  * or locked but not yet scored. Null once results are landing — the standings carry it from there.
@@ -137,12 +123,10 @@ function AdminStatusControl({ game }: { game: GameDetail }) {
 function DashboardBanner({
     game,
     pool,
-    name,
     isAdmin,
 }: {
     game: GameDetail;
     pool: PoolSummary;
-    name: string;
     isAdmin: boolean;
 }) {
     const dates = game.starts_on
@@ -152,7 +136,6 @@ function DashboardBanner({
         : null;
 
     const tz = useDisplayTimeZone();
-    const firstName = name.split(' ')[0] || name;
     const hasEntry = pool.me !== null;
     const contextLine = heroContextLine(game, hasEntry, pool.has_scores, tz);
 
@@ -162,10 +145,7 @@ function DashboardBanner({
             <div className="relative flex flex-col gap-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                        <span className="text-sm font-semibold text-muted-foreground">
-                            {greeting()}, {firstName} 👋
-                        </span>
-                        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-4xl">
+                        <h1 className="text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-4xl">
                             {game.name}
                         </h1>
                         <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
@@ -502,7 +482,6 @@ export default function GameShow({
     boardSummaries,
 }: GameShowProps) {
     const { auth } = usePage().props;
-    const name = auth.user?.name ?? 'there';
 
     return (
         <>
@@ -511,7 +490,6 @@ export default function GameShow({
                 <DashboardBanner
                     game={game}
                     pool={pool}
-                    name={name}
                     isAdmin={auth.isAdmin}
                 />
 
