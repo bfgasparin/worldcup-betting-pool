@@ -1,4 +1,4 @@
-import { Lock, X } from 'lucide-react';
+import { ChevronDown, Lock, X } from 'lucide-react';
 import {
     Collapsible,
     CollapsibleContent,
@@ -81,8 +81,9 @@ function BoardTotals({
 }) {
     return (
         <Collapsible>
-            <CollapsibleTrigger className="flex w-full items-center justify-center gap-1.5 font-display text-xs font-semibold tracking-wide text-muted-foreground uppercase transition-colors outline-none hover:text-foreground focus-visible:text-foreground">
+            <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-center gap-1.5 font-display text-xs font-semibold tracking-wide text-muted-foreground uppercase transition-colors outline-none hover:text-foreground focus-visible:text-foreground [&[data-state=open]>svg]:rotate-180">
                 Board totals
+                <ChevronDown className="size-4 transition-transform duration-200" />
             </CollapsibleTrigger>
             <CollapsibleContent className="pt-3">
                 <div className="overflow-x-auto rounded-2xl border border-border">
