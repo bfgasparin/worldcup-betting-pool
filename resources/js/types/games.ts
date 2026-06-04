@@ -189,6 +189,7 @@ export interface LeaderboardEntryRow {
     entry_id: number;
     name: string;
     initials: string;
+    avatar: string | null;
     points: number | null;
     is_me: boolean;
     movement: RankMovement | null;
@@ -208,6 +209,7 @@ export interface BoardRow {
     entry_id: number;
     name: string;
     initials: string;
+    avatar: string | null;
     /** The board's headline value; null renders as "—" and suppresses podium styling. */
     primary_value: number | null;
     /** The board's tie-break value, or null for boards that don't show one (Overall). */
@@ -236,6 +238,7 @@ export interface BoardSummary {
         entry_id: number;
         name: string;
         initials: string;
+        avatar: string | null;
         primary_value: number | null;
         is_me: boolean;
     } | null;
@@ -269,6 +272,7 @@ export interface PlayerDirectoryEntry {
     user_id: number;
     name: string;
     initials: string;
+    avatar: string | null;
     points: number | null;
     rank: number;
     is_me: boolean;
@@ -303,6 +307,7 @@ export interface ComparePlayer {
     user_id: number | null;
     name: string;
     initials: string;
+    avatar: string | null;
     is_viewer: boolean;
     total_points: number | null;
     rank: number | null;

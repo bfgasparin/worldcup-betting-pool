@@ -1,4 +1,5 @@
 import { MovementArrow } from '@/components/movement-arrow';
+import PlayerAvatar from '@/components/player-avatar';
 import { cn } from '@/lib/utils';
 import type { RankMovement } from '@/types/games';
 
@@ -6,6 +7,8 @@ export interface LeaderboardEntry {
     rank: number;
     name: string;
     initials: string;
+    /** The player's photo URL, or null to show coloured initials. */
+    avatar?: string | null;
     /** The board's headline number; null renders as "—" and suppresses podium styling. */
     primary: number | null;
     /** An optional secondary stat (e.g. the board's tie-break), already formatted with its label. */
@@ -81,14 +84,17 @@ export function LeaderboardRow({
             </div>
 
             <div className="flex min-w-0 items-center gap-3">
-                <span
-                    className={cn(
-                        'grid size-9 shrink-0 place-items-center rounded-full font-display text-sm font-semibold',
-                        avatarGradient(entry.rank, scored, Boolean(entry.isMe)),
+                <PlayerAvatar
+                    name={entry.name}
+                    initials={entry.initials}
+                    src={entry.avatar}
+                    fallbackClassName={avatarGradient(
+                        entry.rank,
+                        scored,
+                        Boolean(entry.isMe),
                     )}
-                >
-                    {entry.initials}
-                </span>
+                    className="size-9"
+                />
                 <span className="min-w-0">
                     <span className="block truncate font-display font-semibold">
                         {entry.name}

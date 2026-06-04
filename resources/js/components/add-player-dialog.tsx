@@ -1,5 +1,6 @@
 import { Check, Search } from 'lucide-react';
 import { useState } from 'react';
+import PlayerAvatar from '@/components/player-avatar';
 import {
     Dialog,
     DialogContent,
@@ -106,9 +107,13 @@ export function AddPlayerDialog({
                                                     'cursor-not-allowed opacity-50',
                                             )}
                                         >
-                                            <span className="bg-brand-gradient grid size-9 shrink-0 place-items-center rounded-full font-display text-sm font-semibold text-white">
-                                                {player.initials}
-                                            </span>
+                                            <PlayerAvatar
+                                                name={player.name}
+                                                initials={player.initials}
+                                                src={player.avatar}
+                                                fallbackClassName="bg-brand-gradient text-white"
+                                                className="size-9"
+                                            />
                                             <span className="min-w-0 flex-1">
                                                 <span className="block truncate font-display font-semibold">
                                                     {player.name}

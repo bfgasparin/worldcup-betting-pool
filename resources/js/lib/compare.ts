@@ -12,10 +12,8 @@ export interface Lane {
     dot: string;
     /** Gradient avatar fill + its text colour. */
     avatar: string;
-    /** Accent text colour for figures on a light surface. */
-    text: string;
-    /** Ring tint for the lane's avatar. */
-    ring: string;
+    /** The lane's "ticket rail" accent (gradient + texture) for the head-to-head card edge. */
+    rail: string;
 }
 
 const LANES: readonly Lane[] = [
@@ -23,29 +21,25 @@ const LANES: readonly Lane[] = [
         key: 'pitch',
         dot: 'bg-pitch',
         avatar: 'bg-brand-gradient text-white',
-        text: 'text-pitch-deep dark:text-primary',
-        ring: 'ring-pitch/40',
+        rail: 'kit-rail-pitch',
     },
     {
         key: 'teal',
         dot: 'bg-[#1d8aa6]',
         avatar: 'bg-teal-gradient text-white',
-        text: 'text-[#1d8aa6] dark:text-[#5cc9dd]',
-        ring: 'ring-[#2bb3c9]/40',
+        rail: 'kit-rail-teal',
     },
     {
         key: 'gold',
         dot: 'bg-amber',
         avatar: 'bg-gold-gradient text-[#3a2600]',
-        text: 'text-[#8a5a00] dark:text-amber-300',
-        ring: 'ring-amber/40',
+        rail: 'kit-rail-gold',
     },
     {
         key: 'violet',
         dot: 'bg-[#6a5fd6]',
         avatar: 'bg-violet-gradient text-white',
-        text: 'text-[#6a5fd6] dark:text-[#a99cff]',
-        ring: 'ring-[#7c6cf0]/40',
+        rail: 'kit-rail-violet',
     },
 ];
 

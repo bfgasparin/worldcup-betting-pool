@@ -100,6 +100,7 @@ class PlayerComparison
             'user_id' => $entry?->user_id,
             'name' => $isViewer ? 'You' : ($entry?->user->name ?? 'Player'),
             'initials' => $this->initials($entry?->user->name ?? ''),
+            'avatar' => $entry?->user->avatar,
             'is_viewer' => $isViewer,
             'total_points' => $entry?->total_points,
             'rank' => $entry?->rank,
@@ -287,7 +288,7 @@ class PlayerComparison
     private function entryLoads(): array
     {
         return [
-            'user:id,name',
+            'user:id,name,avatar_path',
             'standings',
             'groupPredictions',
             'knockoutPredictions.predictedHomeTeam',

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AvatarUploadRequest;
 use App\Http\Requests\Settings\ProfileDeleteRequest;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -44,6 +45,30 @@ class ProfileController extends Controller
     }
 
     /**
+     * Update the user's avatar photo.
+     */
+    public function updateAvatar(AvatarUploadRequest $request): RedirectResponse
+    {
+        $request->user()->storeAvatar($request->file('avatar'));
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Photo updated.')]);
+
+        return to_route('profile.edit');
+    }
+
+    /**
+     * Remove the user's avatar photo.
+     */
+    public function destroyAvatar(Request $request): RedirectResponse
+    {
+        $request->user()->removeAvatar();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Photo removed.')]);
+
+        return to_route('profile.edit');
+    }
+
+    /**
      * Delete the user's profile.
      */
     public function destroy(ProfileDeleteRequest $request): RedirectResponse
@@ -51,6 +76,8 @@ class ProfileController extends Controller
         $user = $request->user();
 
         Auth::logout();
+
+        $user->removeAvatar();
 
         $user->delete();
 
