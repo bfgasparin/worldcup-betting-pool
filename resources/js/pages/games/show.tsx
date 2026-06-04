@@ -1,13 +1,19 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     ArrowRight,
     CalendarClock,
     CalendarDays,
+    Check,
     ClipboardCheck,
+    GitCompare,
     PencilLine,
+    Plus,
     Users,
 } from 'lucide-react';
 import { useState } from 'react';
+import { AddPlayerDialog } from '@/components/add-player-dialog';
+import { CompareDock } from '@/components/compare-dock';
+import { CompareStrip } from '@/components/compare-strip';
 import {
     FinalCard,
     formatLongDate,
@@ -18,20 +24,30 @@ import {
     phaseDateRange,
 } from '@/components/fixtures';
 import type { Phase } from '@/components/fixtures';
+import {
+    CompareFinalCard,
+    CompareGroupCard,
+    CompareKnockoutCard,
+} from '@/components/fixtures-compare';
 import { GameIdentity } from '@/components/game-identity';
 import { GameInfoDialog } from '@/components/game-info-dialog';
 import { LeaderboardRow } from '@/components/leaderboard-row';
 import { MovementArrow } from '@/components/movement-arrow';
 import { Button } from '@/components/ui/button';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
+import { COMPARE_LIMIT } from '@/lib/compare';
 import { gameTitle } from '@/lib/game-title';
 import { ordinal } from '@/lib/leaderboards';
+import { cn } from '@/lib/utils';
 import games from '@/routes/games';
 import type {
     BoardSummary,
     BracketPhase,
+    Comparison,
     GameDetail,
     GroupView,
+    LeaderboardEntryRow,
+    PlayerDirectoryEntry,
     PoolSummary,
 } from '@/types/games';
 
@@ -41,6 +57,10 @@ interface GameShowProps {
     bracket: BracketPhase[];
     pool: PoolSummary;
     boardSummaries: BoardSummary[];
+    /** Every entry in the pool, for the "Add player" comparison picker. */
+    players: PlayerDirectoryEntry[];
+    /** The head-to-head payload when the page is in compare mode (a ?compare= list); else null. */
+    comparison: Comparison | null;
 }
 
 /**
@@ -75,10 +95,14 @@ function DashboardBanner({
     game,
     pool,
     isAdmin,
+    canCompare,
+    onCompare,
 }: {
     game: GameDetail;
     pool: PoolSummary;
     isAdmin: boolean;
+    canCompare: boolean;
+    onCompare: () => void;
 }) {
     const dates = game.starts_on
         ? game.ends_on
@@ -141,6 +165,16 @@ function DashboardBanner({
                                 : 'Make your predictions'}
                         </Link>
                     </Button>
+                    {canCompare && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={onCompare}
+                        >
+                            <GitCompare className="size-4" />
+                            Compare players
+                        </Button>
+                    )}
                     {game.can_review_scores && (
                         <Button asChild variant="outline">
                             <Link href={games.scores.review(game.slug)}>
@@ -163,7 +197,84 @@ function DashboardBanner({
     );
 }
 
-function PoolPreview({ game, pool }: { game: GameDetail; pool: PoolSummary }) {
+/** A selectable Overall row shown while choosing players to compare (the normal row's sibling). */
+function SelectableRow({
+    row,
+    selected,
+    disabled,
+    onToggle,
+}: {
+    row: LeaderboardEntryRow;
+    selected: boolean;
+    disabled: boolean;
+    onToggle: (entryId: number) => void;
+}) {
+    return (
+        <div
+            className={cn(
+                'flex items-center gap-3 border-b border-border px-4 py-3 last:border-0 sm:px-5',
+                selected && 'bg-primary/[0.06]',
+            )}
+        >
+            <span className="w-6 text-center font-display font-semibold text-muted-foreground tabular-nums">
+                {row.rank}
+            </span>
+            <span className="bg-brand-gradient grid size-9 shrink-0 place-items-center rounded-full font-display text-sm font-semibold text-white">
+                {row.initials}
+            </span>
+            <span className="min-w-0 flex-1 truncate font-display font-semibold">
+                {row.name}
+            </span>
+            <span className="font-display text-sm font-semibold text-muted-foreground tabular-nums">
+                {row.points ?? '—'}
+            </span>
+            {row.is_me ? (
+                <span className="px-2 text-xs font-semibold text-muted-foreground">
+                    You
+                </span>
+            ) : (
+                <button
+                    type="button"
+                    onClick={() => onToggle(row.entry_id)}
+                    disabled={disabled}
+                    aria-pressed={selected}
+                    aria-label={
+                        selected
+                            ? `Remove ${row.name} from the comparison`
+                            : `Add ${row.name} to the comparison`
+                    }
+                    className={cn(
+                        'grid size-8 shrink-0 cursor-pointer place-items-center rounded-full border transition-colors',
+                        selected
+                            ? 'border-primary bg-primary text-white'
+                            : 'border-border hover:border-primary',
+                        disabled && 'cursor-not-allowed opacity-40',
+                    )}
+                >
+                    {selected ? (
+                        <Check className="size-4" />
+                    ) : (
+                        <Plus className="size-4" />
+                    )}
+                </button>
+            )}
+        </div>
+    );
+}
+
+function PoolPreview({
+    game,
+    pool,
+    selecting,
+    selectedIds,
+    onToggle,
+}: {
+    game: GameDetail;
+    pool: PoolSummary;
+    selecting: boolean;
+    selectedIds: number[];
+    onToggle: (entryId: number) => void;
+}) {
     if (pool.top.length === 0) {
         return null;
     }
@@ -172,36 +283,55 @@ function PoolPreview({ game, pool }: { game: GameDetail; pool: PoolSummary }) {
     // they stand on the Overall board.
     const pinnedMe =
         pool.me && !pool.top.some((row) => row.is_me) ? pool.me : null;
+    const atLimit = selectedIds.length >= COMPARE_LIMIT;
 
     return (
         <section className="flex flex-col gap-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
                 <h2 className="font-display text-xl font-semibold tracking-tight">
                     Overall
                 </h2>
-                <Link
-                    href={games.leaderboard(game.slug)}
-                    className="inline-flex items-center gap-1 font-display text-sm font-semibold text-primary transition-all hover:gap-2"
-                >
-                    See all leaderboards
-                    <ArrowRight className="size-4" />
-                </Link>
+                {selecting ? (
+                    <span className="font-display text-sm font-semibold text-muted-foreground">
+                        Tap <Plus className="inline size-3.5" /> to add a player
+                    </span>
+                ) : (
+                    <Link
+                        href={games.leaderboard(game.slug)}
+                        className="inline-flex items-center gap-1 font-display text-sm font-semibold text-primary transition-all hover:gap-2"
+                    >
+                        See all leaderboards
+                        <ArrowRight className="size-4" />
+                    </Link>
+                )}
             </div>
             <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--sh-sm)]">
-                {pool.top.map((row) => (
-                    <LeaderboardRow
-                        key={row.rank}
-                        entry={{
-                            rank: row.rank,
-                            name: row.name,
-                            initials: row.initials,
-                            primary: row.points,
-                            isMe: row.is_me,
-                            movement: row.movement,
-                        }}
-                    />
-                ))}
-                {pinnedMe && (
+                {selecting
+                    ? pool.top.map((row) => (
+                          <SelectableRow
+                              key={row.rank}
+                              row={row}
+                              selected={selectedIds.includes(row.entry_id)}
+                              disabled={
+                                  atLimit && !selectedIds.includes(row.entry_id)
+                              }
+                              onToggle={onToggle}
+                          />
+                      ))
+                    : pool.top.map((row) => (
+                          <LeaderboardRow
+                              key={row.rank}
+                              entry={{
+                                  rank: row.rank,
+                                  name: row.name,
+                                  initials: row.initials,
+                                  primary: row.points,
+                                  isMe: row.is_me,
+                                  movement: row.movement,
+                              }}
+                          />
+                      ))}
+                {!selecting && pinnedMe && (
                     <>
                         <div className="border-t border-dashed border-border bg-muted/30 px-4 py-1 text-center text-[10px] font-bold tracking-[0.12em] text-muted-foreground uppercase">
                             You
@@ -322,9 +452,12 @@ function metaLine(count: number, prefix: string, range: string | null): string {
 function FixturesView({
     groups,
     bracket,
+    comparison,
 }: {
     groups: GroupView[];
     bracket: BracketPhase[];
+    /** When set, each fixture renders a per-player comparison instead of the viewer's own card. */
+    comparison: Comparison | null;
 }) {
     const tz = useDisplayTimeZone();
     const groupMatches = groups.reduce((n, g) => n + g.fixtures.length, 0);
@@ -353,6 +486,7 @@ function FixturesView({
     ];
 
     const [active, setActive] = useState('gs');
+    const players = comparison?.players ?? [];
 
     return (
         <section className="flex flex-col gap-6">
@@ -369,16 +503,29 @@ function FixturesView({
                         )}
                     />
                     <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
-                        {groups.map((group) => (
-                            <GroupFixtureCard
-                                key={group.name}
-                                name={group.name}
-                                teams={group.teams}
-                                fixtures={group.fixtures}
-                                standings={group.standings}
-                                predictedStandings={group.predicted_standings}
-                            />
-                        ))}
+                        {groups.map((group) =>
+                            comparison ? (
+                                <CompareGroupCard
+                                    key={group.name}
+                                    group={group}
+                                    players={players}
+                                    windowStatus={
+                                        comparison.windows.group ?? 'pending'
+                                    }
+                                />
+                            ) : (
+                                <GroupFixtureCard
+                                    key={group.name}
+                                    name={group.name}
+                                    teams={group.teams}
+                                    fixtures={group.fixtures}
+                                    standings={group.standings}
+                                    predictedStandings={
+                                        group.predicted_standings
+                                    }
+                                />
+                            ),
+                        )}
                     </div>
                 </div>
             )}
@@ -396,12 +543,25 @@ function FixturesView({
                                 )}
                             />
                             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                                {phase.fixtures.map((fixture) => (
-                                    <KnockoutSlotCard
-                                        key={fixture.match_number}
-                                        fixture={fixture}
-                                    />
-                                ))}
+                                {phase.fixtures.map((fixture) =>
+                                    comparison ? (
+                                        <CompareKnockoutCard
+                                            key={fixture.match_number}
+                                            fixture={fixture}
+                                            players={players}
+                                            windowStatus={
+                                                comparison.windows[
+                                                    phase.phase_key
+                                                ] ?? 'pending'
+                                            }
+                                        />
+                                    ) : (
+                                        <KnockoutSlotCard
+                                            key={fixture.match_number}
+                                            fixture={fixture}
+                                        />
+                                    ),
+                                )}
                             </div>
                         </div>
                     ),
@@ -418,18 +578,43 @@ function FixturesView({
                         )}
                     />
                     <div className="flex flex-col gap-4">
-                        {finalPhase?.fixtures.map((fixture) => (
-                            <FinalCard
-                                key={fixture.match_number}
-                                fixture={fixture}
-                            />
-                        ))}
+                        {finalPhase?.fixtures.map((fixture) =>
+                            comparison ? (
+                                <CompareFinalCard
+                                    key={fixture.match_number}
+                                    fixture={fixture}
+                                    players={players}
+                                    windowStatus={
+                                        comparison.windows[
+                                            finalPhase.phase_key
+                                        ] ?? 'pending'
+                                    }
+                                />
+                            ) : (
+                                <FinalCard
+                                    key={fixture.match_number}
+                                    fixture={fixture}
+                                />
+                            ),
+                        )}
                         {thirdPhase?.fixtures.map((fixture) => (
                             <div
                                 key={fixture.match_number}
                                 className="mx-auto w-full max-w-xl"
                             >
-                                <KnockoutSlotCard fixture={fixture} />
+                                {comparison ? (
+                                    <CompareKnockoutCard
+                                        fixture={fixture}
+                                        players={players}
+                                        windowStatus={
+                                            comparison.windows[
+                                                thirdPhase.phase_key
+                                            ] ?? 'pending'
+                                        }
+                                    />
+                                ) : (
+                                    <KnockoutSlotCard fixture={fixture} />
+                                )}
                             </div>
                         ))}
                     </div>
@@ -445,8 +630,88 @@ export default function GameShow({
     bracket,
     pool,
     boardSummaries,
+    players,
+    comparison,
 }: GameShowProps) {
     const { auth } = usePage().props;
+
+    const [selecting, setSelecting] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<number[]>([]);
+    const [pickerOpen, setPickerOpen] = useState(false);
+
+    // URL-driven: compare mode is on when the server sent a comparison; selection is a transient
+    // local step that takes precedence so the picker UI replaces the head-to-head while editing.
+    const compareActive = comparison !== null && !selecting;
+
+    const opponentIds = (): number[] =>
+        (comparison?.players ?? [])
+            .filter((player) => !player.is_viewer && player.entry_id != null)
+            .map((player) => player.entry_id as number);
+
+    const applyCompare = (ids: number[], onSuccess?: () => void) => {
+        // reload already preserves scroll + local state; we only swap the comparison prop. Replace
+        // the history entry when adjusting an existing comparison so Back doesn't step through every
+        // tweak; the first entry into compare mode stays a push, so Back leaves compare cleanly.
+        router.reload({
+            only: ['comparison'],
+            data: { compare: ids.join(',') },
+            replace: comparison !== null,
+            onSuccess,
+        });
+    };
+
+    const startSelecting = () => {
+        setSelectedIds(opponentIds());
+        setSelecting(true);
+    };
+
+    const toggleSelect = (entryId: number) => {
+        setSelectedIds((prev) =>
+            prev.includes(entryId)
+                ? prev.filter((id) => id !== entryId)
+                : prev.length >= COMPARE_LIMIT
+                  ? prev
+                  : [...prev, entryId],
+        );
+    };
+
+    const confirmSelection = () => {
+        // Keep the selection UI up until the comparison lands, so the page doesn't flash normal mode.
+        applyCompare(selectedIds, () => {
+            setPickerOpen(false);
+            setSelecting(false);
+        });
+    };
+
+    const cancelSelection = () => {
+        setPickerOpen(false);
+        setSelecting(false);
+    };
+
+    const exitCompare = () => {
+        // preserveState keeps the mounted FixturesView (and so its active phase tab) and scroll
+        // position; only the comparison prop clears. replace keeps Back out of compare history.
+        router.visit(games.show(game.slug).url, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+        });
+    };
+
+    const addFromCompare = () => {
+        startSelecting();
+        setPickerOpen(true);
+    };
+
+    const removeLane = (entryId: number) => {
+        const next = opponentIds().filter((id) => id !== entryId);
+
+        if (next.length === 0) {
+            exitCompare();
+        } else {
+            applyCompare(next);
+        }
+    };
 
     return (
         <>
@@ -456,16 +721,72 @@ export default function GameShow({
                     game={game}
                     pool={pool}
                     isAdmin={auth.isAdmin}
+                    canCompare={
+                        !compareActive && !selecting && pool.participants > 1
+                    }
+                    onCompare={startSelecting}
                 />
 
-                <PoolPreview game={game} pool={pool} />
+                {compareActive ? (
+                    <CompareStrip
+                        players={comparison.players}
+                        windows={comparison.windows}
+                        boards={game.leaderboards}
+                        onRemove={removeLane}
+                    />
+                ) : (
+                    <PoolPreview
+                        game={game}
+                        pool={pool}
+                        selecting={selecting}
+                        selectedIds={selectedIds}
+                        onToggle={toggleSelect}
+                    />
+                )}
 
-                {pool.has_scores && (
+                {!compareActive && !selecting && pool.has_scores && (
                     <BoardSummaries game={game} summaries={boardSummaries} />
                 )}
 
-                <FixturesView groups={groups} bracket={bracket} />
+                <FixturesView
+                    groups={groups}
+                    bracket={bracket}
+                    comparison={compareActive ? comparison : null}
+                />
             </div>
+
+            {selecting && (
+                <CompareDock
+                    mode="selecting"
+                    directory={players}
+                    selectedIds={selectedIds}
+                    limit={COMPARE_LIMIT}
+                    onRemove={toggleSelect}
+                    onOpenPicker={() => setPickerOpen(true)}
+                    onCancel={cancelSelection}
+                    onConfirm={confirmSelection}
+                />
+            )}
+
+            {compareActive && (
+                <CompareDock
+                    mode="comparing"
+                    playerCount={comparison.players.length}
+                    canAddMore={comparison.players.length - 1 < COMPARE_LIMIT}
+                    onAddPlayer={addFromCompare}
+                    onEdit={startSelecting}
+                    onExit={exitCompare}
+                />
+            )}
+
+            <AddPlayerDialog
+                open={pickerOpen && selecting}
+                onOpenChange={setPickerOpen}
+                directory={players}
+                selectedIds={selectedIds}
+                onToggle={toggleSelect}
+                limit={COMPARE_LIMIT}
+            />
         </>
     );
 }
