@@ -32,6 +32,27 @@ trait ProfileValidationRules
     }
 
     /**
+     * Get the validation rules used to validate user phone numbers.
+     *
+     * Lenient and dependency-free: accepts Brazilian and international formats with common
+     * separators. Pass a $userId to ignore that record when checking uniqueness (e.g. updates).
+     *
+     * @return array<int, ValidationRule|array<mixed>|string>
+     */
+    protected function phoneRules(?int $userId = null): array
+    {
+        return [
+            'required',
+            'string',
+            'max:32',
+            'regex:/^\+?[0-9][0-9\s\-().]{7,}$/',
+            $userId === null
+                ? Rule::unique(User::class)
+                : Rule::unique(User::class)->ignore($userId),
+        ];
+    }
+
+    /**
      * Get the validation rules used to validate user emails.
      *
      * @return array<int, ValidationRule|array<mixed>|string>
