@@ -138,7 +138,7 @@ class SimulateTournament extends Command
 
         $predictOnly = (bool) $this->option('predict-only');
 
-        $this->closePredictions($tournament);
+        $this->clearPredictionsLockOverride($tournament);
 
         if ($tie !== null) {
             $this->stageUnresolvedTie($tournament, $primary, $tie);
@@ -459,12 +459,15 @@ class SimulateTournament extends Command
         ];
     }
 
-    private function closePredictions(Tournament $tournament): void
+    /**
+     * Clear any explicit predictions_lock_at override so the schedule-derived group-stage lock
+     * ({@see Game::predictionsLockAt()}) governs the window relative to the simulated clock: closed
+     * once the clock is advanced past the first kickoff, open while simulating a pre-kickoff state.
+     * Writing null every run also self-heals stale overrides left by older versions of this command.
+     */
+    private function clearPredictionsLockOverride(Tournament $tournament): void
     {
-        // Force-close every game by writing the explicit predictions_lock_at override (which wins
-        // over the schedule-derived lock). The lifecycle status is derived from the fixtures, so it
-        // is synced separately once the simulated results are in place.
-        $tournament->games()->update(['predictions_lock_at' => now()->subDay()]);
+        $tournament->games()->update(['predictions_lock_at' => null]);
     }
 
     /**
