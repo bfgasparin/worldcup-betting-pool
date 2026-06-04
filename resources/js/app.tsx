@@ -15,6 +15,7 @@ createInertiaApp({
     layout: (name) => {
         switch (true) {
             case name === 'welcome':
+            case name === 'onboarding/wizard':
                 return null;
             case name === 'games/index':
                 return HubLayout;

@@ -26,8 +26,19 @@ class UserFactory extends Factory
             'email' => fake()->unique()->safeEmail(),
             'phone' => fake()->unique()->numerify('+5511########'),
             'email_verified_at' => now(),
+            'onboarded_at' => now(),
             'remember_token' => Str::random(10),
         ];
+    }
+
+    /**
+     * Indicate that the user has not yet finished the first-login onboarding wizard.
+     */
+    public function notOnboarded(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'onboarded_at' => null,
+        ]);
     }
 
     /**

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureOnboarded;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Console\Scheduling\Schedule;
@@ -49,6 +50,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             HandleAppearance::class,
             HandleInertiaRequests::class,
+            EnsureOnboarded::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);
     })

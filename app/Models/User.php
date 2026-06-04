@@ -6,18 +6,28 @@ namespace App\Models;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Fortify\Contracts\PasskeyUser;
 use Laravel\Fortify\PasskeyAuthenticatable;
 
-#[Fillable(['name', 'email', 'phone'])]
+#[Fillable(['name', 'email', 'phone', 'avatar_path'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, PasskeyAuthenticatable;
+
+    /**
+     * The accessors to append to the model's array form.
+     *
+     * @var list<string>
+     */
+    protected $appends = ['avatar'];
 
     /**
      * Get the attributes that should be cast.
@@ -28,8 +38,45 @@ class User extends Authenticatable implements PasskeyUser
     {
         return [
             'email_verified_at' => 'datetime',
+            'onboarded_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * The public URL of the user's avatar, or null when none is set.
+     */
+    protected function avatar(): Attribute
+    {
+        return Attribute::get(fn (): ?string => $this->avatar_path
+            ? Storage::disk('public')->url($this->avatar_path)
+            : null);
+    }
+
+    /**
+     * Store a freshly uploaded avatar on the public disk, discarding any previous one.
+     */
+    public function storeAvatar(UploadedFile $file): void
+    {
+        $this->removeAvatar();
+
+        $this->update([
+            'avatar_path' => $file->store("avatars/{$this->id}", 'public'),
+        ]);
+    }
+
+    /**
+     * Delete the user's stored avatar file, if any, and clear the reference.
+     */
+    public function removeAvatar(): void
+    {
+        if (! $this->avatar_path) {
+            return;
+        }
+
+        Storage::disk('public')->delete($this->avatar_path);
+
+        $this->update(['avatar_path' => null]);
     }
 
     /**
@@ -38,5 +85,13 @@ class User extends Authenticatable implements PasskeyUser
     public function isAdmin(): bool
     {
         return in_array($this->email, config('admin.emails', []), true);
+    }
+
+    /**
+     * Whether the user has finished the first-login onboarding wizard.
+     */
+    public function isOnboarded(): bool
+    {
+        return $this->onboarded_at !== null;
     }
 }
