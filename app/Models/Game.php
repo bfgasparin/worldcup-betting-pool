@@ -51,8 +51,8 @@ class Game extends Model
     /**
      * The instant the group-stage prediction window closes. Defaults to the configured buffer
      * before the tournament's first group kickoff {@see Tournament::firstGroupKickoffAt()}; an
-     * explicit {@see $predictions_lock_at} override (e.g. set by the tournament simulator or an
-     * admin) wins verbatim and ignores the buffer. Null — no override and no scheduled kickoff —
+     * explicit {@see $predictions_lock_at} override (e.g. set by an admin) wins verbatim and
+     * ignores the buffer. Null — no override and no scheduled kickoff —
      * means the window is closed (fail closed). Memoised per instance: the derivation runs one
      * aggregate query and {@see acceptsPredictions()} is called repeatedly within a request.
      */

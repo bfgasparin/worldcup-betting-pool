@@ -59,8 +59,12 @@ class SimulateTournamentTest extends TestCase
             $this->assertNotNull($entry->rank);
         });
 
-        // Predictions are closed and the lifecycle reflects completion.
-        $this->assertTrue($this->game->fresh()->predictions_lock_at->isPast());
+        // No override is written; the schedule-derived lock governs, and with the simulated clock
+        // past the first kickoff the window is closed. The lifecycle reflects completion.
+        $this->assertNull($this->game->fresh()->predictions_lock_at);
+        $this->travelTo($this->tournament->firstGroupKickoffAt()->addDay(), function (): void {
+            $this->assertFalse($this->game->fresh()->acceptsPredictions());
+        });
         $this->assertSame(TournamentStatus::Completed, $this->tournament->fresh()->status);
 
         // Staged per-round snapshots leave a movement baseline.
@@ -161,10 +165,32 @@ class SimulateTournamentTest extends TestCase
         $this->assertSame(0, $this->tournament->fixtures()->where('status', FixtureStatus::Finished)->count());
         $this->assertDatabaseCount('score_batches', 0);
 
-        // Predictions are locked (independent of status); no match has kicked off, so the
+        // No override is written; the lock is schedule-derived. Predict-only doesn't advance the
+        // clock, so before the first kickoff the window is (correctly) still open — closure is
+        // driven by the clock passing the derived lock. No match has kicked off, so the
         // fixture-derived status is still Upcoming.
-        $this->assertTrue($this->game->fresh()->predictions_lock_at->isPast());
+        $this->assertNull($this->game->fresh()->predictions_lock_at);
+        $this->travelTo($this->tournament->firstGroupKickoffAt()->addDay(), function (): void {
+            $this->assertFalse($this->game->fresh()->acceptsPredictions());
+        });
         $this->assertSame(TournamentStatus::Upcoming, $this->tournament->fresh()->status);
+    }
+
+    public function test_it_clears_a_stale_predictions_lock_override(): void
+    {
+        // A far-future override left by an older command version (or a prior run anchored to a
+        // stale dev clock) would otherwise keep the window open against the derived schedule lock.
+        $this->game->update(['predictions_lock_at' => now()->addMonths(2)]);
+
+        $this->artisan('tournament:simulate', ['--players' => 1, '--through' => 'group'])
+            ->assertSuccessful();
+
+        // The override is cleared every run, so the schedule-derived lock governs.
+        $this->assertNull($this->game->fresh()->predictions_lock_at);
+
+        $this->travelTo($this->tournament->firstGroupKickoffAt()->addDay(), function (): void {
+            $this->assertFalse($this->game->fresh()->acceptsPredictions());
+        });
     }
 
     public function test_until_plays_results_only_up_to_a_date(): void
