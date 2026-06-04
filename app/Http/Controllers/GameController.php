@@ -254,6 +254,7 @@ class GameController extends Controller
                 ->values()
                 ->map(fn (Entry $entry, int $index): array => [
                     'rank' => $index + 1,
+                    'entry_id' => $entry->id,
                     'name' => $entry->user_id === $userId ? 'You' : ($entry->user->name ?? 'Player'),
                     'initials' => $this->initials($entry->user->name ?? ''),
                     'primary_value' => $entry->total_points,
@@ -272,6 +273,7 @@ class GameController extends Controller
                 ->values()
                 ->map(fn (array $pair, int $index): array => [
                     'rank' => $index + 1,
+                    'entry_id' => $pair['entry']->id,
                     'name' => $pair['entry']->user_id === $userId ? 'You' : ($pair['entry']->user->name ?? 'Player'),
                     'initials' => $this->initials($pair['entry']->user->name ?? ''),
                     'primary_value' => $pair['standing']?->value ?? 0,
@@ -326,11 +328,15 @@ class GameController extends Controller
                     'key' => $board['key'],
                     'label' => $board['label'],
                     'primary_stat_label' => $board['primary_stat_label'],
+                    // The leader carries its entry id + is_me so compare selection can add this
+                    // board's winner straight from the card.
                     'leader' => $board['has_scores'] && $board['rows'] !== []
                         ? [
+                            'entry_id' => $board['rows'][0]['entry_id'],
                             'name' => $board['rows'][0]['name'],
                             'initials' => $board['rows'][0]['initials'],
                             'primary_value' => $board['rows'][0]['primary_value'],
+                            'is_me' => $board['rows'][0]['is_me'],
                         ]
                         : null,
                     'you' => $mine === null ? null : [

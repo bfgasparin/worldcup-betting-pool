@@ -197,6 +197,48 @@ function DashboardBanner({
     );
 }
 
+/** The `+`/`✓` button for adding/removing a player from the comparison, shared across boards. */
+function AddToggle({
+    entryId,
+    name,
+    selected,
+    disabled,
+    onToggle,
+}: {
+    entryId: number;
+    name: string;
+    selected: boolean;
+    disabled: boolean;
+    onToggle: (entryId: number) => void;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={() => onToggle(entryId)}
+            disabled={disabled}
+            aria-pressed={selected}
+            aria-label={
+                selected
+                    ? `Remove ${name} from the comparison`
+                    : `Add ${name} to the comparison`
+            }
+            className={cn(
+                'grid size-8 shrink-0 cursor-pointer place-items-center rounded-full border transition-colors',
+                selected
+                    ? 'border-primary bg-primary text-white'
+                    : 'border-border hover:border-primary',
+                disabled && 'cursor-not-allowed opacity-40',
+            )}
+        >
+            {selected ? (
+                <Check className="size-4" />
+            ) : (
+                <Plus className="size-4" />
+            )}
+        </button>
+    );
+}
+
 /** A selectable Overall row shown while choosing players to compare (the normal row's sibling). */
 function SelectableRow({
     row,
@@ -233,30 +275,13 @@ function SelectableRow({
                     You
                 </span>
             ) : (
-                <button
-                    type="button"
-                    onClick={() => onToggle(row.entry_id)}
+                <AddToggle
+                    entryId={row.entry_id}
+                    name={row.name}
+                    selected={selected}
                     disabled={disabled}
-                    aria-pressed={selected}
-                    aria-label={
-                        selected
-                            ? `Remove ${row.name} from the comparison`
-                            : `Add ${row.name} to the comparison`
-                    }
-                    className={cn(
-                        'grid size-8 shrink-0 cursor-pointer place-items-center rounded-full border transition-colors',
-                        selected
-                            ? 'border-primary bg-primary text-white'
-                            : 'border-border hover:border-primary',
-                        disabled && 'cursor-not-allowed opacity-40',
-                    )}
-                >
-                    {selected ? (
-                        <Check className="size-4" />
-                    ) : (
-                        <Plus className="size-4" />
-                    )}
-                </button>
+                    onToggle={onToggle}
+                />
             )}
         </div>
     );
@@ -355,18 +380,30 @@ function PoolPreview({
 
 /**
  * A summary card per non-Overall board: the board's leader as the headline, with the viewer's own
- * position beneath. Shown once scoring has begun; each card deep-links to that board's tab.
+ * position beneath. Shown once scoring has begun. In normal mode each card deep-links to that
+ * board's tab; while choosing players to compare it stays put (no link) and the leader gains a `+`
+ * so its winner can be added straight from the card — the section no longer vanishes on selection.
  */
 function BoardSummaries({
     game,
     summaries,
+    selecting,
+    selectedIds,
+    onToggle,
 }: {
     game: GameDetail;
     summaries: BoardSummary[];
+    selecting: boolean;
+    selectedIds: number[];
+    onToggle: (entryId: number) => void;
 }) {
     if (summaries.length === 0) {
         return null;
     }
+
+    const atLimit = selectedIds.length >= COMPARE_LIMIT;
+    const cardClass =
+        'flex flex-col gap-2 rounded-2xl border border-border bg-card px-4 py-3 shadow-[var(--sh-sm)]';
 
     return (
         <section className="flex flex-col gap-3">
@@ -381,17 +418,15 @@ function BoardSummaries({
                             ? board.leader
                             : null;
 
-                    return (
-                        <Link
-                            key={board.key}
-                            href={`${games.leaderboard(game.slug).url}?board=${board.key}`}
-                            className="group flex flex-col gap-2 rounded-2xl border border-border bg-card px-4 py-3 shadow-[var(--sh-sm)] transition-colors hover:border-primary/40"
-                        >
+                    const body = (
+                        <>
                             <div className="flex items-center justify-between">
                                 <span className="text-[11px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
                                     {board.label}
                                 </span>
-                                <ArrowRight className="size-4 text-muted-foreground transition-all group-hover:translate-x-0.5 group-hover:text-primary" />
+                                {!selecting && (
+                                    <ArrowRight className="size-4 text-muted-foreground transition-all group-hover:translate-x-0.5 group-hover:text-primary" />
+                                )}
                             </div>
 
                             <div className="flex items-center justify-between gap-2">
@@ -409,12 +444,30 @@ function BoardSummaries({
                                         No leader yet
                                     </span>
                                 )}
-                                {leader && (
-                                    <span className="shrink-0 font-display text-sm font-semibold tabular-nums">
-                                        {leader.primary_value?.toLocaleString()}{' '}
-                                        {unit}
-                                    </span>
-                                )}
+                                <span className="flex shrink-0 items-center gap-2">
+                                    {leader && (
+                                        <span className="font-display text-sm font-semibold tabular-nums">
+                                            {leader.primary_value?.toLocaleString()}{' '}
+                                            {unit}
+                                        </span>
+                                    )}
+                                    {selecting && leader && !leader.is_me && (
+                                        <AddToggle
+                                            entryId={leader.entry_id}
+                                            name={leader.name}
+                                            selected={selectedIds.includes(
+                                                leader.entry_id,
+                                            )}
+                                            disabled={
+                                                atLimit &&
+                                                !selectedIds.includes(
+                                                    leader.entry_id,
+                                                )
+                                            }
+                                            onToggle={onToggle}
+                                        />
+                                    )}
+                                </span>
                             </div>
 
                             <div className="flex items-center justify-between gap-2 border-t border-border pt-2 text-xs font-medium text-muted-foreground">
@@ -434,6 +487,23 @@ function BoardSummaries({
                                     </span>
                                 )}
                             </div>
+                        </>
+                    );
+
+                    return selecting ? (
+                        <div key={board.key} className={cardClass}>
+                            {body}
+                        </div>
+                    ) : (
+                        <Link
+                            key={board.key}
+                            href={`${games.leaderboard(game.slug).url}?board=${board.key}`}
+                            className={cn(
+                                'group transition-colors hover:border-primary/40',
+                                cardClass,
+                            )}
+                        >
+                            {body}
                         </Link>
                     );
                 })}
@@ -744,8 +814,14 @@ export default function GameShow({
                     />
                 )}
 
-                {!compareActive && !selecting && pool.has_scores && (
-                    <BoardSummaries game={game} summaries={boardSummaries} />
+                {!compareActive && pool.has_scores && (
+                    <BoardSummaries
+                        game={game}
+                        summaries={boardSummaries}
+                        selecting={selecting}
+                        selectedIds={selectedIds}
+                        onToggle={toggleSelect}
+                    />
                 )}
 
                 <FixturesView

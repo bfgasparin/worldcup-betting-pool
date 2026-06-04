@@ -204,6 +204,8 @@ export interface PoolSummary {
 /** A ranked row on any of the full leaderboards (Leaderboards page). */
 export interface BoardRow {
     rank: number;
+    /** The entry behind this row, so it can be added to a player comparison. */
+    entry_id: number;
     name: string;
     initials: string;
     /** The board's headline value; null renders as "—" and suppresses podium styling. */
@@ -230,9 +232,12 @@ export interface BoardSummary {
     label: string;
     primary_stat_label: string;
     leader: {
+        /** The entry behind the leader, so it can be added to a comparison from the card. */
+        entry_id: number;
         name: string;
         initials: string;
         primary_value: number | null;
+        is_me: boolean;
     } | null;
     you: {
         rank: number;
