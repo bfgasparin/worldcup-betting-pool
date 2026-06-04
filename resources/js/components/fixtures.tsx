@@ -110,7 +110,7 @@ export function TeamChip({ team }: { team: GroupTeam | TeamRef }) {
     return (
         <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-bold text-foreground">
             <Flag team={team} className="h-3.5 w-5" />
-            {team.code ?? team.name}
+            {team.name}
         </span>
     );
 }
