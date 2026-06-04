@@ -20,6 +20,7 @@ export function Flag({
         <img
             src={source}
             alt={team ? `${team.name} flag` : ''}
+            title={team ? team.name : undefined}
             loading="lazy"
             onError={(event) => {
                 const image = event.currentTarget;

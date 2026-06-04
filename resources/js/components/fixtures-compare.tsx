@@ -34,7 +34,7 @@ function code(team: TeamRef | null): string {
 }
 
 function slotLabel(team: TeamRef | null, label: string | null): string {
-    return team ? (team.code ?? team.name) : (label ?? 'TBD');
+    return team ? (team.name ?? team.code ?? 'TBD') : (label ?? 'TBD');
 }
 
 function venueLabel(venue: string): string {
