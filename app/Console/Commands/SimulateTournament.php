@@ -7,9 +7,12 @@ use App\Enums\FixtureStatus;
 use App\Enums\PhaseKey;
 use App\Enums\ProposalStatus;
 use App\Models\Entry;
+use App\Models\EntryGroupOrdering;
 use App\Models\Fixture;
 use App\Models\Game;
 use App\Models\GroupPrediction;
+use App\Models\KnockoutPrediction;
+use App\Models\LeaderboardStanding;
 use App\Models\Phase;
 use App\Models\ScoreProposal;
 use App\Models\Tournament;
@@ -42,6 +45,15 @@ class SimulateTournament extends Command
 {
     private DeterministicScores $scores;
 
+    /**
+     * Each game's demo entries paired with their prediction seed index, keyed by game id. Built up
+     * front so {@see playResults()} can fill a phased game's per-round knockout picks as the official
+     * participants are projected.
+     *
+     * @var array<int, Collection<int, array{0: Entry, 1: int}>>
+     */
+    private array $rosterByGame = [];
+
     public function handle(
         BracketResolver $resolver,
         OfficialBracketProjector $projector,
@@ -58,14 +70,18 @@ class SimulateTournament extends Command
         }
 
         // The competition holds the structure and official results; entries and scoring belong to
-        // a game played over it. Simulate the first game (one is seeded today).
-        $game = $tournament->games()->first();
+        // the games played over it. Simulate every game (e.g. the upfront- and phased-bracket pools)
+        // so each gets its own players, predictions and scored board.
+        $tournament->load('games');
+        $games = $tournament->games;
 
-        if ($game === null) {
+        if ($games->isEmpty()) {
             $this->components->error("Tournament [{$this->argument('slug')}] has no game to simulate. Run `php artisan db:seed` first.");
 
             return self::FAILURE;
         }
+
+        $primary = $games->first();
 
         $through = PhaseKey::tryFrom((string) $this->option('through'));
 
@@ -94,28 +110,38 @@ class SimulateTournament extends Command
             $this->components->info('Cleared previous results and scoring.');
         }
 
-        $entries = $this->ensurePlayers($game);
-        $this->components->info("{$entries->count()} players ready; generating predictions…");
+        foreach ($games as $game) {
+            $entries = $this->ensurePlayers($game);
+            $this->rosterByGame[$game->id] = $entries;
 
-        foreach ($entries as [$entry, $seedIndex]) {
-            // Respect predictions already made in the UI (e.g. your own); only fill empties.
-            if ($entry->groupPredictions()->exists()) {
-                continue;
+            foreach ($entries as [$entry, $seedIndex]) {
+                // Respect predictions already made in the UI (e.g. your own); only fill empties.
+                if ($entry->groupPredictions()->exists()) {
+                    continue;
+                }
+
+                $this->generateGroupPredictions($tournament, $entry, $seedIndex);
+
+                // Upfront games derive the whole bracket from group picks now. Phased games leave the
+                // knockout rounds to be predicted against the official teams as they are projected
+                // (see playResults), so there is nothing to resolve up front for them.
+                if ($game->predictsKnockoutBracket()) {
+                    // No human to break ties in a simulation: fall back to the deterministic default
+                    // order so the self-derived bracket resolves fully before knockout picks.
+                    $defaultTieOrdering->applyToEntry($entry);
+                    $this->generateKnockoutPredictions($tournament, $entry, $seedIndex, $resolver);
+                }
             }
-
-            $this->generateGroupPredictions($tournament, $entry, $seedIndex);
-            // No human to break ties in a simulation: fall back to the deterministic default order
-            // so the self-derived bracket resolves fully before knockout picks are generated.
-            $defaultTieOrdering->applyToEntry($entry);
-            $this->generateKnockoutPredictions($tournament, $entry, $seedIndex, $resolver);
         }
+
+        $this->components->info('Players ready; predictions generated.');
 
         $predictOnly = (bool) $this->option('predict-only');
 
         $this->closePredictions($tournament);
 
         if ($tie !== null) {
-            $this->stageUnresolvedTie($tournament, $game, $tie);
+            $this->stageUnresolvedTie($tournament, $primary, $tie);
             $tournament->syncStatus();
 
             return self::SUCCESS;
@@ -127,12 +153,24 @@ class SimulateTournament extends Command
 
         if ($until !== null) {
             $this->advanceTo($tournament, $until);
+        } elseif (! $predictOnly) {
+            // Move the simulated clock just past the matches we played, so the world is coherent and
+            // the phased game's per-round knockout windows lock — otherwise compare would hide other
+            // players' knockout picks behind the "reveals after lock" gate.
+            $lastKickoff = $tournament->fixtures()->whereNotNull('home_goals')->max('kicks_off_at');
+
+            if ($lastKickoff !== null) {
+                $this->advanceTo(
+                    $tournament,
+                    CarbonImmutable::parse($lastKickoff, 'UTC')->addMinutes((int) config('scoring.match_duration_minutes') + 1),
+                );
+            }
         }
 
         // The simulated results are in place; derive the lifecycle status from the fixtures.
         $tournament->syncStatus();
 
-        $this->summarise($game, $through, $predictOnly, $until);
+        $this->summarise($games, $through, $predictOnly, $until);
 
         return self::SUCCESS;
     }
@@ -210,8 +248,11 @@ class SimulateTournament extends Command
     }
 
     /**
-     * Reset the tournament to an unplayed state: clear official results, projected knockout
-     * participants, computed totals/ranks, and any score batches.
+     * Reset the tournament to a fully unplayed state: clear official results, projected knockout
+     * participants, every game's predictions, tie orderings, leaderboard standings and computed
+     * totals/ranks, and any score batches. Clearing the predictions (not just results) is what lets
+     * a re-run regenerate them — otherwise the generators skip entries that already have picks, so a
+     * changed generation rule (e.g. injecting drawn knockout scores) would never take effect.
      */
     private function reset(Tournament $tournament): void
     {
@@ -228,6 +269,13 @@ class SimulateTournament extends Command
             ->update(['home_team_id' => null, 'away_team_id' => null]);
 
         foreach ($tournament->games as $game) {
+            $entryIds = $game->entries()->pluck('id');
+
+            GroupPrediction::whereIn('entry_id', $entryIds)->delete();
+            KnockoutPrediction::whereIn('entry_id', $entryIds)->delete();
+            EntryGroupOrdering::whereIn('entry_id', $entryIds)->delete();
+            LeaderboardStanding::whereIn('entry_id', $entryIds)->delete();
+
             $game->entries()->update([
                 'total_points' => null,
                 'rank' => null,
@@ -312,16 +360,17 @@ class SimulateTournament extends Command
                 }
 
                 $matchNumber = (int) $matchNumbers[$prediction->fixture_id];
-                $pickHome = $this->noise($seedIndex, $matchNumber, 'kp') < 0.5;
-                $winnerGoals = 1 + (int) floor($this->noise($seedIndex, $matchNumber, 'kwg') * 3);
-                $loserGoals = (int) floor($this->noise($seedIndex, $matchNumber, 'klg') * $winnerGoals);
+                $pick = $this->knockoutPick(
+                    $seedIndex,
+                    $matchNumber,
+                    (int) $prediction->predicted_home_team_id,
+                    (int) $prediction->predicted_away_team_id,
+                );
 
                 $prediction->update([
-                    'advancing_team_id' => $pickHome
-                        ? $prediction->predicted_home_team_id
-                        : $prediction->predicted_away_team_id,
-                    'home_goals' => $pickHome ? $winnerGoals : $loserGoals,
-                    'away_goals' => $pickHome ? $loserGoals : $winnerGoals,
+                    'advancing_team_id' => $pick['advancingId'],
+                    'home_goals' => $pick['homeGoals'],
+                    'away_goals' => $pick['awayGoals'],
                 ]);
 
                 $progressed = true;
@@ -333,6 +382,81 @@ class SimulateTournament extends Command
                 break;
             }
         }
+    }
+
+    /**
+     * Fill a phased game's knockout picks for one round, against the official participants the
+     * projector has resolved so far. Unlike the upfront bracket there is no cascade: each round is
+     * predicted directly against the real teams once they are known (the app-side analogue of the
+     * phased save path, which snapshots the official teams onto the prediction). Fixtures the entry
+     * has already predicted are left untouched.
+     */
+    private function generatePhasedKnockoutPredictions(Phase $phase, Game $game): void
+    {
+        $fixtures = $phase->fixtures()
+            ->whereNotNull('home_team_id')
+            ->whereNotNull('away_team_id')
+            ->get();
+
+        if ($fixtures->isEmpty()) {
+            return;
+        }
+
+        foreach ($this->rosterByGame[$game->id] ?? [] as [$entry, $seedIndex]) {
+            foreach ($fixtures as $fixture) {
+                if ($entry->knockoutPredictions()->where('fixture_id', $fixture->id)->exists()) {
+                    continue;
+                }
+
+                $matchNumber = (int) $fixture->match_number;
+                $pick = $this->knockoutPick(
+                    $seedIndex,
+                    $matchNumber,
+                    (int) $fixture->home_team_id,
+                    (int) $fixture->away_team_id,
+                );
+
+                $entry->knockoutPredictions()->create([
+                    'fixture_id' => $fixture->id,
+                    'predicted_home_team_id' => $fixture->home_team_id,
+                    'predicted_away_team_id' => $fixture->away_team_id,
+                    'advancing_team_id' => $pick['advancingId'],
+                    'home_goals' => $pick['homeGoals'],
+                    'away_goals' => $pick['awayGoals'],
+                ]);
+            }
+        }
+    }
+
+    /**
+     * A deterministic knockout pick: who the player sends through, plus a scoreline that is a level
+     * draw — decided on penalties — on roughly a third of matches, with the rest decisive. The
+     * advancing pick is always set (the player still calls who goes through on a draw), so drawn-
+     * knockout features get exercised: penalty advancement, the "advances" chip, drawn-score
+     * scoring. Non-draw matches reuse the existing 'kwg'/'klg' noise so seeds stay reproducible.
+     *
+     * @return array{advancingId: int, homeGoals: int, awayGoals: int}
+     */
+    private function knockoutPick(int $seedIndex, int $matchNumber, int $homeTeamId, int $awayTeamId): array
+    {
+        $pickHome = $this->noise($seedIndex, $matchNumber, 'kp') < 0.5;
+        $advancingId = $pickHome ? $homeTeamId : $awayTeamId;
+
+        if ($this->noise($seedIndex, $matchNumber, 'kdraw') < 0.3) {
+            // Level after regulation — the player still calls who advances on penalties.
+            $level = (int) floor($this->noise($seedIndex, $matchNumber, 'kdg') * 3); // 0–2
+
+            return ['advancingId' => $advancingId, 'homeGoals' => $level, 'awayGoals' => $level];
+        }
+
+        $winnerGoals = 1 + (int) floor($this->noise($seedIndex, $matchNumber, 'kwg') * 3);
+        $loserGoals = (int) floor($this->noise($seedIndex, $matchNumber, 'klg') * $winnerGoals);
+
+        return [
+            'advancingId' => $advancingId,
+            'homeGoals' => $pickHome ? $winnerGoals : $loserGoals,
+            'awayGoals' => $pickHome ? $loserGoals : $winnerGoals,
+        ];
     }
 
     private function closePredictions(Tournament $tournament): void
@@ -364,6 +488,14 @@ class SimulateTournament extends Command
                 // the official bracket projects fully.
                 $defaultTieOrdering->applyToTournament($tournament);
             } else {
+                // Phased games predict this round now its official participants are known (projected
+                // after the previous phase), before its results are filled and scored below.
+                foreach ($tournament->games as $game) {
+                    if ($game->usesPhasedPredictionWindows()) {
+                        $this->generatePhasedKnockoutPredictions($phase, $game);
+                    }
+                }
+
                 $this->fillKnockoutResults($phase, $until);
             }
 
@@ -482,47 +614,56 @@ class SimulateTournament extends Command
         }
     }
 
-    private function summarise(Game $game, PhaseKey $through, bool $predictOnly = false, ?CarbonImmutable $until = null): void
+    /**
+     * @param  Collection<int, Game>  $games
+     */
+    private function summarise(Collection $games, PhaseKey $through, bool $predictOnly = false, ?CarbonImmutable $until = null): void
     {
-        if ($predictOnly) {
-            $players = $game->entries()->count();
+        foreach ($games as $game) {
             $this->newLine();
-            $this->components->info("Set up {$players} players with predictions for {$game->name} — no results filled.");
 
-            if ($until !== null) {
-                $this->components->info("Clock moved to {$until->toDayDateTimeString()} UTC; matches finished by then are awaiting scores. Run `php artisan scores:fetch` (set SCORING_SIMULATED_PROVIDER=true) or use the review screen to enter them.");
-            } else {
-                $this->components->info('Advance time and let results land: `php artisan dev:clock --travel="2026-06-11 12:00"`, then `fixtures:tick` + `scores:fetch` as the clock moves (set SCORING_SIMULATED_PROVIDER=true to have the fetch propose).');
+            // Sibling games share the "World Cup 2026" name, so lead with the source to tell them apart.
+            if ($predictOnly) {
+                $this->components->info("{$game->source}: set up {$game->entries()->count()} players with predictions — no results filled.");
+
+                continue;
             }
 
-            $this->components->info("Log in at /login as {$this->option('me')} — the 6-digit code is written to the log (`php artisan pail`).");
+            $this->components->info($until !== null
+                ? "{$game->source}: simulated up to {$until->toDayDateTimeString()} UTC."
+                : "{$game->source}: simulated through the {$through->value} phase.");
 
-            return;
+            $top = $game->entries()
+                ->with('user')
+                ->orderByRaw('total_points IS NULL, total_points DESC, id')
+                ->limit(5)
+                ->get();
+
+            $this->table(
+                ['Rank', 'Player', 'Points', 'Move'],
+                $top->map(fn (Entry $entry): array => [
+                    $entry->rank ?? '—',
+                    $entry->user->name ?? 'Player',
+                    $entry->total_points ?? '—',
+                    $this->movementArrow($entry),
+                ])->all(),
+            );
         }
 
-        $top = $game->entries()
-            ->with('user')
-            ->orderByRaw('total_points IS NULL, total_points DESC, id')
-            ->limit(5)
-            ->get();
-
+        $me = (string) $this->option('me');
         $this->newLine();
-        $this->components->info($until !== null
-            ? "Simulated {$game->name} up to {$until->toDayDateTimeString()} UTC."
-            : "Simulated {$game->name} through the {$through->value} phase.");
 
-        $this->table(
-            ['Rank', 'Player', 'Points', 'Move'],
-            $top->map(fn (Entry $entry): array => [
-                $entry->rank ?? '—',
-                $entry->user->name ?? 'Player',
-                $entry->total_points ?? '—',
-                $this->movementArrow($entry),
-            ])->all(),
-        );
+        if ($predictOnly) {
+            $this->components->info($until !== null
+                ? "Clock moved to {$until->toDayDateTimeString()} UTC; matches finished by then are awaiting scores. Run `php artisan scores:fetch` (set SCORING_SIMULATED_PROVIDER=true) or use the review screen to enter them."
+                : 'Advance time and let results land: `php artisan dev:clock --travel="2026-06-11 12:00"`, then `fixtures:tick` + `scores:fetch` as the clock moves (set SCORING_SIMULATED_PROVIDER=true to have the fetch propose).');
+        } else {
+            $this->components->info('View it: run `composer dev`, then open a game — settled cards + points, the pool table (rank arrows), and "Compare players" on the pool.');
+        }
 
-        $this->components->info('View it: run `composer dev`, then open the tournament page (settled cards + points) and the pool table (rank arrows).');
-        $this->components->info("Log in at /login as {$this->option('me')} — the 6-digit code is written to the log (`php artisan pail`).");
+        if ($me !== '') {
+            $this->components->info("Log in at /login as {$me} — the 6-digit code is written to the log (`php artisan pail`).");
+        }
     }
 
     private function movementArrow(Entry $entry): string
