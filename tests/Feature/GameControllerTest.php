@@ -491,6 +491,10 @@ class GameControllerTest extends TestCase
                 ->where('boardSummaries.0.key', 'match-winners')
                 ->where('boardSummaries.0.leader.name', 'Caller')
                 ->where('boardSummaries.0.leader.primary_value', 12)
+                // The leader carries its entry id + is_me so compare selection can add this board's
+                // winner straight from the card.
+                ->where('boardSummaries.0.leader.entry_id', $leader->id)
+                ->where('boardSummaries.0.leader.is_me', false)
                 ->where('boardSummaries.0.you.rank', 2)
                 ->where('boardSummaries.0.you.primary_value', 3)
             );

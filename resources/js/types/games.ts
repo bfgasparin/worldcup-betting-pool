@@ -84,6 +84,7 @@ export interface ScheduleFixtureRow {
 }
 
 export interface GroupFixture {
+    fixture_id: number;
     match_number: number;
     home: TeamRef | null;
     away: TeamRef | null;
@@ -115,6 +116,7 @@ export interface GroupView {
 }
 
 export interface BracketFixture {
+    fixture_id: number;
     match_number: number;
     bracket_slot: string | null;
     home: TeamRef | null;
@@ -183,6 +185,8 @@ export type LeaderboardCategoryKey =
 /** A ranked row on the Overall pool preview (game page hero). */
 export interface LeaderboardEntryRow {
     rank: number;
+    /** The entry behind this row, so it can be added to a player comparison. */
+    entry_id: number;
     name: string;
     initials: string;
     points: number | null;
@@ -200,6 +204,8 @@ export interface PoolSummary {
 /** A ranked row on any of the full leaderboards (Leaderboards page). */
 export interface BoardRow {
     rank: number;
+    /** The entry behind this row, so it can be added to a player comparison. */
+    entry_id: number;
     name: string;
     initials: string;
     /** The board's headline value; null renders as "—" and suppresses podium styling. */
@@ -226,9 +232,12 @@ export interface BoardSummary {
     label: string;
     primary_stat_label: string;
     leader: {
+        /** The entry behind the leader, so it can be added to a comparison from the card. */
+        entry_id: number;
         name: string;
         initials: string;
         primary_value: number | null;
+        is_me: boolean;
     } | null;
     you: {
         rank: number;
@@ -250,6 +259,65 @@ export interface LeaderboardPageProps {
     game: GameSummary;
     boards: LeaderboardBoard[];
     active_board: LeaderboardCategoryKey | null;
+}
+
+// --- Compare players ---
+
+/** A pick-list row for the "Add player" picker — every entry in the pool, no heavy data. */
+export interface PlayerDirectoryEntry {
+    entry_id: number;
+    user_id: number;
+    name: string;
+    initials: string;
+    points: number | null;
+    rank: number;
+    is_me: boolean;
+}
+
+/** One player's gated group-stage scoreline in a comparison, keyed by fixture id. */
+export interface CompareGroupPrediction {
+    home_goals: number;
+    away_goals: number;
+    points_awarded: number | null;
+}
+
+/** One player's gated knockout pick in a comparison, keyed by fixture id. */
+export interface CompareKnockoutPrediction {
+    home_goals: number | null;
+    away_goals: number | null;
+    advancing_team_id: number | null;
+    points_awarded: number | null;
+    /** The teams the player predicted for this match (upfront-bracket games only). */
+    predicted_home: TeamRef | null;
+    predicted_away: TeamRef | null;
+}
+
+/**
+ * One lane in a comparison. Predictions are present only for fixtures revealable to the viewer
+ * (the player's own lane, or fixtures whose window has locked); a missing key means hidden-by-lock
+ * (when its window is not `locked`) or no-prediction (when its window is `locked`). Points, rank and
+ * board totals are always present.
+ */
+export interface ComparePlayer {
+    entry_id: number | null;
+    user_id: number | null;
+    name: string;
+    initials: string;
+    is_viewer: boolean;
+    total_points: number | null;
+    rank: number | null;
+    boards: { key: LeaderboardCategoryKey; primary_value: number | null }[];
+    group_predictions: Record<number, CompareGroupPrediction>;
+    knockout_predictions: Record<number, CompareKnockoutPrediction>;
+    /** Projected group table from this player's picks, keyed by group name; null when hidden or unpredicted. */
+    projected_standings: Record<string, StandingRow[] | null>;
+}
+
+export interface Comparison {
+    /** Each phase's prediction window, so the UI can show the right empty state per fixture. */
+    windows: Record<string, PredictionWindowStatus>;
+    /** The viewer (lane 0) followed by the selected opponents, in selection order. */
+    players: ComparePlayer[];
 }
 
 // --- Prediction wizard ---

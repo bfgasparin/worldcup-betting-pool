@@ -15,6 +15,7 @@ use App\Models\Team;
 use App\Models\Tournament;
 use App\Services\Predictions\GroupStandings;
 use App\Services\Predictions\GroupStandingsPresenter;
+use App\Services\Predictions\PlayerComparison;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
@@ -104,6 +105,11 @@ class GameController extends Controller
         $groupPredictions = $entry?->groupPredictions->keyBy('fixture_id') ?? collect();
         $knockoutPredictions = $entry?->knockoutPredictions->keyBy('fixture_id') ?? collect();
 
+        // The "compare players" feature: when the page carries a ?compare= list of other entries,
+        // resolve their results into a comparison payload alongside the viewer's. `players` is the
+        // always-present directory the picker filters; `comparison` is null in normal mode.
+        $compareIds = $this->parseCompareIds($request, $game, $request->user()->id);
+
         return Inertia::render('games/show', [
             'game' => [
                 // gameHeader() already carries scoring_label (via the game-identity payload).
@@ -122,7 +128,74 @@ class GameController extends Controller
             'bracket' => $this->mapBracket($tournament->knockoutFixtures, $knockoutPredictions, $game->predictsKnockoutBracket()),
             'pool' => $this->poolSummary($game, $request->user()->id),
             'boardSummaries' => $this->boardSummaries($game, $request->user()->id),
+            'players' => $this->playerDirectory($game, $request->user()->id),
+            'comparison' => (new PlayerComparison)->build($game, $request->user()->id, $compareIds),
         ]);
+    }
+
+    /**
+     * The opponent entry ids to compare, parsed from the `?compare=` CSV. Sanitised to at most
+     * three distinct other entries that belong to *this* game (never the viewer's own), in the
+     * order requested; foreign, duplicate or garbage ids are silently dropped.
+     *
+     * @return list<int>
+     */
+    private function parseCompareIds(Request $request, Game $game, int $viewerUserId): array
+    {
+        $raw = $request->query('compare');
+
+        if (! is_string($raw) || trim($raw) === '') {
+            return [];
+        }
+
+        $ids = collect(explode(',', $raw))
+            ->map(fn (string $id): int => (int) trim($id))
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return [];
+        }
+
+        $valid = $game->entries()
+            ->whereIn('id', $ids->all())
+            ->where('user_id', '!=', $viewerUserId)
+            ->pluck('id')
+            ->all();
+
+        return $ids
+            ->filter(fn (int $id): bool => in_array($id, $valid, true))
+            ->take(3)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Every entry in the game as a lightweight pick-list row (no heavy prediction data), ranked by
+     * points so the "Add player" picker can show and filter the whole pool. The viewer is flagged
+     * so the picker can exclude their own row.
+     *
+     * @return list<array{entry_id: int, user_id: int, name: string, initials: string, points: ?int, rank: int, is_me: bool}>
+     */
+    private function playerDirectory(Game $game, int $userId): array
+    {
+        return $game->entries()
+            ->with('user:id,name')
+            ->orderBy('id')
+            ->get()
+            ->sortByDesc(fn (Entry $entry): int => $entry->total_points ?? PHP_INT_MIN)
+            ->values()
+            ->map(fn (Entry $entry, int $index): array => [
+                'entry_id' => $entry->id,
+                'user_id' => $entry->user_id,
+                'name' => $entry->user_id === $userId ? 'You' : ($entry->user->name ?? 'Player'),
+                'initials' => $this->initials($entry->user->name ?? ''),
+                'points' => $entry->total_points,
+                'rank' => $index + 1,
+                'is_me' => $entry->user_id === $userId,
+            ])
+            ->all();
     }
 
     /**
@@ -181,6 +254,7 @@ class GameController extends Controller
                 ->values()
                 ->map(fn (Entry $entry, int $index): array => [
                     'rank' => $index + 1,
+                    'entry_id' => $entry->id,
                     'name' => $entry->user_id === $userId ? 'You' : ($entry->user->name ?? 'Player'),
                     'initials' => $this->initials($entry->user->name ?? ''),
                     'primary_value' => $entry->total_points,
@@ -199,6 +273,7 @@ class GameController extends Controller
                 ->values()
                 ->map(fn (array $pair, int $index): array => [
                     'rank' => $index + 1,
+                    'entry_id' => $pair['entry']->id,
                     'name' => $pair['entry']->user_id === $userId ? 'You' : ($pair['entry']->user->name ?? 'Player'),
                     'initials' => $this->initials($pair['entry']->user->name ?? ''),
                     'primary_value' => $pair['standing']?->value ?? 0,
@@ -253,11 +328,15 @@ class GameController extends Controller
                     'key' => $board['key'],
                     'label' => $board['label'],
                     'primary_stat_label' => $board['primary_stat_label'],
+                    // The leader carries its entry id + is_me so compare selection can add this
+                    // board's winner straight from the card.
                     'leader' => $board['has_scores'] && $board['rows'] !== []
                         ? [
+                            'entry_id' => $board['rows'][0]['entry_id'],
                             'name' => $board['rows'][0]['name'],
                             'initials' => $board['rows'][0]['initials'],
                             'primary_value' => $board['rows'][0]['primary_value'],
+                            'is_me' => $board['rows'][0]['is_me'],
                         ]
                         : null,
                     'you' => $mine === null ? null : [
@@ -290,7 +369,7 @@ class GameController extends Controller
     /**
      * Rank a game's entries by total points, marking the current user's row.
      *
-     * @return Collection<int, array{rank: int, name: string, initials: string, points: ?int, is_me: bool}>
+     * @return Collection<int, array{rank: int, entry_id: int, name: string, initials: string, points: ?int, is_me: bool, movement: ?string}>
      */
     private function rankedEntries(Game $game, int $userId): Collection
     {
@@ -303,6 +382,7 @@ class GameController extends Controller
             ->values()
             ->map(fn (Entry $entry, int $index): array => [
                 'rank' => $index + 1,
+                'entry_id' => $entry->id,
                 'name' => $entry->user_id === $userId ? 'You' : ($entry->user->name ?? 'Player'),
                 'initials' => $this->initials($entry->user->name ?? ''),
                 'points' => $entry->total_points,
@@ -403,6 +483,7 @@ class GameController extends Controller
                 $prediction = $predictions->get($fixture->id);
 
                 return [
+                    'fixture_id' => $fixture->id,
                     'match_number' => $fixture->match_number,
                     'home' => $this->teamRef($fixture->homeTeam),
                     'away' => $this->teamRef($fixture->awayTeam),
@@ -497,6 +578,7 @@ class GameController extends Controller
                     $prediction = $predictions->get($fixture->id);
 
                     return [
+                        'fixture_id' => $fixture->id,
                         'match_number' => $fixture->match_number,
                         'bracket_slot' => $fixture->bracket_slot,
                         'home' => $this->teamRef($fixture->homeTeam),

@@ -7,6 +7,7 @@ use App\Enums\TournamentStatus;
 use App\Models\Entry;
 use App\Models\Game;
 use App\Models\GroupPrediction;
+use App\Models\KnockoutPrediction;
 use App\Models\Tournament;
 use App\Models\User;
 use Database\Seeders\WorldCup2026Seeder;
@@ -64,6 +65,56 @@ class SimulateTournamentTest extends TestCase
 
         // Staged per-round snapshots leave a movement baseline.
         $this->assertGreaterThan(0, $this->game->entries()->whereNotNull('previous_rank')->count());
+    }
+
+    public function test_it_also_simulates_the_phased_bracket_game(): void
+    {
+        $this->artisan('tournament:simulate', ['--players' => 3, '--through' => 'final'])
+            ->assertSuccessful();
+
+        $phased = $this->tournament->games()->where('slug', 'world-cup-2026-brothers')->firstOrFail();
+
+        // The same roster joins the phased pool (3 demo players + the --me user).
+        $this->assertSame(4, $phased->entries()->count());
+
+        $demo = $phased->entries()
+            ->whereHas('user', fn ($query) => $query->where('email', 'sim-player-1@ffa.test'))
+            ->firstOrFail();
+
+        // Group predictions, plus a phased knockout pick for every knockout fixture (all 32, since
+        // the whole bracket was played and projected), recorded against the OFFICIAL teams — not a
+        // self-derived bracket.
+        $this->assertSame(72, $demo->groupPredictions()->count());
+        $this->assertSame(32, $demo->knockoutPredictions()->count());
+        $this->assertSame(32, $demo->knockoutPredictions()->whereNotNull('predicted_home_team_id')->count());
+        $this->assertSame(32, $demo->knockoutPredictions()->whereNotNull('advancing_team_id')->count());
+
+        // The phased board is scored and ranked, with points actually awarded on the knockout picks.
+        $phased->entries->each(function (Entry $entry): void {
+            $this->assertNotNull($entry->total_points);
+            $this->assertNotNull($entry->rank);
+        });
+        $this->assertGreaterThan(0, $demo->knockoutPredictions()->whereNotNull('points_awarded')->count());
+    }
+
+    public function test_it_generates_some_drawn_knockout_predictions(): void
+    {
+        $this->artisan('tournament:simulate', ['--players' => 4, '--through' => 'final'])
+            ->assertSuccessful();
+
+        $phased = $this->tournament->games()->where('slug', 'world-cup-2026-brothers')->firstOrFail();
+
+        // Some knockout picks are level scorelines (e.g. 1–1) decided on penalties — the player still
+        // names who advances — so drawn-knockout features are exercised. True for both games.
+        foreach ([$this->game, $phased] as $game) {
+            $draws = KnockoutPrediction::query()
+                ->whereIn('entry_id', $game->entries()->pluck('id'))
+                ->whereColumn('home_goals', 'away_goals')
+                ->whereNotNull('advancing_team_id')
+                ->count();
+
+            $this->assertGreaterThan(0, $draws, "Expected drawn knockout predictions for {$game->slug}.");
+        }
     }
 
     public function test_through_group_leaves_the_knockout_stage_unplayed(): void
