@@ -16,7 +16,6 @@ import { CompareDock } from '@/components/compare-dock';
 import { CompareStrip } from '@/components/compare-strip';
 import {
     FinalCard,
-    formatLongDate,
     GroupFixtureCard,
     KnockoutSlotCard,
     PhaseMeta,
@@ -33,6 +32,7 @@ import { GameIdentity } from '@/components/game-identity';
 import { GameInfoDialog } from '@/components/game-info-dialog';
 import { LeaderboardRow } from '@/components/leaderboard-row';
 import { MovementArrow } from '@/components/movement-arrow';
+import { PredictionCountdown } from '@/components/prediction-countdown';
 import { Button } from '@/components/ui/button';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
 import { COMPARE_LIMIT } from '@/lib/compare';
@@ -64,24 +64,13 @@ interface GameShowProps {
 }
 
 /**
- * The hero's one-line context, by state: not entered yet, predictions still open (lock date),
- * or locked but not yet scored. Null once results are landing — the standings carry it from there.
+ * The hero's one-line context for the text states: not entered yet, or locked but not yet scored.
+ * The "predictions still open" state is a live <PredictionCountdown /> in the banner, not a string.
+ * Null once results are landing — the standings carry it from there.
  */
-function heroContextLine(
-    game: GameDetail,
-    hasEntry: boolean,
-    hasScores: boolean,
-    tz: string,
-): string | null {
+function heroContextLine(hasEntry: boolean, hasScores: boolean): string | null {
     if (!hasEntry) {
         return "You're not in yet — make your predictions.";
-    }
-
-    if (
-        game.predictions_lock_at &&
-        new Date(game.predictions_lock_at).getTime() > Date.now()
-    ) {
-        return `Predictions lock ${formatLongDate(game.predictions_lock_at, tz)}.`;
     }
 
     if (!hasScores) {
@@ -112,7 +101,12 @@ function DashboardBanner({
 
     const tz = useDisplayTimeZone();
     const hasEntry = pool.me !== null;
-    const contextLine = heroContextLine(game, hasEntry, pool.has_scores, tz);
+    // The countdown owns the "entered + predictions still relevant" window (future lock counting
+    // down, then flipping to locked in place). heroContextLine covers only the not-entered CTA and
+    // the locked-but-unscored note (incl. games with no derivable lock).
+    const showCountdown =
+        hasEntry && !pool.has_scores && game.predictions_lock_at !== null;
+    const contextLine = heroContextLine(hasEntry, pool.has_scores);
 
     return (
         <header className="hero relative overflow-hidden rounded-3xl border border-border p-6 sm:p-8">
@@ -147,10 +141,17 @@ function DashboardBanner({
                                 {pool.participants === 1 ? 'player' : 'players'}
                             </span>
                         </div>
-                        {contextLine && (
-                            <p className="mt-2 text-sm font-medium text-foreground">
-                                {contextLine}
-                            </p>
+                        {showCountdown ? (
+                            <PredictionCountdown
+                                lockAt={game.predictions_lock_at}
+                                tz={tz}
+                            />
+                        ) : (
+                            contextLine && (
+                                <p className="mt-2 text-sm font-medium text-foreground">
+                                    {contextLine}
+                                </p>
+                            )
                         )}
                     </div>
                     <GameInfoDialog game={game} />
