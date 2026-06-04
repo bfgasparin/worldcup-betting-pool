@@ -32,6 +32,7 @@ import { GameIdentity } from '@/components/game-identity';
 import { GameInfoDialog } from '@/components/game-info-dialog';
 import { LeaderboardRow } from '@/components/leaderboard-row';
 import { MovementArrow } from '@/components/movement-arrow';
+import PlayerAvatar from '@/components/player-avatar';
 import { PredictionCountdown } from '@/components/prediction-countdown';
 import { Button } from '@/components/ui/button';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
@@ -262,9 +263,13 @@ function SelectableRow({
             <span className="w-6 text-center font-display font-semibold text-muted-foreground tabular-nums">
                 {row.rank}
             </span>
-            <span className="bg-brand-gradient grid size-9 shrink-0 place-items-center rounded-full font-display text-sm font-semibold text-white">
-                {row.initials}
-            </span>
+            <PlayerAvatar
+                name={row.name}
+                initials={row.initials}
+                src={row.avatar}
+                fallbackClassName="bg-brand-gradient text-white"
+                className="size-9"
+            />
             <span className="min-w-0 flex-1 truncate font-display font-semibold">
                 {row.name}
             </span>
@@ -351,6 +356,7 @@ function PoolPreview({
                                   rank: row.rank,
                                   name: row.name,
                                   initials: row.initials,
+                                  avatar: row.avatar,
                                   primary: row.points,
                                   isMe: row.is_me,
                                   movement: row.movement,
@@ -367,6 +373,7 @@ function PoolPreview({
                                 rank: pinnedMe.rank,
                                 name: pinnedMe.name,
                                 initials: pinnedMe.initials,
+                                avatar: pinnedMe.avatar,
                                 primary: pinnedMe.points,
                                 isMe: true,
                                 movement: pinnedMe.movement,
@@ -433,9 +440,13 @@ function BoardSummaries({
                             <div className="flex items-center justify-between gap-2">
                                 {leader ? (
                                     <span className="flex min-w-0 items-center gap-2">
-                                        <span className="bg-gold-gradient grid size-7 shrink-0 place-items-center rounded-full font-display text-xs font-semibold text-[#3a2600]">
-                                            {leader.initials}
-                                        </span>
+                                        <PlayerAvatar
+                                            name={leader.name}
+                                            initials={leader.initials}
+                                            src={leader.avatar}
+                                            fallbackClassName="bg-gold-gradient text-xs text-[#3a2600]"
+                                            className="size-7"
+                                        />
                                         <span className="truncate font-display text-sm font-semibold">
                                             {leader.name}
                                         </span>

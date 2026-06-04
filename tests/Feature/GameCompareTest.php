@@ -14,6 +14,7 @@ use App\Models\Tournament;
 use App\Models\User;
 use Database\Seeders\WorldCup2026Seeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
@@ -75,6 +76,30 @@ class GameCompareTest extends TestCase
                 ->has('bracket', 6)
                 ->has('pool')
                 ->has('players', 1)
+            );
+    }
+
+    public function test_comparison_players_expose_avatar_urls(): void
+    {
+        Storage::fake('public');
+
+        $opponent = Entry::factory()
+            ->for($this->game)
+            ->for(User::factory()->create(['avatar_path' => 'avatars/9/op.jpg']))
+            ->create();
+
+        $viewer = User::factory()->create();
+        Entry::factory()->for($this->game)->for($viewer)->create();
+
+        $expected = Storage::disk('public')->url('avatars/9/op.jpg');
+
+        $this->actingAs($viewer)
+            ->get(route('games.show', ['game' => 'world-cup-2026-ffa', 'compare' => (string) $opponent->id]))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('comparison.players.0.is_viewer', true)
+                ->where('comparison.players.0.avatar', null)
+                ->where('comparison.players.1.entry_id', $opponent->id)
+                ->where('comparison.players.1.avatar', $expected)
             );
     }
 

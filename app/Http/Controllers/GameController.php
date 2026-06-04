@@ -176,12 +176,12 @@ class GameController extends Controller
      * points so the "Add player" picker can show and filter the whole pool. The viewer is flagged
      * so the picker can exclude their own row.
      *
-     * @return list<array{entry_id: int, user_id: int, name: string, initials: string, points: ?int, rank: int, is_me: bool}>
+     * @return list<array{entry_id: int, user_id: int, name: string, initials: string, avatar: ?string, points: ?int, rank: int, is_me: bool}>
      */
     private function playerDirectory(Game $game, int $userId): array
     {
         return $game->entries()
-            ->with('user:id,name')
+            ->with('user:id,name,avatar_path')
             ->orderBy('id')
             ->get()
             ->sortByDesc(fn (Entry $entry): int => $entry->total_points ?? PHP_INT_MIN)
@@ -191,6 +191,7 @@ class GameController extends Controller
                 'user_id' => $entry->user_id,
                 'name' => $entry->user_id === $userId ? 'You' : ($entry->user->name ?? 'Player'),
                 'initials' => $this->initials($entry->user->name ?? ''),
+                'avatar' => $entry->user->avatar,
                 'points' => $entry->total_points,
                 'rank' => $index + 1,
                 'is_me' => $entry->user_id === $userId,
@@ -257,6 +258,7 @@ class GameController extends Controller
                     'entry_id' => $entry->id,
                     'name' => $entry->user_id === $userId ? 'You' : ($entry->user->name ?? 'Player'),
                     'initials' => $this->initials($entry->user->name ?? ''),
+                    'avatar' => $entry->user->avatar,
                     'primary_value' => $entry->total_points,
                     'secondary_value' => null,
                     'is_me' => $entry->user_id === $userId,
@@ -276,6 +278,7 @@ class GameController extends Controller
                     'entry_id' => $pair['entry']->id,
                     'name' => $pair['entry']->user_id === $userId ? 'You' : ($pair['entry']->user->name ?? 'Player'),
                     'initials' => $this->initials($pair['entry']->user->name ?? ''),
+                    'avatar' => $pair['entry']->user->avatar,
                     'primary_value' => $pair['standing']?->value ?? 0,
                     'secondary_value' => $pair['standing']?->tiebreaker ?? 0,
                     'is_me' => $pair['entry']->user_id === $userId,
@@ -335,6 +338,7 @@ class GameController extends Controller
                             'entry_id' => $board['rows'][0]['entry_id'],
                             'name' => $board['rows'][0]['name'],
                             'initials' => $board['rows'][0]['initials'],
+                            'avatar' => $board['rows'][0]['avatar'],
                             'primary_value' => $board['rows'][0]['primary_value'],
                             'is_me' => $board['rows'][0]['is_me'],
                         ]
@@ -369,7 +373,7 @@ class GameController extends Controller
     /**
      * Rank a game's entries by total points, marking the current user's row.
      *
-     * @return Collection<int, array{rank: int, entry_id: int, name: string, initials: string, points: ?int, is_me: bool, movement: ?string}>
+     * @return Collection<int, array{rank: int, entry_id: int, name: string, initials: string, avatar: ?string, points: ?int, is_me: bool, movement: ?string}>
      */
     private function rankedEntries(Game $game, int $userId): Collection
     {
@@ -385,6 +389,7 @@ class GameController extends Controller
                 'entry_id' => $entry->id,
                 'name' => $entry->user_id === $userId ? 'You' : ($entry->user->name ?? 'Player'),
                 'initials' => $this->initials($entry->user->name ?? ''),
+                'avatar' => $entry->user->avatar,
                 'points' => $entry->total_points,
                 'is_me' => $entry->user_id === $userId,
                 'movement' => $this->movement($entry->rank, $entry->previous_rank),

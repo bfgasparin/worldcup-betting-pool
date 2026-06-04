@@ -1,4 +1,5 @@
 import { ChevronDown, Lock, X } from 'lucide-react';
+import PlayerAvatar from '@/components/player-avatar';
 import {
     Collapsible,
     CollapsibleContent,
@@ -25,7 +26,12 @@ function LaneCard({
     const kit = lane(index);
 
     return (
-        <div className="relative min-w-[148px] flex-1 rounded-2xl border border-border bg-card p-4 shadow-[var(--sh-sm)]">
+        <div className="relative min-w-[148px] flex-1 overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-[var(--sh-sm)]">
+            <span
+                aria-hidden
+                className={cn('absolute inset-y-0 left-0 w-1.5', kit.rail)}
+            />
+
             {onRemove && (
                 <button
                     type="button"
@@ -38,15 +44,13 @@ function LaneCard({
             )}
 
             <div className="flex items-center gap-2.5">
-                <span
-                    className={cn(
-                        'grid size-9 shrink-0 place-items-center rounded-full font-display text-sm font-semibold ring-2',
-                        kit.avatar,
-                        kit.ring,
-                    )}
-                >
-                    {player.initials}
-                </span>
+                <PlayerAvatar
+                    name={player.name}
+                    initials={player.initials}
+                    src={player.avatar}
+                    fallbackClassName={kit.avatar}
+                    className="size-9"
+                />
                 <span className="min-w-0">
                     <span className="block truncate font-display font-semibold">
                         {player.name}

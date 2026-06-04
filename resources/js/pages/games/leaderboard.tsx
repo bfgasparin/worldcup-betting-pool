@@ -147,6 +147,7 @@ export default function Leaderboard({
                                             rank: row.rank,
                                             name: row.name,
                                             initials: row.initials,
+                                            avatar: row.avatar,
                                             primary: row.primary_value,
                                             secondary: secondaryStat(
                                                 board,

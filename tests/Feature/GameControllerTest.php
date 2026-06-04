@@ -13,6 +13,7 @@ use App\Models\Tournament;
 use App\Models\User;
 use Database\Seeders\WorldCup2026Seeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
@@ -144,6 +145,50 @@ class GameControllerTest extends TestCase
         $this->get(route('games.show', 'world-cup-2026-ffa'))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('groups.0.fixtures.0.prediction', null)
+            );
+    }
+
+    public function test_pool_preview_and_player_directory_expose_avatar_urls(): void
+    {
+        Storage::fake('public');
+        $this->seed(WorldCup2026Seeder::class);
+        $game = Tournament::firstOrFail()->games()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
+
+        $withPhoto = User::factory()->create(['avatar_path' => 'avatars/7/pic.jpg']);
+        Entry::factory()->for($game)->for($withPhoto)->create(['total_points' => 50]);
+
+        $viewer = User::factory()->create();
+        Entry::factory()->for($game)->for($viewer)->create(['total_points' => 10]);
+
+        $expected = Storage::disk('public')->url('avatars/7/pic.jpg');
+
+        $this->actingAs($viewer)
+            ->get(route('games.show', 'world-cup-2026-ffa'))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('pool.top.0.avatar', $expected)
+                ->where('pool.top.1.avatar', null)
+                ->where('players.0.avatar', $expected)
+                ->where('players.1.avatar', null)
+            );
+    }
+
+    public function test_leaderboard_board_rows_expose_avatar_urls(): void
+    {
+        Storage::fake('public');
+        $this->seed(WorldCup2026Seeder::class);
+        $game = Tournament::firstOrFail()->games()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
+
+        $user = User::factory()->create(['avatar_path' => 'avatars/3/a.png']);
+        Entry::factory()->for($game)->for($user)->create(['total_points' => 5]);
+
+        $expected = Storage::disk('public')->url('avatars/3/a.png');
+
+        $this->actingAs(User::factory()->create())
+            ->get(route('games.leaderboard', 'world-cup-2026-ffa'))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                // Overall board (index 0) and a standings board (index 1) both carry the avatar.
+                ->where('boards.0.rows.0.avatar', $expected)
+                ->where('boards.1.rows.0.avatar', $expected)
             );
     }
 
