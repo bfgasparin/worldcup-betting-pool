@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Entry;
 use App\Models\Fixture;
-use App\Models\Game;
+use App\Models\Pool;
 use App\Models\Tournament;
 use App\Models\User;
 use App\Services\Predictions\BracketResolver;
@@ -22,7 +22,7 @@ class PredictionControllerTest extends TestCase
 
     private Tournament $tournament;
 
-    private Game $game;
+    private Pool $pool;
 
     private User $user;
 
@@ -32,20 +32,20 @@ class PredictionControllerTest extends TestCase
 
         $this->seed(WorldCup2026Seeder::class);
         $this->tournament = Tournament::firstOrFail();
-        $this->game = $this->tournament->games()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
+        $this->pool = $this->tournament->pools()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
         $this->user = User::factory()->create();
     }
 
     public function test_guests_are_redirected_from_the_predict_page(): void
     {
-        $this->get(route('games.predict.edit', 'world-cup-2026-ffa'))->assertRedirect(route('login'));
+        $this->get(route('pools.predict.edit', 'world-cup-2026-ffa'))->assertRedirect(route('login'));
     }
 
-    public function test_visiting_predict_without_joining_redirects_to_the_game(): void
+    public function test_visiting_predict_without_joining_redirects_to_the_pool(): void
     {
         $this->actingAs($this->user)
-            ->get(route('games.predict.edit', 'world-cup-2026-ffa'))
-            ->assertRedirect(route('games.show', 'world-cup-2026-ffa'));
+            ->get(route('pools.predict.edit', 'world-cup-2026-ffa'))
+            ->assertRedirect(route('pools.show', 'world-cup-2026-ffa'));
 
         // Predictions now require joining first, so merely visiting creates no entry.
         $this->assertDatabaseCount('entries', 0);
@@ -53,19 +53,19 @@ class PredictionControllerTest extends TestCase
 
     public function test_visiting_predict_after_joining_renders_the_wizard(): void
     {
-        Entry::factory()->for($this->game)->for($this->user)->create();
+        Entry::factory()->for($this->pool)->for($this->user)->create();
 
         $this->actingAs($this->user)
-            ->get(route('games.predict.edit', 'world-cup-2026-ffa'))
+            ->get(route('pools.predict.edit', 'world-cup-2026-ffa'))
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
-                ->component('games/predict')
-                ->where('game.slug', 'world-cup-2026-ffa')
-                ->where('game.can_edit', true)
-                // The predict page (and its sidebar) carries the game identity to disambiguate siblings.
-                ->where('game.source', 'FF&A')
-                ->where('game.accent', 'pitch')
-                ->where('game.scoring_label', 'Upfront Bracket')
+                ->component('pools/predict')
+                ->where('pool.slug', 'world-cup-2026-ffa')
+                ->where('pool.can_edit', true)
+                // The predict page (and its sidebar) carries the pool identity to disambiguate siblings.
+                ->where('pool.source', 'FF&A')
+                ->where('pool.accent', 'pitch')
+                ->where('pool.scoring_label', 'Upfront Bracket')
                 ->has('groups', 12)
                 ->has('groups.0.standings', 4)
                 ->where('groups.0.teams.0.flag_url', '/flags/MEX.svg')
@@ -83,11 +83,11 @@ class PredictionControllerTest extends TestCase
 
     public function test_predict_page_prefills_existing_predictions(): void
     {
-        $entry = Entry::factory()->for($this->game)->for($this->user)->create();
+        $entry = Entry::factory()->for($this->pool)->for($this->user)->create();
         $this->predictGroup($entry, $this->tournament, 'A', $this->seedOrderScores());
 
         $this->actingAs($this->user)
-            ->get(route('games.predict.edit', 'world-cup-2026-ffa'))
+            ->get(route('pools.predict.edit', 'world-cup-2026-ffa'))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('groups.0.fixtures.0.home_goals', 1)
                 ->where('groups.0.fixtures.0.away_goals', 0)
@@ -96,7 +96,7 @@ class PredictionControllerTest extends TestCase
 
     public function test_saving_group_predictions_persists_and_recomputes_the_round_of_32(): void
     {
-        Entry::factory()->for($this->game)->for($this->user)->create();
+        Entry::factory()->for($this->pool)->for($this->user)->create();
         $fixtures = $this->groupFixtures('A');
         $rule = $this->seedOrderScores();
         $positions = $this->tournament->groups()->where('name', 'A')->firstOrFail()
@@ -109,8 +109,8 @@ class PredictionControllerTest extends TestCase
         })->all()];
 
         $this->actingAs($this->user)
-            ->put(route('games.predict.group', 'world-cup-2026-ffa'), $payload)
-            ->assertRedirect(route('games.predict.edit', 'world-cup-2026-ffa'));
+            ->put(route('pools.predict.group', 'world-cup-2026-ffa'), $payload)
+            ->assertRedirect(route('pools.predict.edit', 'world-cup-2026-ffa'));
 
         $entry = $this->entry();
         $this->assertDatabaseHas('group_predictions', [
@@ -130,7 +130,7 @@ class PredictionControllerTest extends TestCase
 
     public function test_saving_knockout_predictions_persists_scores_and_derives_advancing(): void
     {
-        $entry = Entry::factory()->for($this->game)->for($this->user)->create();
+        $entry = Entry::factory()->for($this->pool)->for($this->user)->create();
         $this->predictAllGroups($entry, $this->tournament, $this->seedOrderScores());
         (new BracketResolver)->persist($entry);
 
@@ -145,8 +145,8 @@ class PredictionControllerTest extends TestCase
         ]]];
 
         $this->actingAs($this->user)
-            ->put(route('games.predict.knockout', 'world-cup-2026-ffa'), $payload)
-            ->assertRedirect(route('games.predict.edit', 'world-cup-2026-ffa'));
+            ->put(route('pools.predict.knockout', 'world-cup-2026-ffa'), $payload)
+            ->assertRedirect(route('pools.predict.edit', 'world-cup-2026-ffa'));
 
         $this->assertDatabaseHas('knockout_predictions', [
             'entry_id' => $entry->id,
@@ -159,7 +159,7 @@ class PredictionControllerTest extends TestCase
 
     public function test_a_decisive_score_overrides_a_contradictory_advancing_pick(): void
     {
-        $entry = Entry::factory()->for($this->game)->for($this->user)->create();
+        $entry = Entry::factory()->for($this->pool)->for($this->user)->create();
         $this->predictAllGroups($entry, $this->tournament, $this->seedOrderScores());
         (new BracketResolver)->persist($entry);
 
@@ -175,8 +175,8 @@ class PredictionControllerTest extends TestCase
         ]]];
 
         $this->actingAs($this->user)
-            ->put(route('games.predict.knockout', 'world-cup-2026-ffa'), $payload)
-            ->assertRedirect(route('games.predict.edit', 'world-cup-2026-ffa'));
+            ->put(route('pools.predict.knockout', 'world-cup-2026-ffa'), $payload)
+            ->assertRedirect(route('pools.predict.edit', 'world-cup-2026-ffa'));
 
         $this->assertDatabaseHas('knockout_predictions', [
             'entry_id' => $entry->id,
@@ -187,7 +187,7 @@ class PredictionControllerTest extends TestCase
 
     public function test_a_draw_persists_the_manual_advancing_pick(): void
     {
-        $entry = Entry::factory()->for($this->game)->for($this->user)->create();
+        $entry = Entry::factory()->for($this->pool)->for($this->user)->create();
         $this->predictAllGroups($entry, $this->tournament, $this->seedOrderScores());
         (new BracketResolver)->persist($entry);
 
@@ -202,8 +202,8 @@ class PredictionControllerTest extends TestCase
         ]]];
 
         $this->actingAs($this->user)
-            ->put(route('games.predict.knockout', 'world-cup-2026-ffa'), $payload)
-            ->assertRedirect(route('games.predict.edit', 'world-cup-2026-ffa'));
+            ->put(route('pools.predict.knockout', 'world-cup-2026-ffa'), $payload)
+            ->assertRedirect(route('pools.predict.edit', 'world-cup-2026-ffa'));
 
         $this->assertDatabaseHas('knockout_predictions', [
             'entry_id' => $entry->id,
@@ -216,7 +216,7 @@ class PredictionControllerTest extends TestCase
 
     public function test_a_draw_requires_a_manual_advancing_pick(): void
     {
-        $entry = Entry::factory()->for($this->game)->for($this->user)->create();
+        $entry = Entry::factory()->for($this->pool)->for($this->user)->create();
         $this->predictAllGroups($entry, $this->tournament, $this->seedOrderScores());
         (new BracketResolver)->persist($entry);
 
@@ -229,13 +229,13 @@ class PredictionControllerTest extends TestCase
         ]]];
 
         $this->actingAs($this->user)
-            ->put(route('games.predict.knockout', 'world-cup-2026-ffa'), $payload)
+            ->put(route('pools.predict.knockout', 'world-cup-2026-ffa'), $payload)
             ->assertSessionHasErrors('predictions.0.advancing_team_id');
     }
 
     public function test_a_drawn_advancing_team_must_be_one_of_the_resolved_teams(): void
     {
-        $entry = Entry::factory()->for($this->game)->for($this->user)->create();
+        $entry = Entry::factory()->for($this->pool)->for($this->user)->create();
         $this->predictAllGroups($entry, $this->tournament, $this->seedOrderScores());
         (new BracketResolver)->persist($entry);
 
@@ -250,13 +250,13 @@ class PredictionControllerTest extends TestCase
         ]]];
 
         $this->actingAs($this->user)
-            ->put(route('games.predict.knockout', 'world-cup-2026-ffa'), $payload)
+            ->put(route('pools.predict.knockout', 'world-cup-2026-ffa'), $payload)
             ->assertSessionHasErrors('predictions.0.advancing_team_id');
     }
 
     public function test_group_save_rejects_a_fixture_from_another_tournament(): void
     {
-        Entry::factory()->for($this->game)->for($this->user)->create();
+        Entry::factory()->for($this->pool)->for($this->user)->create();
         $foreignFixture = Fixture::factory()->create();
 
         $payload = ['predictions' => [[
@@ -266,13 +266,13 @@ class PredictionControllerTest extends TestCase
         ]]];
 
         $this->actingAs($this->user)
-            ->put(route('games.predict.group', 'world-cup-2026-ffa'), $payload)
+            ->put(route('pools.predict.group', 'world-cup-2026-ffa'), $payload)
             ->assertSessionHasErrors('predictions.0.fixture_id');
     }
 
     public function test_group_save_rejects_goals_out_of_range(): void
     {
-        Entry::factory()->for($this->game)->for($this->user)->create();
+        Entry::factory()->for($this->pool)->for($this->user)->create();
         $fixture = $this->groupFixtures('A')->first();
 
         $payload = ['predictions' => [[
@@ -282,13 +282,13 @@ class PredictionControllerTest extends TestCase
         ]]];
 
         $this->actingAs($this->user)
-            ->put(route('games.predict.group', 'world-cup-2026-ffa'), $payload)
+            ->put(route('pools.predict.group', 'world-cup-2026-ffa'), $payload)
             ->assertSessionHasErrors('predictions.0.home_goals');
     }
 
     public function test_saving_is_forbidden_once_predictions_are_locked(): void
     {
-        $this->game->update(['predictions_lock_at' => now()->subDay()]);
+        $this->pool->update(['predictions_lock_at' => now()->subDay()]);
         $fixture = $this->groupFixtures('A')->first();
 
         $payload = ['predictions' => [[
@@ -298,42 +298,42 @@ class PredictionControllerTest extends TestCase
         ]]];
 
         $this->actingAs($this->user)
-            ->put(route('games.predict.group', 'world-cup-2026-ffa'), $payload)
+            ->put(route('pools.predict.group', 'world-cup-2026-ffa'), $payload)
             ->assertForbidden();
 
         $this->assertDatabaseCount('entries', 0);
     }
 
-    public function test_visiting_a_locked_game_without_joining_redirects_to_the_game(): void
+    public function test_visiting_a_locked_pool_without_joining_redirects_to_the_pool(): void
     {
-        $this->game->update(['predictions_lock_at' => now()->subDay()]);
+        $this->pool->update(['predictions_lock_at' => now()->subDay()]);
 
         $this->actingAs($this->user)
-            ->get(route('games.predict.edit', 'world-cup-2026-ffa'))
-            ->assertRedirect(route('games.show', 'world-cup-2026-ffa'));
+            ->get(route('pools.predict.edit', 'world-cup-2026-ffa'))
+            ->assertRedirect(route('pools.show', 'world-cup-2026-ffa'));
 
         $this->assertDatabaseCount('entries', 0);
     }
 
     public function test_a_joined_player_sees_a_read_only_wizard_once_locked(): void
     {
-        Entry::factory()->for($this->game)->for($this->user)->create();
-        $this->game->update(['predictions_lock_at' => now()->subDay()]);
+        Entry::factory()->for($this->pool)->for($this->user)->create();
+        $this->pool->update(['predictions_lock_at' => now()->subDay()]);
 
         $this->actingAs($this->user)
-            ->get(route('games.predict.edit', 'world-cup-2026-ffa'))
+            ->get(route('pools.predict.edit', 'world-cup-2026-ffa'))
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
-                ->component('games/predict')
-                ->where('game.can_edit', false)
+                ->component('pools/predict')
+                ->where('pool.can_edit', false)
             );
     }
 
     public function test_a_user_cannot_change_another_users_predictions(): void
     {
-        Entry::factory()->for($this->game)->for($this->user)->create();
+        Entry::factory()->for($this->pool)->for($this->user)->create();
         $other = User::factory()->create();
-        $otherEntry = Entry::factory()->for($this->game)->for($other)->create();
+        $otherEntry = Entry::factory()->for($this->pool)->for($other)->create();
         $fixture = $this->groupFixtures('A')->first();
         $this->predictGroup($otherEntry, $this->tournament, 'A', $this->seedOrderScores());
 
@@ -344,7 +344,7 @@ class PredictionControllerTest extends TestCase
         ]]];
 
         $this->actingAs($this->user)
-            ->put(route('games.predict.group', 'world-cup-2026-ffa'), $payload)
+            ->put(route('pools.predict.group', 'world-cup-2026-ffa'), $payload)
             ->assertRedirect();
 
         // The other user's prediction is untouched; the acting user gets their own entry.
@@ -363,7 +363,7 @@ class PredictionControllerTest extends TestCase
 
     private function entry(): ?Entry
     {
-        return Entry::where('game_id', $this->game->id)
+        return Entry::where('pool_id', $this->pool->id)
             ->where('user_id', $this->user->id)
             ->first();
     }

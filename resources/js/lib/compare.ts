@@ -1,4 +1,4 @@
-import type { ComparePlayer, PredictionWindowStatus } from '@/types/games';
+import type { ComparePlayer, PredictionWindowStatus } from '@/types/pools';
 
 /**
  * Up to four visually distinct comparison lanes. Lane 0 (the viewer) is the house pitch; the three

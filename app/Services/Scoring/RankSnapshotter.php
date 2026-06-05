@@ -4,8 +4,8 @@ namespace App\Services\Scoring;
 
 use App\Enums\LeaderboardCategory;
 use App\Models\Entry;
-use App\Models\Game;
 use App\Models\LeaderboardStanding;
+use App\Models\Pool;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -17,18 +17,18 @@ use Illuminate\Support\Facades\DB;
  * Each board ranks its {@see LeaderboardStanding} rows by value descending, then tiebreaker
  * descending, then entry id. The Overall board's rank is also mirrored onto `Entry.rank`/
  * `previous_rank` (computed straight from `total_points`, unscored entries last) so the notifier and
- * the game-page preview keep reading it there. A brand-new entry keeps a null `previous_rank`,
+ * the pool-page preview keep reading it there. A brand-new entry keeps a null `previous_rank`,
  * which the UI renders as "new" rather than an arrow.
  */
 class RankSnapshotter
 {
-    public function snapshot(Game $game): void
+    public function snapshot(Pool $pool): void
     {
-        $entries = $game->entries()->orderBy('id')->get();
+        $entries = $pool->entries()->orderBy('id')->get();
 
-        DB::transaction(function () use ($game, $entries): void {
+        DB::transaction(function () use ($pool, $entries): void {
             $this->mirrorOverallToEntries($entries);
-            $this->rankStandings($game);
+            $this->rankStandings($pool);
         });
     }
 
@@ -55,9 +55,9 @@ class RankSnapshotter
     /**
      * Rank every board's standing rows in place.
      */
-    private function rankStandings(Game $game): void
+    private function rankStandings(Pool $pool): void
     {
-        $entryIds = $game->entries()->pluck('id');
+        $entryIds = $pool->entries()->pluck('id');
 
         if ($entryIds->isEmpty()) {
             return;

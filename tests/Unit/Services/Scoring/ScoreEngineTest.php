@@ -5,9 +5,9 @@ namespace Tests\Unit\Services\Scoring;
 use App\Enums\FixtureStatus;
 use App\Enums\LeaderboardCategory;
 use App\Models\Entry;
-use App\Models\Game;
 use App\Models\GroupPrediction;
 use App\Models\KnockoutPrediction;
+use App\Models\Pool;
 use App\Models\Tournament;
 use App\Models\User;
 use App\Services\Predictions\BracketResolver;
@@ -27,7 +27,7 @@ class ScoreEngineTest extends TestCase
 
     private Tournament $tournament;
 
-    private Game $game;
+    private Pool $pool;
 
     private Entry $entry;
 
@@ -39,8 +39,8 @@ class ScoreEngineTest extends TestCase
 
         $this->seed(WorldCup2026Seeder::class);
         $this->tournament = Tournament::firstOrFail();
-        $this->game = $this->tournament->games()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
-        $this->entry = Entry::factory()->for($this->game)->for(User::factory())->create();
+        $this->pool = $this->tournament->pools()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
+        $this->entry = Entry::factory()->for($this->pool)->for(User::factory())->create();
         $this->engine = new ScoreEngine;
     }
 
@@ -60,7 +60,7 @@ class ScoreEngineTest extends TestCase
         $this->setPrediction($fifteenPointFixture->id, 3, 2);
         $fifteenPointFixture->update(['home_goals' => 3, 'away_goals' => 1, 'status' => FixtureStatus::Finished]);
 
-        $this->engine->recompute($this->game);
+        $this->engine->recompute($this->pool);
 
         $this->assertSame(10, $this->groupPrediction($tenPointFixture->id)->points_awarded);
         $this->assertSame(15, $this->groupPrediction($fifteenPointFixture->id)->points_awarded);
@@ -88,7 +88,7 @@ class ScoreEngineTest extends TestCase
         $this->recordOfficialGroupResults($this->tournament, $this->seedOrderScores());
         $this->advanceOfficialHome($this->tournament, $projector);
 
-        $this->engine->recompute($this->game);
+        $this->engine->recompute($this->pool);
 
         // Round-of-32: both teams correctly placed (+10 each) with both goal counts exact (1-0)
         // (+5 each) = 30. No champion bonus outside the final.
@@ -113,10 +113,10 @@ class ScoreEngineTest extends TestCase
         $this->predictAllGroups($this->entry, $this->tournament, $this->seedOrderScores());
         $this->recordOfficialGroupResults($this->tournament, $this->seedOrderScores());
 
-        $this->engine->recompute($this->game);
+        $this->engine->recompute($this->pool);
         $firstTotal = $this->entry->fresh()->total_points;
 
-        $this->engine->recompute($this->game);
+        $this->engine->recompute($this->pool);
         $this->assertSame($firstTotal, $this->entry->fresh()->total_points);
 
         // Remove one group result; that prediction unscored and the total drops by its points.
@@ -125,7 +125,7 @@ class ScoreEngineTest extends TestCase
         $removedPoints = $this->groupPrediction($fixture->id)->points_awarded;
         $fixture->update(['home_goals' => null, 'away_goals' => null, 'status' => FixtureStatus::Scheduled]);
 
-        $this->engine->recompute($this->game);
+        $this->engine->recompute($this->pool);
 
         $this->assertNull($this->groupPrediction($fixture->id)->points_awarded);
         $this->assertSame($firstTotal - $removedPoints, $this->entry->fresh()->total_points);
@@ -135,7 +135,7 @@ class ScoreEngineTest extends TestCase
     {
         $this->predictAllGroups($this->entry, $this->tournament, $this->seedOrderScores());
 
-        $this->engine->recompute($this->game);
+        $this->engine->recompute($this->pool);
 
         $this->assertNull($this->entry->fresh()->total_points);
         $this->assertNull($this->groupPrediction(
@@ -155,7 +155,7 @@ class ScoreEngineTest extends TestCase
         $this->recordOfficialGroupResults($this->tournament, $this->seedOrderScores());
         $this->advanceOfficialHome($this->tournament, $projector);
 
-        $this->engine->recompute($this->game);
+        $this->engine->recompute($this->pool);
 
         // Count the scored matches across the whole tournament; each is exact (so 2 team goals).
         $matches = (int) $this->entry->groupPredictions()->whereNotNull('points_awarded')->count()
@@ -178,8 +178,8 @@ class ScoreEngineTest extends TestCase
         $this->predictAllGroups($this->entry, $this->tournament, $this->seedOrderScores());
         $this->recordOfficialGroupResults($this->tournament, $this->seedOrderScores());
 
-        $this->engine->recompute($this->game);
-        $this->engine->recompute($this->game);
+        $this->engine->recompute($this->pool);
+        $this->engine->recompute($this->pool);
 
         $this->assertSame(3, $this->entry->standings()->count());
     }
@@ -188,7 +188,7 @@ class ScoreEngineTest extends TestCase
     {
         $this->predictAllGroups($this->entry, $this->tournament, $this->seedOrderScores());
 
-        $this->engine->recompute($this->game);
+        $this->engine->recompute($this->pool);
 
         // All three rows exist (so the boards never miss an entry), at zero.
         $this->assertSame(3, $this->entry->standings()->count());

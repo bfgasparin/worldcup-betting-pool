@@ -1,7 +1,7 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import { login } from '@/routes';
-import { index as games } from '@/routes/games';
+import { index as pools } from '@/routes/pools';
 
 const STATS = [
     { stat: 'Live', label: 'Match predictions' },
@@ -28,12 +28,12 @@ export default function Welcome() {
                     <span className="inline-flex items-baseline font-display text-xl font-semibold tracking-tight text-foreground">
                         Brothers
                         <span className="ml-2 text-[10px] font-bold tracking-[0.22em] text-muted-foreground uppercase">
-                            Betting Pool
+                            Bets
                         </span>
                     </span>
                     <Button asChild size="sm" variant="outline">
-                        <Link href={authed ? games() : login()}>
-                            {authed ? 'Games' : 'Log in'}
+                        <Link href={authed ? pools() : login()}>
+                            {authed ? 'Pools' : 'Log in'}
                         </Link>
                     </Button>
                 </nav>
@@ -45,20 +45,20 @@ export default function Welcome() {
                     </span>
 
                     <h1 className="mt-6 max-w-3xl text-5xl font-semibold tracking-tight text-balance text-foreground sm:text-6xl lg:text-7xl">
-                        Where the <span className="text-primary">pool</span>{' '}
+                        Where the <span className="text-primary">crew</span>{' '}
                         plays for <span className="text-gold">glory</span>.
                     </h1>
 
                     <p className="mt-6 max-w-xl text-lg leading-relaxed text-pretty text-muted-foreground">
                         Predict the fixtures, climb the leaderboard, and settle
-                        the bragging rights. The private betting pool for the
+                        the bragging rights. The private prediction club for the
                         Brothers crew — every match, every season.
                     </p>
 
                     <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row">
                         <Button asChild size="lg" className="group">
-                            <Link href={authed ? games() : login()}>
-                                {authed ? 'Go to Games' : 'Log in'}
+                            <Link href={authed ? pools() : login()}>
+                                {authed ? 'Go to Pools' : 'Log in'}
                                 <span className="transition-transform group-hover:translate-x-1">
                                     →
                                 </span>
@@ -89,7 +89,7 @@ export default function Welcome() {
                 </main>
 
                 <footer className="relative z-10 mx-auto w-full max-w-6xl px-6 py-8 text-center text-sm text-muted-foreground">
-                    Brothers Betting Pool — a private members' pool.
+                    Brothers Bets — a private members' club.
                 </footer>
             </div>
         </>

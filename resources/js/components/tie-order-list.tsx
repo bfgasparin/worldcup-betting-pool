@@ -10,7 +10,7 @@ import { useRef, useState } from 'react';
 import { Flag } from '@/components/flag';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { TeamRef } from '@/types/games';
+import type { TeamRef } from '@/types/pools';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 

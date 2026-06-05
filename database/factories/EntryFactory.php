@@ -3,7 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Entry;
-use App\Models\Game;
+use App\Models\Pool;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -20,7 +20,7 @@ class EntryFactory extends Factory
     public function definition(): array
     {
         return [
-            'game_id' => Game::factory(),
+            'pool_id' => Pool::factory(),
             'user_id' => User::factory(),
             'total_points' => null,
         ];

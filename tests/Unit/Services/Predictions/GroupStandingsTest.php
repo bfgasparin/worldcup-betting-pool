@@ -4,10 +4,10 @@ namespace Tests\Unit\Services\Predictions;
 
 use App\Models\Entry;
 use App\Models\Fixture;
-use App\Models\Game;
 use App\Models\Group;
 use App\Models\GroupPrediction;
 use App\Models\Phase;
+use App\Models\Pool;
 use App\Models\Team;
 use App\Models\Tournament;
 use App\Services\Predictions\GroupStandings;
@@ -234,7 +234,7 @@ class GroupStandingsTest extends TestCase
             ]);
         }
 
-        return [$group, Entry::factory()->for(Game::factory()->for($tournament))->create(), $teams];
+        return [$group, Entry::factory()->for(Pool::factory()->for($tournament))->create(), $teams];
     }
 
     /**

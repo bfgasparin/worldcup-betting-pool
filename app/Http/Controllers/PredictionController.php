@@ -4,16 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Enums\OrderingScope;
 use App\Enums\PredictionWindowStatus;
-use App\Http\Controllers\Concerns\BuildsGameIdentity;
+use App\Http\Controllers\Concerns\BuildsPoolIdentity;
 use App\Http\Requests\Predictions\UpdateGroupOrderingRequest;
 use App\Http\Requests\Predictions\UpdateGroupPredictionsRequest;
 use App\Http\Requests\Predictions\UpdateKnockoutPredictionsRequest;
 use App\Models\Entry;
 use App\Models\Fixture;
-use App\Models\Game;
 use App\Models\Group;
 use App\Models\GroupPrediction;
 use App\Models\KnockoutPrediction;
+use App\Models\Pool;
 use App\Models\Team;
 use App\Models\Tournament;
 use App\Services\Predictions\BracketResolver;
@@ -32,7 +32,7 @@ use Inertia\Response;
 
 class PredictionController extends Controller
 {
-    use BuildsGameIdentity;
+    use BuildsPoolIdentity;
 
     public function __construct(
         private readonly BracketResolver $resolver,
@@ -40,28 +40,28 @@ class PredictionController extends Controller
     ) {}
 
     /**
-     * Show the prediction wizard for a game, prefilled with the user's saved picks
+     * Show the prediction wizard for a pool, prefilled with the user's saved picks
      * and the bracket teams resolved from their group-stage scores.
      */
-    public function edit(Request $request, Game $game): Response|RedirectResponse
+    public function edit(Request $request, Pool $pool): Response|RedirectResponse
     {
-        $windows = $this->windowResolver->windows($game);
-        $canEdit = $game->acceptsPredictions();
+        $windows = $this->windowResolver->windows($pool);
+        $canEdit = $pool->acceptsPredictions();
 
-        $entry = $game->entries()->where('user_id', $request->user()->id)->first();
+        $entry = $pool->entries()->where('user_id', $request->user()->id)->first();
 
         if ($entry === null) {
-            // Predictions require joining the pool first; send non-members to the game page to join.
-            return to_route('games.show', $game);
+            // Predictions require joining the pool first; send non-members to the pool page to join.
+            return to_route('pools.show', $pool);
         }
 
-        // Upfront games cascade the self-derived bracket onto the entry's knockout rows; phased
-        // games predict the official bracket, so there is nothing to cascade.
-        if ($entry !== null && $game->predictsKnockoutBracket()) {
+        // Upfront pools cascade the self-derived bracket onto the entry's knockout rows; phased
+        // pools predict the official bracket, so there is nothing to cascade.
+        if ($entry !== null && $pool->predictsKnockoutBracket()) {
             $this->resolver->persist($entry);
         }
 
-        $tournament = $game->tournament;
+        $tournament = $pool->tournament;
         $tournament->load([
             'groups.teams',
             'groups.fixtures' => fn ($query) => $query->orderBy('match_number'),
@@ -75,33 +75,33 @@ class PredictionController extends Controller
         $groupPredictions = $entry?->groupPredictions->keyBy('fixture_id') ?? collect();
         $knockoutPredictions = $entry?->knockoutPredictions->keyBy('fixture_id') ?? collect();
 
-        return Inertia::render('games/predict', [
-            'game' => [
-                ...$this->gameIdentity($game),
+        return Inertia::render('pools/predict', [
+            'pool' => [
+                ...$this->poolIdentity($pool),
                 'sport' => $tournament->sport->value,
                 'status' => $tournament->status->value,
-                'scoring_strategy' => $game->scoring_strategy->value,
+                'scoring_strategy' => $pool->scoring_strategy->value,
                 'starts_on' => $tournament->starts_on?->toDateString(),
                 'ends_on' => $tournament->ends_on?->toDateString(),
-                'predictions_lock_at' => $game->predictionsLockAt()?->toIso8601String(),
+                'predictions_lock_at' => $pool->predictionsLockAt()?->toIso8601String(),
                 'can_edit' => $canEdit,
-                'scoring_config' => $game->scoring_config,
+                'scoring_config' => $pool->scoring_config,
             ],
             'groups' => $tournament->groups->map(
-                fn (Group $group): array => $this->mapGroup($group, $bracket, $groupPredictions, $teamsById, $game->predictsKnockoutBracket()),
+                fn (Group $group): array => $this->mapGroup($group, $bracket, $groupPredictions, $teamsById, $pool->predictsKnockoutBracket()),
             )->all(),
-            'bracket' => $game->predictsKnockoutBracket()
+            'bracket' => $pool->predictsKnockoutBracket()
                 ? $this->mapBracket($tournament->knockoutFixtures, $bracket, $knockoutPredictions, $teamsById, $windows)
                 : $this->mapOfficialBracket($tournament->knockoutFixtures, $knockoutPredictions, $teamsById, $windows),
-            'thirds' => $game->predictsKnockoutBracket() ? $this->mapThirds($bracket, $teamsById) : null,
-            'thirds_tie' => $this->mapThirdsTie($game, $bracket, $tournament, $teamsById, $entry !== null ? ManualTieOrdering::fromEntry($entry)->thirds : null),
+            'thirds' => $pool->predictsKnockoutBracket() ? $this->mapThirds($bracket, $teamsById) : null,
+            'thirds_tie' => $this->mapThirdsTie($pool, $bracket, $tournament, $teamsById, $entry !== null ? ManualTieOrdering::fromEntry($entry)->thirds : null),
         ]);
     }
 
     /**
      * Save the user's group-stage scores, then recompute the resolved bracket.
      */
-    public function updateGroupStage(UpdateGroupPredictionsRequest $request, Game $game): RedirectResponse
+    public function updateGroupStage(UpdateGroupPredictionsRequest $request, Pool $pool): RedirectResponse
     {
         $entry = $request->entry();
 
@@ -114,23 +114,23 @@ class PredictionController extends Controller
             }
         });
 
-        // Only upfront games derive the knockout bracket from group scores; phased games leave the
+        // Only upfront pools derive the knockout bracket from group scores; phased pools leave the
         // knockout rounds to be predicted against the official match-ups.
-        if ($game->predictsKnockoutBracket()) {
+        if ($pool->predictsKnockoutBracket()) {
             $this->resolver->persist($entry);
         }
 
-        return to_route('games.predict.edit', $game);
+        return to_route('pools.predict.edit', $pool);
     }
 
     /**
      * Save the user's knockout scores and advancing picks, then cascade the bracket.
      */
-    public function updateKnockout(UpdateKnockoutPredictionsRequest $request, Game $game): RedirectResponse
+    public function updateKnockout(UpdateKnockoutPredictionsRequest $request, Pool $pool): RedirectResponse
     {
         $entry = $request->entry();
 
-        if ($game->predictsKnockoutBracket()) {
+        if ($pool->predictsKnockoutBracket()) {
             // Upfront: write the scores/advancing onto the cascaded rows, then re-cascade so a
             // changed pick flows down the rest of the self-derived bracket.
             DB::transaction(function () use ($entry, $request): void {
@@ -148,12 +148,12 @@ class PredictionController extends Controller
 
             $this->resolver->persist($entry);
 
-            return to_route('games.predict.edit', $game);
+            return to_route('pools.predict.edit', $pool);
         }
 
         // Phased: the player predicts the official match-up directly. Record it against the
         // official participants and do not cascade — the bracket comes from real results.
-        $officialFixtures = $game->tournament->knockoutFixtures()->get()->keyBy('id');
+        $officialFixtures = $pool->tournament->knockoutFixtures()->get()->keyBy('id');
 
         DB::transaction(function () use ($entry, $request, $officialFixtures): void {
             foreach ($request->predictionsForPersistence() as $prediction) {
@@ -172,14 +172,14 @@ class PredictionController extends Controller
             }
         });
 
-        return to_route('games.predict.edit', $game);
+        return to_route('pools.predict.edit', $pool);
     }
 
     /**
      * Save the player's manual ordering of an unresolved tie (a within-group cluster or the
      * thirds cut), then re-cascade so the newly-ordered teams fill their bracket slots.
      */
-    public function updateOrdering(UpdateGroupOrderingRequest $request, Game $game): RedirectResponse
+    public function updateOrdering(UpdateGroupOrderingRequest $request, Pool $pool): RedirectResponse
     {
         $entry = $request->entry();
         $scope = OrderingScope::from($request->string('scope')->value());
@@ -188,7 +188,7 @@ class PredictionController extends Controller
         sort($tied);
 
         $groupId = $scope === OrderingScope::WithinGroup
-            ? $game->tournament->groups()->where('name', $request->input('group'))->value('id')
+            ? $pool->tournament->groups()->where('name', $request->input('group'))->value('id')
             : null;
 
         $entry->groupOrderings()->updateOrCreate(
@@ -198,12 +198,12 @@ class PredictionController extends Controller
 
         $this->resolver->persist($entry);
 
-        return to_route('games.predict.edit', $game);
+        return to_route('pools.predict.edit', $pool);
     }
 
     /**
      * Resolve the bracket for the entry, or an empty read-only bracket when the user has
-     * no entry (e.g. a locked game they never entered).
+     * no entry (e.g. a locked pool they never entered).
      */
     private function resolveBracket(Tournament $tournament, ?Entry $entry): ResolvedBracket
     {
@@ -270,9 +270,9 @@ class PredictionController extends Controller
      * @param  list<int>|null  $thirdsOrder
      * @return array{teams: list<array<string, mixed>>, resolved: bool}|null
      */
-    private function mapThirdsTie(Game $game, ResolvedBracket $bracket, Tournament $tournament, Collection $teamsById, ?array $thirdsOrder): ?array
+    private function mapThirdsTie(Pool $pool, ResolvedBracket $bracket, Tournament $tournament, Collection $teamsById, ?array $thirdsOrder): ?array
     {
-        if (! $game->predictsKnockoutBracket()) {
+        if (! $pool->predictsKnockoutBracket()) {
             return null;
         }
 

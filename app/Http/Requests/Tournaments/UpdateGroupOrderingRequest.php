@@ -4,7 +4,7 @@ namespace App\Http\Requests\Tournaments;
 
 use App\Enums\BatchStatus;
 use App\Http\Requests\Concerns\ValidatesTieOrdering;
-use App\Models\Game;
+use App\Models\Pool;
 use App\Models\ScoreBatch;
 use App\Services\Predictions\TieResolutionState;
 use Illuminate\Contracts\Validation\Validator;
@@ -29,7 +29,7 @@ class UpdateGroupOrderingRequest extends FormRequest
      */
     public function rules(): array
     {
-        return $this->tieOrderingRules($this->game()->tournament->groups()->pluck('name')->all());
+        return $this->tieOrderingRules($this->pool()->tournament->groups()->pluck('name')->all());
     }
 
     public function withValidator(Validator $validator): void
@@ -39,19 +39,19 @@ class UpdateGroupOrderingRequest extends FormRequest
                 return;
             }
 
-            $state = (new TieResolutionState)->forTournament($this->game()->tournament, $this->openBatch());
+            $state = (new TieResolutionState)->forTournament($this->pool()->tournament, $this->openBatch());
             $this->validateOrderingAgainst($validator, $state);
         });
     }
 
-    public function game(): Game
+    public function pool(): Pool
     {
-        return $this->route('game');
+        return $this->route('pool');
     }
 
     public function openBatch(): ?ScoreBatch
     {
-        return $this->game()->tournament->scoreBatches()
+        return $this->pool()->tournament->scoreBatches()
             ->where('status', BatchStatus::Open)
             ->latest('id')
             ->first();

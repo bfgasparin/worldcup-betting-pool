@@ -6,17 +6,17 @@ use App\Enums\LeaderboardCategory;
 use App\Enums\PhaseKey;
 use App\Enums\PredictionWindowStatus;
 use App\Models\Entry;
-use App\Models\Game;
 use App\Models\Group;
 use App\Models\GroupPrediction;
 use App\Models\KnockoutPrediction;
 use App\Models\LeaderboardStanding;
+use App\Models\Pool;
 use App\Models\Team;
 use App\Models\Tournament;
 use Illuminate\Support\Collection;
 
 /**
- * Builds the head-to-head "compare players" payload for the game detail page: the viewer's own
+ * Builds the head-to-head "compare players" payload for the pool detail page: the viewer's own
  * results alongside up to a few selected opponents, so the page can render one lane per player.
  *
  * The load-bearing rule is the anti-cheat gate: another player's actual predictions (scorelines,
@@ -40,15 +40,15 @@ class PlayerComparison
      * @param  list<int>  $entryIds  the opponent entry ids (already sanitised/capped), in display order
      * @return array{windows: array<string, string>, players: list<array<string, mixed>>}|null
      */
-    public function build(Game $game, int $viewerUserId, array $entryIds): ?array
+    public function build(Pool $pool, int $viewerUserId, array $entryIds): ?array
     {
         if ($entryIds === []) {
             return null;
         }
 
-        $windows = $this->windowResolver->windows($game);
+        $windows = $this->windowResolver->windows($pool);
 
-        $tournament = $game->tournament;
+        $tournament = $pool->tournament;
         $tournament->loadMissing([
             'groups.teams',
             'groups.fixtures',
@@ -57,12 +57,12 @@ class PlayerComparison
 
         $phaseKeyByFixture = $this->phaseKeyByFixture($tournament);
 
-        $viewerEntry = $game->entries()
+        $viewerEntry = $pool->entries()
             ->where('user_id', $viewerUserId)
             ->with($this->entryLoads())
             ->first();
 
-        $opponents = $game->entries()
+        $opponents = $pool->entries()
             ->whereIn('id', $entryIds)
             ->with($this->entryLoads())
             ->get()
@@ -70,10 +70,10 @@ class PlayerComparison
             ->sortBy(fn (Entry $entry): int => array_search($entry->id, $entryIds, true))
             ->values();
 
-        $players = [$this->player($viewerEntry, $tournament->groups, $phaseKeyByFixture, $windows, true, $game)];
+        $players = [$this->player($viewerEntry, $tournament->groups, $phaseKeyByFixture, $windows, true, $pool)];
 
         foreach ($opponents as $opponent) {
-            $players[] = $this->player($opponent, $tournament->groups, $phaseKeyByFixture, $windows, false, $game);
+            $players[] = $this->player($opponent, $tournament->groups, $phaseKeyByFixture, $windows, false, $pool);
         }
 
         return [
@@ -90,7 +90,7 @@ class PlayerComparison
      * @param  array<string, PredictionWindowStatus>  $windows
      * @return array<string, mixed>
      */
-    private function player(?Entry $entry, Collection $groups, array $phaseKeyByFixture, array $windows, bool $isViewer, Game $game): array
+    private function player(?Entry $entry, Collection $groups, array $phaseKeyByFixture, array $windows, bool $isViewer, Pool $pool): array
     {
         $groupPredictions = $entry?->groupPredictions->keyBy('fixture_id') ?? collect();
         $knockoutPredictions = $entry?->knockoutPredictions->keyBy('fixture_id') ?? collect();
@@ -106,7 +106,7 @@ class PlayerComparison
             'rank' => $entry?->rank,
             'boards' => $this->boards($entry),
             'group_predictions' => $this->groupPredictionMap($groupPredictions, $phaseKeyByFixture, $windows, $isViewer),
-            'knockout_predictions' => $this->knockoutPredictionMap($knockoutPredictions, $phaseKeyByFixture, $windows, $isViewer, $game),
+            'knockout_predictions' => $this->knockoutPredictionMap($knockoutPredictions, $phaseKeyByFixture, $windows, $isViewer, $pool),
             'projected_standings' => $this->projectedStandings($groups, $groupPredictions, $windows, $isViewer),
         ];
     }
@@ -163,16 +163,16 @@ class PlayerComparison
 
     /**
      * The player's knockout picks keyed by fixture id, gated by the fixture's window. Predicted
-     * teams are exposed only for upfront-bracket games (where they differ from the official ones).
+     * teams are exposed only for upfront-bracket pools (where they differ from the official ones).
      *
      * @param  Collection<int, KnockoutPrediction>  $predictions  keyed by fixture id
      * @param  array<int, string>  $phaseKeyByFixture
      * @param  array<string, PredictionWindowStatus>  $windows
      * @return array<int, array<string, mixed>>
      */
-    private function knockoutPredictionMap(Collection $predictions, array $phaseKeyByFixture, array $windows, bool $isViewer, Game $game): array
+    private function knockoutPredictionMap(Collection $predictions, array $phaseKeyByFixture, array $windows, bool $isViewer, Pool $pool): array
     {
-        $showTeams = $game->predictsKnockoutBracket();
+        $showTeams = $pool->predictsKnockoutBracket();
         $map = [];
 
         foreach ($predictions as $fixtureId => $prediction) {

@@ -19,29 +19,29 @@ class UpdateKnockoutPredictionsRequest extends PredictionRequest
     private ?array $resolvedSlots = null;
 
     /**
-     * Phased-bracket games lock per knockout round, so a save is only authorised when every
-     * submitted fixture's round is currently open. Upfront games keep the single game-level lock.
+     * Phased-bracket pools lock per knockout round, so a save is only authorised when every
+     * submitted fixture's round is currently open. Upfront pools keep the single pool-level lock.
      */
     public function authorize(): bool
     {
-        $game = $this->game();
+        $pool = $this->pool();
 
-        if (! $game->usesPhasedPredictionWindows()) {
+        if (! $pool->usesPhasedPredictionWindows()) {
             return parent::authorize();
         }
 
-        if ($this->user() === null || ! $game->isJoinedBy($this->user())) {
+        if ($this->user() === null || ! $pool->isJoinedBy($this->user())) {
             return false;
         }
 
         $resolver = app(PredictionWindowResolver::class);
-        $knockoutFixtures = $game->tournament->knockoutFixtures()->with('phase')->get()->keyBy('id');
+        $knockoutFixtures = $pool->tournament->knockoutFixtures()->with('phase')->get()->keyBy('id');
 
         foreach ((array) $this->input('predictions', []) as $prediction) {
             $fixture = $knockoutFixtures->get($prediction['fixture_id'] ?? null);
 
             // Unknown fixtures are left to validation; known ones must be in an open round.
-            if ($fixture !== null && ! $resolver->isOpen($game, $fixture->phase->key)) {
+            if ($fixture !== null && ! $resolver->isOpen($pool, $fixture->phase->key)) {
                 return false;
             }
         }
@@ -54,7 +54,7 @@ class UpdateKnockoutPredictionsRequest extends PredictionRequest
      */
     public function rules(): array
     {
-        $knockoutFixtureIds = $this->game()->tournament->knockoutFixtures()->pluck('id')->all();
+        $knockoutFixtureIds = $this->pool()->tournament->knockoutFixtures()->pluck('id')->all();
 
         return [
             'predictions' => ['required', 'array'],
@@ -162,8 +162,8 @@ class UpdateKnockoutPredictionsRequest extends PredictionRequest
 
         // Phased brackets are predicted against the official participants already on the fixtures;
         // upfront brackets resolve from the player's own group scores via the engine.
-        if ($this->game()->usesPhasedPredictionWindows()) {
-            return $this->resolvedSlots = $this->game()->tournament->knockoutFixtures()->get()
+        if ($this->pool()->usesPhasedPredictionWindows()) {
+            return $this->resolvedSlots = $this->pool()->tournament->knockoutFixtures()->get()
                 ->mapWithKeys(fn ($fixture): array => [
                     $fixture->id => ['home' => $fixture->home_team_id, 'away' => $fixture->away_team_id],
                 ])

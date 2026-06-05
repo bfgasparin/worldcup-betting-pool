@@ -3,19 +3,19 @@ import { ordinal } from '@/lib/leaderboards';
 import { formatMoney } from '@/lib/money';
 import { placeBadge } from '@/lib/prizes';
 import { cn } from '@/lib/utils';
-import type { GamePricing } from '@/types/games';
+import type { PoolPricing } from '@/types/pools';
 
 /**
- * The full money breakdown for a game's page: the prize pool, each place's share (the raw amount net
+ * The full money breakdown for a pool's page: the prize pot, each place's share (the raw amount net
  * of the house fee, kept next to its percentage so the split stays clear), the buy-in, and the
  * organizer's cut. Before anyone has joined the pool is empty, so the shares show as percentages
- * under a "grows as players join" header. The lighter games-list teaser is {@link PrizeSplit}.
+ * under a "grows as players join" header. The lighter pools-list teaser is {@link PrizeSplit}.
  */
 export function PrizePanel({
     pricing,
     className,
 }: {
-    pricing: GamePricing;
+    pricing: PoolPricing;
     className?: string;
 }) {
     const hasMoney = pricing.net > 0;
@@ -29,11 +29,11 @@ export function PrizePanel({
         >
             <div className="flex items-baseline justify-between gap-3">
                 <span className="text-[0.65rem] font-bold tracking-[0.12em] text-muted-foreground uppercase">
-                    Prize pool
+                    Prize pot
                 </span>
                 <span className="font-display text-xl font-bold text-foreground">
                     {hasMoney
-                        ? formatMoney(pricing.pool, pricing.currency)
+                        ? formatMoney(pricing.pot, pricing.currency)
                         : 'Grows as players join'}
                 </span>
             </div>

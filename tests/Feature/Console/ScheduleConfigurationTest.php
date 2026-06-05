@@ -13,7 +13,7 @@ use Tests\TestCase;
  * Guards the scale-to-zero scheduling window defined in bootstrap/app.php.
  *
  * The window is hardcoded to World Cup 2026 and lives in the cron expression (not ->between())
- * so Laravel Cloud can hibernate the app outside game hours. If that window changes, these
+ * so Laravel Cloud can hibernate the app outside pool hours. If that window changes, these
  * assertions should change with it deliberately. See bootstrap/app.php for the rationale.
  */
 class ScheduleConfigurationTest extends TestCase
@@ -48,7 +48,7 @@ class ScheduleConfigurationTest extends TestCase
     }
 
     #[DataProvider('scheduledCommands')]
-    public function test_command_is_due_during_game_hours_in_tournament_months(string $command): void
+    public function test_command_is_due_during_match_hours_in_tournament_months(string $command): void
     {
         // Evening fixtures (kickoffs run 16:00–04:59 UTC) and the post-midnight wrap.
         Carbon::setTestNow('2026-06-15 19:00:00');

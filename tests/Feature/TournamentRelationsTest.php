@@ -8,9 +8,9 @@ use App\Enums\Sport;
 use App\Enums\TournamentStatus;
 use App\Models\Entry;
 use App\Models\Fixture;
-use App\Models\Game;
 use App\Models\Group;
 use App\Models\GroupPrediction;
+use App\Models\Pool;
 use App\Models\Team;
 use App\Models\Tournament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -71,11 +71,11 @@ class TournamentRelationsTest extends TestCase
         $this->assertCount(2, $entry->groupPredictions);
     }
 
-    public function test_tournament_has_games(): void
+    public function test_tournament_has_pools(): void
     {
         $tournament = Tournament::factory()->create();
-        Game::factory()->count(2)->for($tournament)->create();
+        Pool::factory()->count(2)->for($tournament)->create();
 
-        $this->assertCount(2, $tournament->games);
+        $this->assertCount(2, $tournament->pools);
     }
 }

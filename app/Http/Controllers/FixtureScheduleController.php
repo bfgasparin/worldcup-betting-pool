@@ -4,10 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Enums\PhaseType;
 use App\Enums\ScoringStrategy;
-use App\Http\Controllers\Concerns\BuildsGameIdentity;
+use App\Http\Controllers\Concerns\BuildsPoolIdentity;
 use App\Http\Requests\Tournaments\RescheduleFixtureRequest;
 use App\Models\Fixture;
-use App\Models\Game;
+use App\Models\Pool;
 use App\Models\Team;
 use App\Models\Tournament;
 use Illuminate\Http\RedirectResponse;
@@ -16,14 +16,14 @@ use Inertia\Response;
 
 class FixtureScheduleController extends Controller
 {
-    use BuildsGameIdentity;
+    use BuildsPoolIdentity;
 
     /**
      * The admin screen for rescheduling a tournament's not-yet-finished fixtures (kickoff + venue).
      */
-    public function index(Game $game): Response
+    public function index(Pool $pool): Response
     {
-        $tournament = $game->tournament;
+        $tournament = $pool->tournament;
         $venues = $tournament->venueTimezones();
         $governing = $this->lockGoverningFixtureIds($tournament);
 
@@ -32,8 +32,8 @@ class FixtureScheduleController extends Controller
             ->orderBy('match_number')
             ->get();
 
-        return Inertia::render('games/schedule/index', [
-            'game' => $this->gameIdentity($game),
+        return Inertia::render('pools/schedule/index', [
+            'pool' => $this->poolIdentity($pool),
             'venues' => collect($venues)
                 ->map(fn (string $timezone, string $name): array => ['name' => $name, 'timezone' => $timezone])
                 ->values()
@@ -60,25 +60,25 @@ class FixtureScheduleController extends Controller
      * Move a not-yet-finished fixture to a new kickoff and venue, discarding any pending proposed
      * result for it.
      */
-    public function reschedule(RescheduleFixtureRequest $request, Game $game, Fixture $fixture): RedirectResponse
+    public function reschedule(RescheduleFixtureRequest $request, Pool $pool, Fixture $fixture): RedirectResponse
     {
-        abort_unless($fixture->tournament_id === $game->tournament->id, 404);
+        abort_unless($fixture->tournament_id === $pool->tournament->id, 404);
 
         $fixture->reschedule($request->newKickoff(), $request->venue(), $request->venueTimezone());
 
         // Moving a fixture out of "live" can change the lifecycle status — e.g. rescheduling the
         // only kicked-off match into the future reverts the tournament to Upcoming.
-        $game->tournament->syncStatus();
+        $pool->tournament->syncStatus();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Fixture rescheduled.')]);
 
-        return to_route('games.schedule.index', $game);
+        return to_route('pools.schedule.index', $pool);
     }
 
     /**
      * The ids of fixtures whose kickoff currently governs a derived prediction lock, so the admin
-     * can be warned before moving one. The earliest group fixture sets every game's group-stage
-     * lock; for a tournament with any phased-bracket game, the earliest fixture of each knockout
+     * can be warned before moving one. The earliest group fixture sets every pool's group-stage
+     * lock; for a tournament with any phased-bracket pool, the earliest fixture of each knockout
      * round sets that round's lock.
      *
      * @return list<int>
@@ -97,11 +97,11 @@ class FixtureScheduleController extends Controller
             $ids[] = (int) $earliestGroup;
         }
 
-        $hasPhasedGame = $tournament->games()
+        $hasPhasedPool = $tournament->pools()
             ->where('scoring_strategy', ScoringStrategy::PhasedBracket->value)
             ->exists();
 
-        if ($hasPhasedGame) {
+        if ($hasPhasedPool) {
             $knockoutPhaseIds = $tournament->phases()->where('type', PhaseType::Knockout->value)->pluck('id');
 
             foreach ($knockoutPhaseIds as $phaseId) {

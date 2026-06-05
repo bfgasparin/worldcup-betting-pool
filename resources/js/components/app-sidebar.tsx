@@ -21,12 +21,12 @@ import {
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { resolveAccent, sourceMonogram } from '@/lib/accents';
 import { cn } from '@/lib/utils';
-import gamesRoutes, { index as games } from '@/routes/games';
-import type { JoinedGame, TournamentNavInfo } from '@/types/navigation';
+import poolsRoutes, { index as pools } from '@/routes/pools';
+import type { JoinedPool, TournamentNavInfo } from '@/types/navigation';
 
-/** A row in the "Your games" list — a joined game, or the game currently in context. */
-type GameRow = Pick<
-    JoinedGame,
+/** A row in the "Your pools" list — a joined pool, or the pool currently in context. */
+type PoolRow = Pick<
+    JoinedPool,
     'slug' | 'name' | 'source' | 'needs_attention'
 > & {
     accent?: string | null;
@@ -34,20 +34,20 @@ type GameRow = Pick<
 
 export function AppSidebar() {
     const { props } = usePage<{
-        game?: TournamentNavInfo;
-        joinedGames?: JoinedGame[];
+        pool?: TournamentNavInfo;
+        joinedPools?: JoinedPool[];
     }>();
-    const activeGame = props.game;
-    const joined = props.joinedGames ?? [];
+    const activePool = props.pool;
+    const joined = props.joinedPools ?? [];
 
-    // The game in context that the player hasn't joined still gets its row + sub-nav, so the
-    // sidebar never dead-ends on a game you're only previewing. Prepend it when it isn't listed.
+    // The pool in context that the player hasn't joined still gets its row + sub-nav, so the
+    // sidebar never dead-ends on a pool you're only previewing. Prepend it when it isn't listed.
     const previewing =
-        activeGame && !joined.some((game) => game.slug === activeGame.slug)
-            ? activeGame
+        activePool && !joined.some((pool) => pool.slug === activePool.slug)
+            ? activePool
             : null;
 
-    const rows: GameRow[] = [
+    const rows: PoolRow[] = [
         ...(previewing ? [{ ...previewing, needs_attention: false }] : []),
         ...joined,
     ];
@@ -58,7 +58,7 @@ export function AppSidebar() {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href={games()} prefetch>
+                            <Link href={pools()} prefetch>
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>
@@ -72,12 +72,12 @@ export function AppSidebar() {
                         <SidebarMenuItem>
                             <SidebarMenuButton
                                 asChild
-                                isActive={!activeGame}
-                                tooltip={{ children: 'All games' }}
+                                isActive={!activePool}
+                                tooltip={{ children: 'All pools' }}
                             >
-                                <Link href={games()} prefetch>
+                                <Link href={pools()} prefetch>
                                     <LayoutGrid />
-                                    <span>All games</span>
+                                    <span>All pools</span>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
@@ -86,13 +86,13 @@ export function AppSidebar() {
 
                 {rows.length > 0 && (
                     <SidebarGroup className="px-2 py-0">
-                        <SidebarGroupLabel>Your games</SidebarGroupLabel>
+                        <SidebarGroupLabel>Your pools</SidebarGroupLabel>
                         <SidebarMenu>
                             {rows.map((row) => (
-                                <GameNavItem
+                                <PoolNavItem
                                     key={row.slug}
                                     row={row}
-                                    active={row.slug === activeGame?.slug}
+                                    active={row.slug === activePool?.slug}
                                 />
                             ))}
                         </SidebarMenu>
@@ -108,11 +108,11 @@ export function AppSidebar() {
 }
 
 /**
- * One game in the "Your games" list: a monogram badge in the game's kit accent, the game name, a
- * gold "needs attention" dot when there's prediction work to do, and — for the game in context —
+ * One pool in the "Your pools" list: a monogram badge in the pool's kit accent, the pool name, a
+ * gold "needs attention" dot when there's prediction work to do, and — for the pool in context —
  * an expanded sub-nav (Overview / Predict / Leaderboards).
  */
-function GameNavItem({ row, active }: { row: GameRow; active: boolean }) {
+function PoolNavItem({ row, active }: { row: PoolRow; active: boolean }) {
     const kit = resolveAccent(row.accent);
     const { isCurrentUrl } = useCurrentUrl();
     const items = tournamentNavItems(row.slug);
@@ -124,7 +124,7 @@ function GameNavItem({ row, active }: { row: GameRow; active: boolean }) {
                 isActive={active}
                 tooltip={{ children: row.name }}
             >
-                <Link href={gamesRoutes.show(row.slug).url} prefetch>
+                <Link href={poolsRoutes.show(row.slug).url} prefetch>
                     <span
                         className={cn(
                             'flex size-5 shrink-0 items-center justify-center rounded-md font-display text-[0.6rem] leading-none font-bold',

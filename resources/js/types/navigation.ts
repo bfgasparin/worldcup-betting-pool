@@ -14,8 +14,8 @@ export type NavItem = {
 };
 
 /**
- * The subset of the page-level `game` prop the sidebar reads to render tournament-context nav.
- * `source`/`accent` let the sidebar show which game is in context (sibling games share the name).
+ * The subset of the page-level `pool` prop the sidebar reads to render tournament-context nav.
+ * `source`/`accent` let the sidebar show which pool is in context (sibling pools share the name).
  */
 export type TournamentNavInfo = {
     slug: string;
@@ -26,11 +26,11 @@ export type TournamentNavInfo = {
 };
 
 /**
- * A game the viewer has joined, as shared globally for the sidebar's "Your games" list.
+ * A pool the viewer has joined, as shared globally for the sidebar's "Your pools" list.
  * `needs_attention` is true when the prediction window is open and the player's picks are
  * unfinished — surfaced as a gold dot so they can see at a glance where there's work to do.
  */
-export type JoinedGame = {
+export type JoinedPool = {
     slug: string;
     name: string;
     source: string;

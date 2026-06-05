@@ -31,7 +31,7 @@ export default function PasskeyVerify({
             },
         }),
         onSuccess: (response) => {
-            router.visit(response.redirect ?? '/games');
+            router.visit(response.redirect ?? '/pools');
         },
     });
 

@@ -2,10 +2,10 @@
 
 namespace App\Services\Scoring;
 
-use App\Enums\GameAccent;
 use App\Enums\LeaderboardCategory;
+use App\Enums\PoolAccent;
 use App\Models\Entry;
-use App\Models\Game;
+use App\Models\Pool;
 use App\Notifications\LeaderboardRankChangedNotification;
 use App\Notifications\TopOfLeaderboardNotification;
 
@@ -23,9 +23,9 @@ class LeaderboardNotifier
      */
     public const int MOVE_THRESHOLD = 2;
 
-    public function notify(Game $game): void
+    public function notify(Pool $pool): void
     {
-        $ranked = $game->entries()
+        $ranked = $pool->entries()
             ->with('user')
             ->whereNotNull('rank')
             ->get()
@@ -35,9 +35,9 @@ class LeaderboardNotifier
         $byRank = $ranked->keyBy('rank');
         $totalEntries = $ranked->count();
 
-        // The game's colour identity carried into the emails so they match the in-app look; the
-        // house pitch is the fallback for a game without an explicit accent.
-        $accent = $game->accent ?? GameAccent::Pitch;
+        // The pool's colour identity carried into the emails so they match the in-app look; the
+        // house pitch is the fallback for a pool without an explicit accent.
+        $accent = $pool->accent ?? PoolAccent::Pitch;
 
         foreach ($ranked as $entry) {
             $user = $entry->user;
@@ -55,9 +55,9 @@ class LeaderboardNotifier
                 $runnerUp = $byRank->get(2);
 
                 $user->notify(new TopOfLeaderboardNotification(
-                    $game->name,
-                    $game->slug,
-                    $game->source,
+                    $pool->name,
+                    $pool->slug,
+                    $pool->source,
                     $accent,
                     $entry->total_points,
                     $totalEntries,
@@ -75,9 +75,9 @@ class LeaderboardNotifier
                 $ahead = $byRank->get($rank - 1);
 
                 $user->notify(new LeaderboardRankChangedNotification(
-                    $game->name,
-                    $game->slug,
-                    $game->source,
+                    $pool->name,
+                    $pool->slug,
+                    $pool->source,
                     $accent,
                     $rank < $previousRank ? 'up' : 'down',
                     $rank,

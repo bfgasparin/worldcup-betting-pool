@@ -61,7 +61,7 @@ class LoginCodeNotificationTest extends TestCase
         ])->render();
 
         $this->assertStringContainsString('482915', $text);
-        $this->assertStringContainsString('Brothers Betting Pool', $text);
+        $this->assertStringContainsString('Brothers Bets', $text);
         $this->assertStringContainsString((string) SendLoginCode::TTL_MINUTES, $text);
     }
 }

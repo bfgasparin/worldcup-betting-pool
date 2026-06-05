@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use App\Enums\OrderingScope;
 use App\Enums\ScoringStrategy;
 use App\Models\Entry;
-use App\Models\Game;
+use App\Models\Pool;
 use App\Models\Tournament;
 use App\Models\User;
 use Database\Seeders\WorldCup2026Seeder;
@@ -20,7 +20,7 @@ class PredictionOrderingTest extends TestCase
 
     private Tournament $tournament;
 
-    private Game $game;
+    private Pool $pool;
 
     private User $user;
 
@@ -30,13 +30,13 @@ class PredictionOrderingTest extends TestCase
 
         $this->seed(WorldCup2026Seeder::class);
         $this->tournament = Tournament::firstOrFail();
-        $this->game = $this->tournament->games()->where('scoring_strategy', ScoringStrategy::UpfrontBracket)->firstOrFail();
+        $this->pool = $this->tournament->pools()->where('scoring_strategy', ScoringStrategy::UpfrontBracket)->firstOrFail();
         $this->user = User::factory()->create();
     }
 
     public function test_a_player_orders_a_within_group_tie_and_the_bracket_fills(): void
     {
-        $entry = Entry::factory()->for($this->game)->for($this->user)->create();
+        $entry = Entry::factory()->for($this->pool)->for($this->user)->create();
         // All goalless: every group is a four-way tie, so no group winner can be derived yet.
         $this->predictAllGroups($entry, $this->tournament, fn (int $home, int $away): array => [0, 0], resolveTies: false);
 
@@ -48,12 +48,12 @@ class PredictionOrderingTest extends TestCase
             ->teams()->orderByPivot('position', 'desc')->get()->pluck('id')->all();
 
         $this->actingAs($this->user)
-            ->put(route('games.predict.ordering', $this->game), [
+            ->put(route('pools.predict.ordering', $this->pool), [
                 'scope' => OrderingScope::WithinGroup->value,
                 'group' => 'A',
                 'ordered_team_ids' => $groupA,
             ])
-            ->assertRedirect(route('games.predict.edit', $this->game));
+            ->assertRedirect(route('pools.predict.edit', $this->pool));
 
         $this->assertDatabaseHas('entry_group_orderings', [
             'entry_id' => $entry->id,
@@ -69,11 +69,11 @@ class PredictionOrderingTest extends TestCase
 
     public function test_a_stale_ordering_is_rejected(): void
     {
-        $entry = Entry::factory()->for($this->game)->for($this->user)->create();
+        $entry = Entry::factory()->for($this->pool)->for($this->user)->create();
         $this->predictAllGroups($entry, $this->tournament, fn (int $home, int $away): array => [0, 0], resolveTies: false);
 
         $this->actingAs($this->user)
-            ->put(route('games.predict.ordering', $this->game), [
+            ->put(route('pools.predict.ordering', $this->pool), [
                 'scope' => OrderingScope::WithinGroup->value,
                 'group' => 'A',
                 'ordered_team_ids' => [1, 2], // not the live four-way tie
@@ -81,9 +81,9 @@ class PredictionOrderingTest extends TestCase
             ->assertSessionHasErrors('ordered_team_ids');
     }
 
-    public function test_the_ordering_endpoint_is_forbidden_for_a_phased_game(): void
+    public function test_the_ordering_endpoint_is_forbidden_for_a_phased_pool(): void
     {
-        $phased = Game::factory()->for($this->tournament)->create([
+        $phased = Pool::factory()->for($this->tournament)->create([
             'scoring_strategy' => ScoringStrategy::PhasedBracket,
             'predictions_lock_at' => now()->addWeek(),
         ]);
@@ -91,7 +91,7 @@ class PredictionOrderingTest extends TestCase
         Entry::factory()->for($phased)->for($this->user)->create();
 
         $this->actingAs($this->user)
-            ->put(route('games.predict.ordering', $phased), [
+            ->put(route('pools.predict.ordering', $phased), [
                 'scope' => OrderingScope::WithinGroup->value,
                 'group' => 'A',
                 'ordered_team_ids' => [1, 2, 3, 4],

@@ -3,7 +3,7 @@
 namespace Tests\Feature\Console;
 
 use App\Enums\BatchStatus;
-use App\Models\Game;
+use App\Models\Pool;
 use App\Models\Tournament;
 use App\Models\User;
 use App\Services\Predictions\TieResolutionState;
@@ -17,7 +17,7 @@ class SimulateTournamentTieTest extends TestCase
 
     private Tournament $tournament;
 
-    private Game $game;
+    private Pool $pool;
 
     protected function setUp(): void
     {
@@ -25,7 +25,7 @@ class SimulateTournamentTieTest extends TestCase
 
         $this->seed(WorldCup2026Seeder::class);
         $this->tournament = Tournament::firstOrFail();
-        $this->game = $this->tournament->games()->firstOrFail();
+        $this->pool = $this->tournament->pools()->firstOrFail();
     }
 
     public function test_tie_thirds_stages_an_unresolved_best_thirds_tie(): void
@@ -45,7 +45,7 @@ class SimulateTournamentTieTest extends TestCase
 
         // Approval is blocked until the admin orders the tied thirds.
         $this->actingAs($this->admin())
-            ->post(route('games.scores.approve', $this->game))
+            ->post(route('pools.scores.approve', $this->pool))
             ->assertSessionHasErrors('ties');
     }
 

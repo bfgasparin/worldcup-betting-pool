@@ -3,11 +3,11 @@
 namespace App\Services\Scoring;
 
 use App\Enums\PhaseKey;
-use App\Models\Game;
+use App\Models\Pool;
 
 /**
- * A typed reader over a game's `scoring_config` JSON, so the scorers never reach into raw
- * arrays. Missing keys default to 0, which keeps a partially-configured game from
+ * A typed reader over a pool's `scoring_config` JSON, so the scorers never reach into raw
+ * arrays. Missing keys default to 0, which keeps a partially-configured pool from
  * throwing during scoring.
  */
 class ScoringConfig
@@ -17,9 +17,9 @@ class ScoringConfig
      */
     public function __construct(private readonly array $config) {}
 
-    public static function fromGame(Game $game): self
+    public static function fromPool(Pool $pool): self
     {
-        return new self($game->scoring_config ?? []);
+        return new self($pool->scoring_config ?? []);
     }
 
     /**

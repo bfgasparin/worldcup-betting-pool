@@ -23,9 +23,9 @@ return [
     |--------------------------------------------------------------------------
     |
     | How long before a phase's first kickoff its prediction window closes when
-    | the lock is derived from the schedule (see App\Models\Game::predictionsLockAt
+    | the lock is derived from the schedule (see App\Models\Pool::predictionsLockAt
     | for the group stage and App\Services\Predictions\PredictionWindowResolver
-    | for each phased knockout round). A game with an explicit predictions_lock_at
+    | for each phased knockout round). A pool with an explicit predictions_lock_at
     | override ignores this buffer — the override is taken verbatim.
     |
     */

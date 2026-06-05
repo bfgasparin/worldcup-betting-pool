@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\Game;
+use App\Models\Pool;
 use App\Models\Tournament;
 use App\Models\User;
 use Database\Seeders\WorldCup2026Seeder;
@@ -17,7 +17,7 @@ class FixtureScheduleControllerTest extends TestCase
 
     private Tournament $tournament;
 
-    private Game $game;
+    private Pool $pool;
 
     protected function setUp(): void
     {
@@ -25,7 +25,7 @@ class FixtureScheduleControllerTest extends TestCase
 
         $this->seed(WorldCup2026Seeder::class);
         $this->tournament = Tournament::firstOrFail();
-        $this->game = $this->tournament->games()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
+        $this->pool = $this->tournament->pools()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
     }
 
     private function admin(): User
@@ -48,10 +48,10 @@ class FixtureScheduleControllerTest extends TestCase
         $expectedVenues = count($this->tournament->venueTimezones());
 
         $this->actingAs($this->admin())
-            ->get(route('games.schedule.index', $this->game))
+            ->get(route('pools.schedule.index', $this->pool))
             ->assertInertia(fn (AssertableInertia $page) => $page
-                ->component('games/schedule/index')
-                ->where('game.slug', $this->game->slug)
+                ->component('pools/schedule/index')
+                ->where('pool.slug', $this->pool->slug)
                 ->has('rows', $expectedFixtures)
                 ->has('venues', $expectedVenues)
                 ->where('rows', fn (Collection $rows): bool => $rows->firstWhere('id', $earliest->id)['governs_prediction_lock'] === true)
@@ -61,7 +61,7 @@ class FixtureScheduleControllerTest extends TestCase
     public function test_a_non_admin_cannot_manage_the_schedule(): void
     {
         $this->actingAs(User::factory()->create())
-            ->get(route('games.schedule.index', $this->game))
+            ->get(route('pools.schedule.index', $this->pool))
             ->assertForbidden();
     }
 }

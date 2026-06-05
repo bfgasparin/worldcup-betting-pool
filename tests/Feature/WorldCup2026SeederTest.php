@@ -3,12 +3,12 @@
 namespace Tests\Feature;
 
 use App\Enums\FeederOutcome;
-use App\Enums\GameAccent;
 use App\Enums\PhaseType;
+use App\Enums\PoolAccent;
 use App\Enums\ScoringStrategy;
 use App\Models\Fixture;
-use App\Models\Game;
 use App\Models\Group;
+use App\Models\Pool;
 use App\Models\Team;
 use App\Models\Tournament;
 use Database\Seeders\WorldCup2026Seeder;
@@ -27,7 +27,7 @@ class WorldCup2026SeederTest extends TestCase
 
         $this->assertSame('World Cup 2026', $tournament->name);
         $this->assertSame(7, $tournament->phases()->count());
-        $this->assertSame(2, $tournament->games()->count());
+        $this->assertSame(2, $tournament->pools()->count());
         $this->assertSame(12, $tournament->groups()->count());
         $this->assertSame(48, Team::count());
         $this->assertSame(104, $tournament->fixtures()->count());
@@ -218,65 +218,65 @@ class WorldCup2026SeederTest extends TestCase
             ->teams()->wherePivot('position', $position)->firstOrFail();
     }
 
-    public function test_it_seeds_the_ffa_game_over_the_competition(): void
+    public function test_it_seeds_the_ffa_pool_over_the_competition(): void
     {
         $this->seed(WorldCup2026Seeder::class);
 
         $tournament = Tournament::where('slug', 'world-cup-2026')->firstOrFail();
-        $game = Game::where('slug', 'world-cup-2026-ffa')->firstOrFail();
+        $pool = Pool::where('slug', 'world-cup-2026-ffa')->firstOrFail();
 
-        $this->assertTrue($game->tournament->is($tournament));
-        $this->assertSame('World Cup 2026', $game->name);
-        $this->assertSame('FF&A', $game->source);
-        $this->assertSame(GameAccent::Pitch, $game->accent);
-        $this->assertSame(ScoringStrategy::UpfrontBracket, $game->scoring_strategy);
-        $this->assertSame(20, $game->scoring_config['group']['exact_score']);
+        $this->assertTrue($pool->tournament->is($tournament));
+        $this->assertSame('World Cup 2026', $pool->name);
+        $this->assertSame('FF&A', $pool->source);
+        $this->assertSame(PoolAccent::Pitch, $pool->accent);
+        $this->assertSame(ScoringStrategy::UpfrontBracket, $pool->scoring_strategy);
+        $this->assertSame(20, $pool->scoring_config['group']['exact_score']);
 
         // The buy-in, currency, house fee and 70/20/10 prize split.
-        $this->assertSame('50.00', $game->entry_price);
-        $this->assertSame('BRL', $game->currency);
-        $this->assertSame('7.00', $game->house_fee_percentage);
+        $this->assertSame('50.00', $pool->entry_price);
+        $this->assertSame('BRL', $pool->currency);
+        $this->assertSame('7.00', $pool->house_fee_percentage);
         $this->assertSame(
             [70, 20, 10],
-            array_column($game->prize_structure, 'percentage'),
+            array_column($pool->prize_structure, 'percentage'),
         );
     }
 
-    public function test_it_seeds_the_brothers_association_phased_game(): void
+    public function test_it_seeds_the_brothers_association_phased_pool(): void
     {
         $this->seed(WorldCup2026Seeder::class);
 
         $tournament = Tournament::where('slug', 'world-cup-2026')->firstOrFail();
-        $game = Game::where('slug', 'world-cup-2026-brothers')->firstOrFail();
+        $pool = Pool::where('slug', 'world-cup-2026-brothers')->firstOrFail();
 
-        $this->assertTrue($game->tournament->is($tournament));
-        $this->assertSame('World Cup 2026', $game->name);
-        $this->assertSame('Brothers Association', $game->source);
-        $this->assertSame(GameAccent::Teal, $game->accent);
-        $this->assertSame(ScoringStrategy::PhasedBracket, $game->scoring_strategy);
+        $this->assertTrue($pool->tournament->is($tournament));
+        $this->assertSame('World Cup 2026', $pool->name);
+        $this->assertSame('Brothers Association', $pool->source);
+        $this->assertSame(PoolAccent::Teal, $pool->accent);
+        $this->assertSame(ScoringStrategy::PhasedBracket, $pool->scoring_strategy);
 
         // Rising-stakes knockout config: a flat advancing bonus plus per-round multipliers.
-        $this->assertSame(10, $game->scoring_config['knockout']['advancing_team']);
-        $this->assertSame(8, $game->scoring_config['knockout']['round_multipliers']['final']);
-        $this->assertSame(1, $game->scoring_config['knockout']['round_multipliers']['round_of_32']);
+        $this->assertSame(10, $pool->scoring_config['knockout']['advancing_team']);
+        $this->assertSame(8, $pool->scoring_config['knockout']['round_multipliers']['final']);
+        $this->assertSame(1, $pool->scoring_config['knockout']['round_multipliers']['round_of_32']);
 
         // A cheaper buy-in, no house fee (the whole pot goes to players), and a flatter 50/30/20
         // split so 2nd and 3rd are worth chasing.
-        $this->assertSame('40.00', $game->entry_price);
-        $this->assertSame('0.00', $game->house_fee_percentage);
+        $this->assertSame('40.00', $pool->entry_price);
+        $this->assertSame('0.00', $pool->house_fee_percentage);
         $this->assertSame(
             [50, 30, 20],
-            array_column($game->prize_structure, 'percentage'),
+            array_column($pool->prize_structure, 'percentage'),
         );
     }
 
-    public function test_the_two_seeded_games_get_distinct_accents(): void
+    public function test_the_two_seeded_pools_get_distinct_accents(): void
     {
         $this->seed(WorldCup2026Seeder::class);
 
-        $accents = Game::pluck('accent');
+        $accents = Pool::pluck('accent');
 
-        // Sibling games over the one tournament must read as distinct, so their accents differ.
+        // Sibling pools over the one tournament must read as distinct, so their accents differ.
         $this->assertCount(2, $accents->unique());
     }
 
@@ -286,7 +286,7 @@ class WorldCup2026SeederTest extends TestCase
         $this->seed(WorldCup2026Seeder::class);
 
         $this->assertSame(1, Tournament::count());
-        $this->assertSame(2, Game::count());
+        $this->assertSame(2, Pool::count());
         $this->assertSame(48, Team::count());
         $this->assertSame(104, Fixture::count());
         $this->assertSame(48, \DB::table('group_team')->count());

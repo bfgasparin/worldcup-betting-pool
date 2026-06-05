@@ -52,9 +52,9 @@ class DefaultTieOrdering
      */
     public function applyToEntry(Entry $entry): void
     {
-        $entry->loadMissing(['game.tournament.groups.teams', 'game.tournament.groups.fixtures']);
+        $entry->loadMissing(['pool.tournament.groups.teams', 'pool.tournament.groups.fixtures']);
         $predictions = $entry->groupPredictions()->get()->keyBy('fixture_id');
-        $tournament = $entry->game->tournament;
+        $tournament = $entry->pool->tournament;
 
         $standings = [];
         foreach ($tournament->groups as $group) {

@@ -8,7 +8,7 @@ enum ScoringStrategy: string
     case PhasedBracket = 'phased-bracket';
 
     /**
-     * A short, human-readable name for the strategy, shown on the game-selection card.
+     * A short, human-readable name for the strategy, shown on the pool-selection card.
      */
     public function label(): string
     {
@@ -19,7 +19,7 @@ enum ScoringStrategy: string
     }
 
     /**
-     * A one-line explanation of how the strategy scores, so players understand the game
+     * A one-line explanation of how the strategy scores, so players understand the pool
      * before they enter it.
      */
     public function description(): string
@@ -32,7 +32,7 @@ enum ScoringStrategy: string
 
     /**
      * Plain-language guidance on how and when to fill in predictions for this strategy, shown
-     * in the "How this game works" dialog on the game page.
+     * in the "How this pool works" dialog on the pool page.
      *
      * @return array{summary: string, steps: list<string>}
      */

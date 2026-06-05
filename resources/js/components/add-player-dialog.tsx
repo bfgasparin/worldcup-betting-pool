@@ -11,7 +11,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { ordinal } from '@/lib/leaderboards';
 import { cn } from '@/lib/utils';
-import type { PlayerDirectoryEntry } from '@/types/games';
+import type { PlayerDirectoryEntry } from '@/types/pools';
 
 /**
  * A searchable picker over the whole pool, for adding players that aren't in the on-page leaderboard

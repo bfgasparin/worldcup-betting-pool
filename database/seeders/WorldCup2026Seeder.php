@@ -3,20 +3,20 @@
 namespace Database\Seeders;
 
 use App\Enums\FeederOutcome;
-use App\Enums\GameAccent;
 use App\Enums\PhaseKey;
 use App\Enums\PhaseType;
+use App\Enums\PoolAccent;
 use App\Enums\ScoringStrategy;
 use App\Enums\Sport;
 use App\Enums\TournamentStatus;
 use App\Models\Fixture;
-use App\Models\Game;
 use App\Models\Group;
 use App\Models\Phase;
+use App\Models\Pool;
 use App\Models\Team;
 use App\Models\Tournament;
 use App\Services\Predictions\ThirdPlaceAllocation;
-use Database\Factories\GameFactory;
+use Database\Factories\PoolFactory;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -239,7 +239,7 @@ class WorldCup2026Seeder extends Seeder
     {
         DB::transaction(function () {
             $tournament = $this->seedTournament();
-            $this->seedGames($tournament);
+            $this->seedPools($tournament);
             $phases = $this->seedPhases($tournament);
             $groupTeams = $this->seedGroupsAndTeams($tournament);
             $this->seedGroupFixtures($tournament, $phases[PhaseKey::Group->value], $groupTeams);
@@ -262,25 +262,25 @@ class WorldCup2026Seeder extends Seeder
     }
 
     /**
-     * The playable games over the competition. Both share the tournament's structure and official
+     * The playable pools over the competition. Both share the tournament's structure and official
      * results but layer on their own scoring strategy and prediction lock:
      *
      *  - the FF&A pool (upfront bracket): predict the whole tournament before kickoff;
      *  - the Brothers Association pool (phased bracket): predict the group stage upfront, then each
      *    knockout round against the official match-ups, with rising round multipliers.
      *
-     * The scoring_config for each is duplicated verbatim in {@see GameFactory} (the default state
-     * and the {@see GameFactory::phasedBracket()} state) — keep them in sync.
+     * The scoring_config for each is duplicated verbatim in {@see PoolFactory} (the default state
+     * and the {@see PoolFactory::phasedBracket()} state) — keep them in sync.
      */
-    private function seedGames(Tournament $tournament): void
+    private function seedPools(Tournament $tournament): void
     {
-        Game::updateOrCreate(
+        Pool::updateOrCreate(
             ['slug' => 'world-cup-2026-ffa'],
             [
                 'tournament_id' => $tournament->id,
                 'name' => 'World Cup 2026',
                 'source' => 'FF&A',
-                'accent' => GameAccent::Pitch,
+                'accent' => PoolAccent::Pitch,
                 'scoring_strategy' => ScoringStrategy::UpfrontBracket,
                 'scoring_config' => [
                     'group' => [
@@ -308,13 +308,13 @@ class WorldCup2026Seeder extends Seeder
             ],
         );
 
-        Game::updateOrCreate(
+        Pool::updateOrCreate(
             ['slug' => 'world-cup-2026-brothers'],
             [
                 'tournament_id' => $tournament->id,
                 'name' => 'World Cup 2026',
                 'source' => 'Brothers Association',
-                'accent' => GameAccent::Teal,
+                'accent' => PoolAccent::Teal,
                 'scoring_strategy' => ScoringStrategy::PhasedBracket,
                 'scoring_config' => [
                     'group' => [

@@ -110,14 +110,14 @@ class Tournament extends Model
     }
 
     /**
-     * The playable games (pools) over this competition. Each game shares the tournament's
-     * structure and official results but owns its own scoring strategy, entries and leaderboard.
+     * The playable pools over this competition. Each pool shares the tournament's structure and
+     * official results but owns its own scoring strategy, entries and leaderboard.
      *
-     * @return HasMany<Game, $this>
+     * @return HasMany<Pool, $this>
      */
-    public function games(): HasMany
+    public function pools(): HasMany
     {
-        return $this->hasMany(Game::class);
+        return $this->hasMany(Pool::class);
     }
 
     /**
@@ -156,8 +156,8 @@ class Tournament extends Model
 
     /**
      * The earliest scheduled kickoff across all group-stage fixtures, or null when no group
-     * fixture has a kickoff yet. Stored UTC; the source of truth for a game's derived group-stage
-     * prediction lock {@see Game::predictionsLockAt()}.
+     * fixture has a kickoff yet. Stored UTC; the source of truth for a pool's derived group-stage
+     * prediction lock {@see Pool::predictionsLockAt()}.
      */
     public function firstGroupKickoffAt(): ?CarbonInterface
     {

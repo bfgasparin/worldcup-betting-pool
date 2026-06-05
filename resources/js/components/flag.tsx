@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import type { TeamRef } from '@/types/games';
+import type { TeamRef } from '@/types/pools';
 
 const PLACEHOLDER_FLAG = '/flags/_placeholder.svg';
 
