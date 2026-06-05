@@ -21,7 +21,8 @@ export default function AuthSimpleLayout({
                                 <AppLogoIcon className="size-7 text-white" />
                             </div>
                             <span className="font-display text-lg font-semibold tracking-tight">
-                                Brothers Bets
+                                Brothers
+                                <span className="text-amber"> Bets</span>
                             </span>
                             <span className="sr-only">{title}</span>
                         </Link>

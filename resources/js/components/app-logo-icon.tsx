@@ -1,5 +1,11 @@
 import type { SVGAttributes } from 'react';
 
+/**
+ * Brothers Bets brand mark — a "BB" monogram (two B's for the two brothers) with a
+ * small gold "tie-break" dot. The letters use `currentColor` so the glyph adapts to
+ * every context (white inside the green app badge, ink/white via `text-*`), while the
+ * dot stays the brand gold in both themes.
+ */
 export default function AppLogoIcon(props: SVGAttributes<SVGElement>) {
     return (
         <svg
@@ -8,12 +14,51 @@ export default function AppLogoIcon(props: SVGAttributes<SVGElement>) {
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
         >
-            <path
-                fillRule="evenodd"
-                clipRule="evenodd"
-                d="M12 1.5C6.201 1.5 1.5 6.201 1.5 12S6.201 22.5 12 22.5 22.5 17.799 22.5 12 17.799 1.5 12 1.5Zm0 1.8a8.7 8.7 0 0 1 4.69 1.371l-1.063 3.27-3.627.001-2.933-2.134.9-2.218A8.66 8.66 0 0 1 12 3.3ZM7.79 4.27 7.1 5.967 4.62 5.96A8.74 8.74 0 0 1 7.79 4.27ZM3.66 7.36l2.452.007 1.121 3.45-2.193 1.595-1.946-1.404A8.66 8.66 0 0 1 3.66 7.36Zm-.345 4.94 1.575 1.137-.9 2.77a8.66 8.66 0 0 1-.675-3.907Zm1.86 5.476 1.05-3.23h3.627l2.247 1.633-.857 4.06a8.72 8.72 0 0 1-6.066-2.463Zm8.013 2.45.7-3.318 2.18-1.586 2.738 1.99a8.72 8.72 0 0 1-5.618 2.914Zm6.72-4.49-2.69-1.955.857-3.78 2.49-.005a8.66 8.66 0 0 1-.657 5.74Zm.318-7.54-2.502.005-2.69-1.955.99-3.046a8.73 8.73 0 0 1 4.202 4.99ZM12 8.55l2.55 1.853-.974 3h-3.152l-.974-3L12 8.55Z"
+            <rect
+                x="4"
+                y="3.8"
+                width="2.6"
+                height="16.4"
+                rx="1.3"
                 fill="currentColor"
             />
+            <path
+                d="M5.3 4.4a3.3 3.3 0 0 1 0 6.7"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.9"
+                strokeLinecap="round"
+            />
+            <path
+                d="M5.3 11a3.6 3.6 0 0 1 0 7.2"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.9"
+                strokeLinecap="round"
+            />
+            <rect
+                x="12.9"
+                y="3.8"
+                width="2.6"
+                height="16.4"
+                rx="1.3"
+                fill="currentColor"
+            />
+            <path
+                d="M14.2 4.4a3.3 3.3 0 0 1 0 6.7"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.9"
+                strokeLinecap="round"
+            />
+            <path
+                d="M14.2 11a3.6 3.6 0 0 1 0 7.2"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.9"
+                strokeLinecap="round"
+            />
+            <circle cx="20.6" cy="18.4" r="1.55" fill="#ffc23c" />
         </svg>
     );
 }

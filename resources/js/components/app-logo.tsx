@@ -10,7 +10,7 @@ export default function AppLogo() {
                 <span className="font-display text-[15px] font-semibold tracking-tight">
                     <span className="text-grad">Brothers</span>
                 </span>
-                <span className="mt-0.5 text-[9px] font-bold tracking-[0.22em] text-muted-foreground uppercase">
+                <span className="mt-0.5 text-[9px] font-bold tracking-[0.22em] text-amber uppercase">
                     Bets
                 </span>
             </div>
