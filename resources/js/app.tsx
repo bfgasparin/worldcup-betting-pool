@@ -1,4 +1,4 @@
-import { createInertiaApp } from '@inertiajs/react';
+import { createInertiaApp, router } from '@inertiajs/react';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { initializeTheme } from '@/hooks/use-appearance';
@@ -37,6 +37,11 @@ createInertiaApp({
         color: '#4B5563',
     },
 });
+
+// Prefetch caches store whole responses, including shared props (joinedPools, the
+// needs_attention dot). Flush them after each navigation so the sidebar never renders
+// a stale snapshot captured before a join or a prediction change.
+router.on('navigate', () => router.flushAll());
 
 // This will set light / dark mode on load...
 initializeTheme();
