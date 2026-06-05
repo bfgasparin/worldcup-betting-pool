@@ -29,10 +29,11 @@ function segmentColor(index: number): string {
  * The bar is **always sized by percentage** — the distribution shape is identical whether we show
  * percentages or amounts. The legend *values* follow the same rule the rest of the card uses: while
  * the pool is still filling (the game can be joined) each place reads as its **percentage** share,
- * with a "grows as players join" hint and the buy-in; once joining closes with a real pool, the
- * legend switches to the **raw amounts** and the buy-in drops away. The organizer's cut is noted
- * quietly in the footnote; with none, a "100% to players" badge is shown instead. The full
- * breakdown lives on the game page ({@link PrizePanel}).
+ * with a "grows as players join" hint and the buy-in. Once joining closes with a real pool the pool
+ * is final, so the card leads with the **total prize pool** (the headline figure) and the legend
+ * switches to **raw amounts**, with the buy-in dropped. The organizer's cut is noted quietly in the
+ * footnote; with none, a "100% to players" badge is shown instead. The full breakdown lives on the
+ * game page ({@link PrizePanel}).
  */
 export function PrizeSplit({
     pricing,
@@ -59,18 +60,25 @@ export function PrizeSplit({
             ? formatMoney(prize.amount, pricing.currency)
             : `${prize.percentage}%`;
 
-    const baseFooter = showRaw
-        ? `From a ${formatMoney(pricing.pool, pricing.currency)} prize pool`
-        : canJoin
-          ? 'Prize pool grows as players join'
-          : 'A share of the prize pool';
-
     // The split is of the pool after the organizer's cut — surfaced quietly, for information, so a
-    // player isn't surprised the percentages apply to the net pool.
-    const footer =
+    // player isn't surprised the figures apply to the net pool.
+    const feeNote =
         pricing.house_fee_percentage > 0
-            ? `${baseFooter} · after ${pricing.house_fee_percentage}% organizer fee`
-            : baseFooter;
+            ? `after ${pricing.house_fee_percentage}% organizer fee`
+            : null;
+
+    // A closed pool leads with its now-final total (see the header below), so the footnote is just
+    // the fee caveat; an open one explains the split is a share that grows as players join.
+    const footer = showRaw
+        ? feeNote
+        : [
+              canJoin
+                  ? 'Prize pool grows as players join'
+                  : 'A share of the prize pool',
+              feeNote,
+          ]
+              .filter(Boolean)
+              .join(' · ');
 
     return (
         <div
@@ -79,10 +87,22 @@ export function PrizeSplit({
                 className,
             )}
         >
-            <span className="inline-flex items-center gap-1.5 text-[0.65rem] font-bold tracking-[0.14em] text-muted-foreground uppercase">
-                <Trophy className="size-3.5 text-accent" />
-                Prize split
-            </span>
+            {showRaw ? (
+                <div className="flex flex-col gap-1">
+                    <span className="inline-flex items-center gap-1.5 text-[0.65rem] font-bold tracking-[0.14em] text-muted-foreground uppercase">
+                        <Trophy className="size-3.5 text-accent" />
+                        Prize pool
+                    </span>
+                    <span className="bg-gold-gradient w-fit bg-clip-text font-display text-3xl leading-none font-bold text-transparent sm:text-4xl">
+                        {formatMoney(pricing.net, pricing.currency)}
+                    </span>
+                </div>
+            ) : (
+                <span className="inline-flex items-center gap-1.5 text-[0.65rem] font-bold tracking-[0.14em] text-muted-foreground uppercase">
+                    <Trophy className="size-3.5 text-accent" />
+                    Prize split
+                </span>
+            )}
 
             {/* The split drawn proportionally. flexGrow keyed to the percentage (with flexBasis 0)
                 keeps segments proportional independent of the gaps; min-w-[8%] stops a ~10% slice
@@ -117,9 +137,11 @@ export function PrizeSplit({
                 ))}
             </div>
 
-            <span className="text-[0.7rem] text-muted-foreground">
-                {footer}
-            </span>
+            {footer && (
+                <span className="text-[0.7rem] text-muted-foreground">
+                    {footer}
+                </span>
+            )}
 
             {pricing.house_fee_percentage === 0 && <NoFeeBadge />}
 
