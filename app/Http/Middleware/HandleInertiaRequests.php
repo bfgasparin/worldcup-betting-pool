@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\Games\JoinedGames;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -44,6 +45,7 @@ class HandleInertiaRequests extends Middleware
             ],
             'timezone' => $request->cookie('timezone'),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            'joinedGames' => (new JoinedGames)->forUser($request->user()),
         ];
     }
 }

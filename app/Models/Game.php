@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\GameAccent;
 use App\Enums\ScoringStrategy;
 use App\Enums\TournamentStatus;
+use App\Services\Games\JoinedGames;
 use Carbon\CarbonInterface;
 use Database\Factories\GameFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -85,6 +86,18 @@ class Game extends Model
         $lock = $this->predictionsLockAt();
 
         return $lock !== null && now()->lessThan($lock);
+    }
+
+    /**
+     * Whether this game wants the player's attention in the sidebar: the prediction window is still
+     * open and they have not finished their group-stage picks. The counts are passed in (already
+     * loaded by {@see JoinedGames}) so the always-shared list stays query-free
+     * here — only the cheap, memoised window check runs.
+     */
+    public function needsAttention(int $groupPredictionsMade, int $groupFixtureCount): bool
+    {
+        return $this->acceptsPredictions()
+            && $groupPredictionsMade < $groupFixtureCount;
     }
 
     /**
