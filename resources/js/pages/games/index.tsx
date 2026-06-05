@@ -421,12 +421,15 @@ export default function GamesIndex({ games }: GamesIndexProps) {
                                 {greeting()}, {firstName} 👋
                             </span>
                             <h1 className="text-4xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl">
-                                Choose your game
+                                Join a game
                             </h1>
-                            <p className="max-w-xl text-base text-muted-foreground">
-                                Pick a game to view the draw, follow the
-                                bracket, and get your predictions in. Each one
-                                scores its own way.
+                            <span className="bg-gold-gradient mt-1 h-1 w-12 rounded-full" />
+                            <p className="max-w-2xl text-base text-muted-foreground">
+                                Browse the games below, check the buy-in and
+                                prize pool, and buy into the ones you fancy.
+                                There’s no picking just one — play as many as
+                                you like, each scoring its tournament its own
+                                way.
                             </p>
                         </div>
                     </header>
