@@ -7,7 +7,7 @@ use App\Services\Scoring\KnockoutProgressionScorer;
 use App\Services\Scoring\LeaderboardMetrics;
 
 /**
- * The leaderboards a game runs. Every entry holds one standing per case (see
+ * The leaderboards a pool runs. Every entry holds one standing per case (see
  * {@see LeaderboardStanding}); a board ranks by {@see valueFor()} descending, then
  * {@see tiebreakerFor()} descending, then entry id. Cases are declared in display order, so
  * {@see ordered()} (and `cases()`) drive the tab order.
@@ -45,7 +45,7 @@ enum LeaderboardCategory: string
     }
 
     /**
-     * A one-line explanation of how the board ranks, shown in the "How this game works" dialog and
+     * A one-line explanation of how the board ranks, shown in the "How this pool works" dialog and
      * above each board's table.
      */
     public function description(): string

@@ -25,7 +25,7 @@ import type {
     PredictionWindowStatus,
     StandingRow,
     TeamRef,
-} from '@/types/games';
+} from '@/types/pools';
 
 /* ------------------------------------------------------------------ atoms */
 

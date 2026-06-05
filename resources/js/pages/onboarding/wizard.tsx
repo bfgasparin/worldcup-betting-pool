@@ -48,7 +48,7 @@ const STEP_CONTENT: Record<
     photo: {
         icon: Camera,
         title: 'Add a profile photo',
-        blurb: 'A real photo helps the others recognise you on the leaderboard and across the pool. Totally optional — you can add one anytime.',
+        blurb: 'A real photo helps the others recognise you on leaderboards and in every pool you join. Totally optional — you can add one anytime.',
     },
     passkey: {
         icon: KeyRound,
@@ -132,7 +132,7 @@ export default function Wizard({ hasPasskeys }: Props) {
                     </div>
                     <div>
                         <p className="font-display text-lg font-semibold tracking-tight">
-                            Welcome to the pool
+                            Welcome to Brothers Bets
                         </p>
                         <p className="text-sm text-muted-foreground">
                             A few quick things to get you match-ready.

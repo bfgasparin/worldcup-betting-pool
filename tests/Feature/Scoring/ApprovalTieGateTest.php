@@ -5,7 +5,7 @@ namespace Tests\Feature\Scoring;
 use App\Enums\BatchStatus;
 use App\Enums\OrderingScope;
 use App\Enums\ProposalStatus;
-use App\Models\Game;
+use App\Models\Pool;
 use App\Models\ScoreBatch;
 use App\Models\ScoreProposal;
 use App\Models\Tournament;
@@ -26,7 +26,7 @@ class ApprovalTieGateTest extends TestCase
 
     private Tournament $tournament;
 
-    private Game $game;
+    private Pool $pool;
 
     protected function setUp(): void
     {
@@ -34,7 +34,7 @@ class ApprovalTieGateTest extends TestCase
 
         $this->seed(WorldCup2026Seeder::class);
         $this->tournament = Tournament::firstOrFail();
-        $this->game = $this->tournament->games()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
+        $this->pool = $this->tournament->pools()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
     }
 
     public function test_approval_is_blocked_until_the_thirds_tie_is_ordered(): void
@@ -44,7 +44,7 @@ class ApprovalTieGateTest extends TestCase
         $this->proposeGroupResults($batch, $this->seedOrderScores());
 
         $this->actingAs($this->admin())
-            ->post(route('games.scores.approve', $this->game))
+            ->post(route('pools.scores.approve', $this->pool))
             ->assertSessionHasErrors('ties');
 
         $this->assertSame(BatchStatus::Open, $batch->fresh()->status);
@@ -54,15 +54,15 @@ class ApprovalTieGateTest extends TestCase
         $straddling = (new TieResolutionState)->forTournament($this->tournament, $batch)->thirds;
 
         $this->actingAs($this->admin())
-            ->put(route('games.scores.ordering', $this->game), [
+            ->put(route('pools.scores.ordering', $this->pool), [
                 'scope' => OrderingScope::Thirds->value,
                 'ordered_team_ids' => $straddling,
             ])
             ->assertSessionHasNoErrors();
 
         $this->actingAs($this->admin())
-            ->post(route('games.scores.approve', $this->game))
-            ->assertRedirect(route('games.scores.review', $this->game));
+            ->post(route('pools.scores.approve', $this->pool))
+            ->assertRedirect(route('pools.scores.review', $this->pool));
 
         $this->assertSame(BatchStatus::Approved, $batch->fresh()->status);
         $this->assertNotNull($this->knockoutFixture($this->tournament, 'R32-1')->fresh()->home_team_id);
@@ -76,16 +76,16 @@ class ApprovalTieGateTest extends TestCase
 
         // While the batch is open the tie section is shown for resolving.
         $this->actingAs($this->admin())
-            ->get(route('games.scores.review', $this->game))
+            ->get(route('pools.scores.review', $this->pool))
             ->assertInertia(fn (AssertableInertia $page) => $page->where('thirds_tie.resolved', true));
 
         $this->actingAs($this->admin())
-            ->post(route('games.scores.approve', $this->game))
-            ->assertRedirect(route('games.scores.review', $this->game));
+            ->post(route('pools.scores.approve', $this->pool))
+            ->assertRedirect(route('pools.scores.review', $this->pool));
 
         // Once approved there is no open batch, so the tie section is gone — like an approved match.
         $this->actingAs($this->admin())
-            ->get(route('games.scores.review', $this->game))
+            ->get(route('pools.scores.review', $this->pool))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('tied_groups', [])
                 ->where('thirds_tie', null)
@@ -98,7 +98,7 @@ class ApprovalTieGateTest extends TestCase
         $batch = $this->openBatch();
         $this->proposeGroupResults($batch, $this->seedOrderScores());
         $this->resolveProjectedTies($this->tournament, $batch);
-        $this->actingAs($this->admin())->post(route('games.scores.approve', $this->game));
+        $this->actingAs($this->admin())->post(route('pools.scores.approve', $this->pool));
 
         // Now review a knockout match in a fresh batch — its proposals touch no group fixtures.
         $r32 = $this->knockoutFixture($this->tournament, 'R32-1')->fresh();
@@ -114,7 +114,7 @@ class ApprovalTieGateTest extends TestCase
 
         // The already-published group ties must not reappear on the review screen.
         $this->actingAs($this->admin())
-            ->get(route('games.scores.review', $this->game))
+            ->get(route('pools.scores.review', $this->pool))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('tied_groups', [])
                 ->where('thirds_tie', null)
@@ -128,7 +128,7 @@ class ApprovalTieGateTest extends TestCase
         $this->proposeGroupResults($batch, fn (int $home, int $away): array => [0, 0]);
 
         $this->actingAs($this->admin())
-            ->post(route('games.scores.approve', $this->game))
+            ->post(route('pools.scores.approve', $this->pool))
             ->assertSessionHasErrors('ties');
 
         // Ordering a single group is accepted even while the rest stay tied.
@@ -136,7 +136,7 @@ class ApprovalTieGateTest extends TestCase
         $groupA = array_merge(...$state->groupTies['A']);
 
         $this->actingAs($this->admin())
-            ->put(route('games.scores.ordering', $this->game), [
+            ->put(route('pools.scores.ordering', $this->pool), [
                 'scope' => OrderingScope::WithinGroup->value,
                 'group' => 'A',
                 'ordered_team_ids' => $groupA,
@@ -156,7 +156,7 @@ class ApprovalTieGateTest extends TestCase
         $this->proposeGroupResults($batch, $this->seedOrderScores(), ['A', 'B']);
 
         $this->actingAs($this->admin())
-            ->post(route('games.scores.approve', $this->game))
+            ->post(route('pools.scores.approve', $this->pool))
             ->assertSessionHasNoErrors('ties');
     }
 
@@ -167,7 +167,7 @@ class ApprovalTieGateTest extends TestCase
 
         // Submit a thirds order for a set that is not the current straddling tie.
         $this->actingAs($this->admin())
-            ->put(route('games.scores.ordering', $this->game), [
+            ->put(route('pools.scores.ordering', $this->pool), [
                 'scope' => OrderingScope::Thirds->value,
                 'ordered_team_ids' => [1, 2, 3],
             ])

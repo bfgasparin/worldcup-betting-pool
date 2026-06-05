@@ -2,15 +2,15 @@
 
 namespace App\Notifications;
 
-use App\Enums\GameAccent;
+use App\Enums\PoolAccent;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 /**
- * Sent to the player who newly reaches rank #1 on a game's leaderboard. Leads with the game's
- * source and accent so a player can tell which pool the email is about (games over the same
+ * Sent to the player who newly reaches rank #1 on a pool's leaderboard. Leads with the pool's
+ * source and accent so a player can tell which pool the email is about (pools over the same
  * tournament share a name).
  */
 class TopOfLeaderboardNotification extends Notification implements ShouldQueue
@@ -18,10 +18,10 @@ class TopOfLeaderboardNotification extends Notification implements ShouldQueue
     use Queueable;
 
     public function __construct(
-        public string $gameName,
-        public string $gameSlug,
+        public string $poolName,
+        public string $poolSlug,
         public string $source,
-        public GameAccent $accent,
+        public PoolAccent $accent,
         public int $points,
         public int $totalEntries,
         public ?string $runnerUpName = null,
@@ -45,9 +45,9 @@ class TopOfLeaderboardNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject(__("🏆 You're top of :source's :game", ['source' => $this->source, 'game' => $this->gameName]))
+            ->subject(__("🏆 You're top of :source's :pool", ['source' => $this->source, 'pool' => $this->poolName]))
             ->view(['emails.top-of-leaderboard', 'emails.top-of-leaderboard-text'], [
-                'gameName' => $this->gameName,
+                'poolName' => $this->poolName,
                 'source' => $this->source,
                 'accentGradient' => $this->accent->gradientCss(),
                 'accentSolid' => $this->accent->solidHex(),
@@ -58,7 +58,7 @@ class TopOfLeaderboardNotification extends Notification implements ShouldQueue
                 'runnerUpName' => $this->runnerUpName,
                 'leadOverRunnerUp' => $this->leadOverRunnerUp,
                 'userName' => $notifiable->name,
-                'url' => route('games.leaderboard', $this->gameSlug),
+                'url' => route('pools.leaderboard', $this->poolSlug),
             ]);
     }
 }

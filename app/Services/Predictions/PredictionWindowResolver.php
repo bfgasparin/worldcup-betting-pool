@@ -5,15 +5,15 @@ namespace App\Services\Predictions;
 use App\Enums\PhaseKey;
 use App\Enums\PhaseType;
 use App\Enums\PredictionWindowStatus;
-use App\Models\Game;
 use App\Models\Phase;
+use App\Models\Pool;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
- * Decides, per phase, whether a game currently accepts predictions.
+ * Decides, per phase, whether a pool currently accepts predictions.
  *
- * Upfront-bracket games have one window: every phase shares the game's single
- * {@see Game::acceptsPredictions()} lock. Phased-bracket games open the group stage on that same
+ * Upfront-bracket pools have one window: every phase shares the pool's single
+ * {@see Pool::acceptsPredictions()} lock. Phased-bracket pools open the group stage on that same
  * lock, then each knockout round on its own: a round is {@see PredictionWindowStatus::Pending}
  * until the official {@see OfficialBracketProjector} has filled in its real participants, then
  * {@see PredictionWindowStatus::Open} until the configured buffer
@@ -27,22 +27,22 @@ class PredictionWindowResolver
      *
      * @return array<string, PredictionWindowStatus>
      */
-    public function windows(Game $game): array
+    public function windows(Pool $pool): array
     {
         $windows = [];
 
-        foreach ($this->phases($game) as $phase) {
-            $windows[$phase->key->value] = $this->statusFor($game, $phase);
+        foreach ($this->phases($pool) as $phase) {
+            $windows[$phase->key->value] = $this->statusFor($pool, $phase);
         }
 
         return $windows;
     }
 
-    public function isOpen(Game $game, PhaseKey $phase): bool
+    public function isOpen(Pool $pool, PhaseKey $phase): bool
     {
-        foreach ($this->phases($game) as $candidate) {
+        foreach ($this->phases($pool) as $candidate) {
             if ($candidate->key === $phase) {
-                return $this->statusFor($game, $candidate) === PredictionWindowStatus::Open;
+                return $this->statusFor($pool, $candidate) === PredictionWindowStatus::Open;
             }
         }
 
@@ -55,9 +55,9 @@ class PredictionWindowResolver
      *
      * @return Collection<int, Phase>
      */
-    private function phases(Game $game): Collection
+    private function phases(Pool $pool): Collection
     {
-        $tournament = $game->tournament;
+        $tournament = $pool->tournament;
         $tournament->load([
             'phases' => fn ($query) => $query->orderBy('sort_order'),
             'phases.fixtures',
@@ -66,11 +66,11 @@ class PredictionWindowResolver
         return $tournament->phases;
     }
 
-    private function statusFor(Game $game, Phase $phase): PredictionWindowStatus
+    private function statusFor(Pool $pool, Phase $phase): PredictionWindowStatus
     {
-        // Upfront games, and the group stage of any game, ride the single game-level lock.
-        if (! $game->usesPhasedPredictionWindows() || $phase->type === PhaseType::Group) {
-            return $game->acceptsPredictions()
+        // Upfront pools, and the group stage of any pool, ride the single pool-level lock.
+        if (! $pool->usesPhasedPredictionWindows() || $phase->type === PhaseType::Group) {
+            return $pool->acceptsPredictions()
                 ? PredictionWindowStatus::Open
                 : PredictionWindowStatus::Locked;
         }

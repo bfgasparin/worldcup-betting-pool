@@ -4,7 +4,7 @@ import { ordinal } from '@/lib/leaderboards';
 import { formatMoney } from '@/lib/money';
 import { placeBadge } from '@/lib/prizes';
 import { cn } from '@/lib/utils';
-import type { GamePricing } from '@/types/games';
+import type { PoolPricing } from '@/types/pools';
 
 /**
  * A place's tint on the split bar: a gentle gold→amber ramp that gets a touch deeper down the
@@ -22,25 +22,25 @@ function segmentColor(index: number): string {
 /**
  * The card-side prize teaser, shaped as a **distribution** rather than a hero number. A slim
  * horizontal bar is split into one segment per place, each segment's width proportional to that
- * place's percentage — so the *shape* of the split is legible at a glance: a 50/30/20 game reads
+ * place's percentage — so the *shape* of the split is legible at a glance: a 50/30/20 pool reads
  * visibly flatter (more evenly shared) than a top-heavy 70/20/10, without any place being shouted
  * by a giant figure. A compact legend underneath names each place (medal/ordinal) and its value.
  *
  * The bar is **always sized by percentage** — the distribution shape is identical whether we show
  * percentages or amounts. The legend *values* follow the same rule the rest of the card uses: while
- * the pool is still filling (the game can be joined) each place reads as its **percentage** share,
+ * the pool is still filling (the pool can be joined) each place reads as its **percentage** share,
  * with a "grows as players join" hint and the buy-in. Once joining closes with a real pool the pool
- * is final, so the card leads with the **total prize pool** (the headline figure) and the legend
+ * is final, so the card leads with the **total prize pot** (the headline figure) and the legend
  * switches to **raw amounts**, with the buy-in dropped. The organizer's cut is noted quietly in the
  * footnote; with none, a "100% to players" badge is shown instead. The full breakdown lives on the
- * game page ({@link PrizePanel}).
+ * pool page ({@link PrizePanel}).
  */
 export function PrizeSplit({
     pricing,
     canJoin,
     className,
 }: {
-    pricing: GamePricing;
+    pricing: PoolPricing;
     canJoin: boolean;
     className?: string;
 }) {
@@ -73,8 +73,8 @@ export function PrizeSplit({
         ? feeNote
         : [
               canJoin
-                  ? 'Prize pool grows as players join'
-                  : 'A share of the prize pool',
+                  ? 'Prize pot grows as players join'
+                  : 'A share of the prize pot',
               feeNote,
           ]
               .filter(Boolean)
@@ -91,7 +91,7 @@ export function PrizeSplit({
                 <div className="flex flex-col gap-1">
                     <span className="inline-flex items-center gap-1.5 text-[0.65rem] font-bold tracking-[0.14em] text-muted-foreground uppercase">
                         <Trophy className="size-3.5 text-accent" />
-                        Prize pool
+                        Prize pot
                     </span>
                     <span className="bg-gold-gradient w-fit bg-clip-text font-display text-3xl leading-none font-bold text-transparent sm:text-4xl">
                         {formatMoney(pricing.net, pricing.currency)}

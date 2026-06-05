@@ -53,6 +53,6 @@ class OnboardingController extends Controller
     {
         $request->user()->forceFill(['onboarded_at' => now()])->save();
 
-        return to_route('games.index');
+        return to_route('pools.index');
     }
 }

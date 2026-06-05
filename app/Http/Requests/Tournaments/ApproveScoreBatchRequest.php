@@ -4,7 +4,7 @@ namespace App\Http\Requests\Tournaments;
 
 use App\Enums\BatchStatus;
 use App\Enums\ProposalStatus;
-use App\Models\Game;
+use App\Models\Pool;
 use App\Models\ScoreBatch;
 use App\Services\Predictions\TieResolutionState;
 use Illuminate\Contracts\Validation\Validator;
@@ -72,24 +72,24 @@ class ApproveScoreBatchRequest extends FormRequest
             // Block approval while the projected results leave a completed group's standings — or
             // the best-thirds cut — tied, since the bracket cannot be projected (and phased windows
             // cannot open) until an admin orders those teams by hand.
-            /** @var Game $game */
-            $game = $this->route('game');
+            /** @var Pool $pool */
+            $pool = $this->route('pool');
 
-            if ((new TieResolutionState)->forTournament($game->tournament, $batch)->blocked()) {
+            if ((new TieResolutionState)->forTournament($pool->tournament, $batch)->blocked()) {
                 $validator->errors()->add('ties', __('Resolve the tied teams in the group standings before approving.'));
             }
         });
     }
 
     /**
-     * The current open batch for the game's tournament, if any.
+     * The current open batch for the pool's tournament, if any.
      */
     public function openBatch(): ?ScoreBatch
     {
-        /** @var Game $game */
-        $game = $this->route('game');
+        /** @var Pool $pool */
+        $pool = $this->route('pool');
 
-        return $game->tournament->scoreBatches()
+        return $pool->tournament->scoreBatches()
             ->where('status', BatchStatus::Open)
             ->latest('id')
             ->first();

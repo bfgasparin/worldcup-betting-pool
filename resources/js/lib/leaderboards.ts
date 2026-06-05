@@ -1,7 +1,7 @@
 /**
  * A plain-English tie-break rule for a board, built from its own stat labels so the copy always
  * matches how the board actually ranks (value, then the secondary stat, then entry order). Shared by
- * the Leaderboards page and the "How this game works" dialog. Boards with no secondary stat (Overall)
+ * the Leaderboards page and the "How this pool works" dialog. Boards with no secondary stat (Overall)
  * fall back to entry order.
  */
 export function tiebreakRule(board: {

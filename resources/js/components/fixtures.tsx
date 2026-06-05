@@ -17,7 +17,7 @@ import type {
     GroupTeam,
     StandingRow,
     TeamRef,
-} from '@/types/games';
+} from '@/types/pools';
 
 /* ------------------------------------------------------------------ dates */
 

@@ -33,13 +33,13 @@ class BracketResolver
         // The tournament structure is immutable, so loadMissing is fine; predictions change
         // between calls (and may be stale on a reused model), so always reload them fresh.
         $entry->loadMissing([
-            'game.tournament.groups.teams',
-            'game.tournament.groups.fixtures',
-            'game.tournament.knockoutFixtures.phase',
+            'pool.tournament.groups.teams',
+            'pool.tournament.groups.fixtures',
+            'pool.tournament.knockoutFixtures.phase',
         ]);
         $entry->load(['groupPredictions', 'knockoutPredictions']);
 
-        $tournament = $entry->game->tournament;
+        $tournament = $entry->pool->tournament;
         $groupPredictions = $entry->groupPredictions->keyBy('fixture_id');
         $knockoutPredictions = $entry->knockoutPredictions->keyBy('fixture_id');
         $ordering = ManualTieOrdering::fromEntry($entry);
@@ -75,7 +75,7 @@ class BracketResolver
      */
     public function persist(Entry $entry): void
     {
-        $entry->loadMissing(['game.tournament.knockoutFixtures', 'groupPredictions']);
+        $entry->loadMissing(['pool.tournament.knockoutFixtures', 'groupPredictions']);
 
         // The tree is at most five levels deep (R32 -> R16 -> QF -> SF -> final), so a
         // handful of passes is always enough to reach a fixed point. The +1 is a guard.
@@ -87,7 +87,7 @@ class BracketResolver
             $changed = false;
 
             DB::transaction(function () use ($entry, $resolved, $existing, &$changed): void {
-                foreach ($entry->game->tournament->knockoutFixtures as $fixture) {
+                foreach ($entry->pool->tournament->knockoutFixtures as $fixture) {
                     $slot = $resolved->fixture($fixture->id);
                     $prediction = $existing->get($fixture->id);
 

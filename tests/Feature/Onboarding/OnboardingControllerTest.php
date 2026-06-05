@@ -107,7 +107,7 @@ class OnboardingControllerTest extends TestCase
 
         $this->actingAs($user)
             ->post(route('onboarding.complete'))
-            ->assertRedirect(route('games.index'));
+            ->assertRedirect(route('pools.index'));
 
         $this->assertNotNull($user->refresh()->onboarded_at);
     }
@@ -118,7 +118,7 @@ class OnboardingControllerTest extends TestCase
 
         $this->actingAs($user)
             ->post(route('onboarding.complete'))
-            ->assertRedirect(route('games.index'));
+            ->assertRedirect(route('pools.index'));
 
         $user->refresh();
         $this->assertTrue($user->isOnboarded());

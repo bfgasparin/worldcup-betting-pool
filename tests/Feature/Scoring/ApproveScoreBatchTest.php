@@ -9,7 +9,7 @@ use App\Enums\PhaseType;
 use App\Enums\ProposalStatus;
 use App\Enums\TournamentStatus;
 use App\Models\Entry;
-use App\Models\Game;
+use App\Models\Pool;
 use App\Models\ScoreBatch;
 use App\Models\ScoreProposal;
 use App\Models\Tournament;
@@ -30,7 +30,7 @@ class ApproveScoreBatchTest extends TestCase
 
     private Tournament $tournament;
 
-    private Game $game;
+    private Pool $pool;
 
     private Entry $entry;
 
@@ -40,8 +40,8 @@ class ApproveScoreBatchTest extends TestCase
 
         $this->seed(WorldCup2026Seeder::class);
         $this->tournament = Tournament::firstOrFail();
-        $this->game = $this->tournament->games()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
-        $this->entry = Entry::factory()->for($this->game)->for(User::factory())->create();
+        $this->pool = $this->tournament->pools()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
+        $this->entry = Entry::factory()->for($this->pool)->for(User::factory())->create();
         $this->predictAllGroups($this->entry, $this->tournament, $this->seedOrderScores());
     }
 
@@ -53,8 +53,8 @@ class ApproveScoreBatchTest extends TestCase
 
         // Approval keeps the admin on the review screen (re-rendered to its post-approval state).
         $this->actingAs($this->admin())
-            ->post(route('games.scores.approve', $this->game))
-            ->assertRedirect(route('games.scores.review', $this->game));
+            ->post(route('pools.scores.approve', $this->pool))
+            ->assertRedirect(route('pools.scores.review', $this->pool));
 
         // Official scores are written onto the fixtures.
         $firstGroupFixture = $this->tournament->groupFixtures()->orderBy('match_number')->first();
@@ -90,7 +90,7 @@ class ApproveScoreBatchTest extends TestCase
 
         $this->assertSame(TournamentStatus::Upcoming, $this->tournament->fresh()->status);
 
-        $this->actingAs($this->admin())->post(route('games.scores.approve', $this->game));
+        $this->actingAs($this->admin())->post(route('pools.scores.approve', $this->pool));
 
         // The group results are in, but the knockout fixtures are still scheduled — the tournament
         // is underway, not finished.
@@ -106,7 +106,7 @@ class ApproveScoreBatchTest extends TestCase
         $this->resolveProjectedTies($this->tournament, $batch);
 
         $this->actingAs($this->admin())
-            ->post(route('games.scores.approve', $this->game));
+            ->post(route('pools.scores.approve', $this->pool));
 
         // The only entry becomes #1, so its owner receives the milestone email.
         Notification::assertSentTo($this->entry->user, TopOfLeaderboardNotification::class);
@@ -118,7 +118,7 @@ class ApproveScoreBatchTest extends TestCase
         $this->proposeAllGroupResults($batch);
         $this->resolveProjectedTies($this->tournament, $batch);
 
-        $this->actingAs($this->admin())->post(route('games.scores.approve', $this->game));
+        $this->actingAs($this->admin())->post(route('pools.scores.approve', $this->pool));
         $firstTotal = $this->entry->fresh()->total_points;
 
         // Correct one group result in a new batch and re-approve.
@@ -133,7 +133,7 @@ class ApproveScoreBatchTest extends TestCase
         ]);
         $this->resolveProjectedTies($this->tournament, $newBatch);
 
-        $this->actingAs($this->admin())->post(route('games.scores.approve', $this->game));
+        $this->actingAs($this->admin())->post(route('pools.scores.approve', $this->pool));
 
         $this->assertSame(5, $fixture->fresh()->home_goals);
         // The total is recomputed (not doubled): it changes by at most one fixture's points.
@@ -159,7 +159,7 @@ class ApproveScoreBatchTest extends TestCase
         ]);
 
         $this->actingAs($this->admin())
-            ->post(route('games.scores.approve', $this->game))
+            ->post(route('pools.scores.approve', $this->pool))
             ->assertSessionHasErrors('proposals');
 
         $this->assertNotSame(FixtureStatus::Finished, $knockout->fresh()->status);
@@ -171,13 +171,13 @@ class ApproveScoreBatchTest extends TestCase
         $this->proposeAllGroupResults($this->openBatch());
 
         $this->actingAs(User::factory()->create())
-            ->post(route('games.scores.approve', $this->game))
+            ->post(route('pools.scores.approve', $this->pool))
             ->assertForbidden();
     }
 
     public function test_a_guest_is_redirected_to_login(): void
     {
-        $this->post(route('games.scores.approve', $this->game))
+        $this->post(route('pools.scores.approve', $this->pool))
             ->assertRedirect(route('login'));
     }
 

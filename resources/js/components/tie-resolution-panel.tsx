@@ -1,7 +1,7 @@
 import { CheckCircle2, CircleAlert } from 'lucide-react';
 import { TieOrderList } from '@/components/tie-order-list';
 import { cn } from '@/lib/utils';
-import type { TeamRef } from '@/types/games';
+import type { TeamRef } from '@/types/pools';
 
 /** A tied set to order, plus whether a saved ordering already resolves it. */
 export interface TieCluster {

@@ -3,7 +3,7 @@
 namespace Tests\Unit\Services\Scoring;
 
 use App\Models\Entry;
-use App\Models\Game;
+use App\Models\Pool;
 use App\Models\User;
 use App\Notifications\LeaderboardRankChangedNotification;
 use App\Notifications\TopOfLeaderboardNotification;
@@ -16,7 +16,7 @@ class LeaderboardNotifierTest extends TestCase
 {
     use RefreshDatabase;
 
-    private Game $game;
+    private Pool $pool;
 
     private LeaderboardNotifier $notifier;
 
@@ -24,7 +24,7 @@ class LeaderboardNotifierTest extends TestCase
     {
         parent::setUp();
 
-        $this->game = Game::factory()->create();
+        $this->pool = Pool::factory()->create();
         $this->notifier = new LeaderboardNotifier;
     }
 
@@ -33,7 +33,7 @@ class LeaderboardNotifierTest extends TestCase
      */
     private function entryFor(User $user, array $attributes): Entry
     {
-        return Entry::factory()->for($this->game)->for($user)->create($attributes);
+        return Entry::factory()->for($this->pool)->for($user)->create($attributes);
     }
 
     public function test_a_player_who_newly_reaches_first_gets_the_milestone_and_no_rank_change_email(): void
@@ -46,17 +46,17 @@ class LeaderboardNotifierTest extends TestCase
         $this->entryFor($ada, ['total_points' => 200, 'rank' => 1, 'previous_rank' => 2]);
         $this->entryFor($bo, ['total_points' => 150, 'rank' => 2, 'previous_rank' => 1]);
 
-        $this->notifier->notify($this->game);
+        $this->notifier->notify($this->pool);
 
         Notification::assertSentTo($ada, TopOfLeaderboardNotification::class, function ($notification): bool {
             return $notification->runnerUpName === 'Bo'
                 && $notification->leadOverRunnerUp === 50
                 && $notification->points === 200
                 && $notification->totalEntries === 2
-                && $notification->gameSlug === $this->game->slug
-                // The game's identity rides along so the email leads with the right pool.
-                && $notification->source === $this->game->source
-                && $notification->accent === $this->game->accent;
+                && $notification->poolSlug === $this->pool->slug
+                // The pool's identity rides along so the email leads with the right pool.
+                && $notification->source === $this->pool->source
+                && $notification->accent === $this->pool->accent;
         });
         Notification::assertNotSentTo($ada, LeaderboardRankChangedNotification::class);
         // Bo only dropped one place, which is below the threshold.
@@ -77,7 +77,7 @@ class LeaderboardNotifierTest extends TestCase
         $this->entryFor($cy, ['total_points' => 70, 'rank' => 3, 'previous_rank' => 2]); // down 1
         $this->entryFor($di, ['total_points' => 50, 'rank' => 4, 'previous_rank' => 3]); // down 1
 
-        $this->notifier->notify($this->game);
+        $this->notifier->notify($this->pool);
 
         Notification::assertSentTo($bo, LeaderboardRankChangedNotification::class, function ($notification): bool {
             return $notification->direction === 'up'
@@ -86,8 +86,8 @@ class LeaderboardNotifierTest extends TestCase
                 && $notification->aheadName === 'Ada'
                 && $notification->pointsBehind === 60
                 && $notification->totalEntries === 4
-                && $notification->source === $this->game->source
-                && $notification->accent === $this->game->accent;
+                && $notification->source === $this->pool->source
+                && $notification->accent === $this->pool->accent;
         });
         Notification::assertNotSentTo($cy, LeaderboardRankChangedNotification::class);
         Notification::assertNotSentTo($di, LeaderboardRankChangedNotification::class);
@@ -107,7 +107,7 @@ class LeaderboardNotifierTest extends TestCase
         $this->entryFor($cy, ['total_points' => 100, 'rank' => 3, 'previous_rank' => 4]);  // up 1
         $this->entryFor($di, ['total_points' => 40, 'rank' => 4, 'previous_rank' => 2]);   // down 2
 
-        $this->notifier->notify($this->game);
+        $this->notifier->notify($this->pool);
 
         Notification::assertSentTo($di, LeaderboardRankChangedNotification::class, function ($notification): bool {
             return $notification->direction === 'down'
@@ -115,8 +115,8 @@ class LeaderboardNotifierTest extends TestCase
                 && $notification->previousRank === 2
                 && $notification->aheadName === 'Cy'
                 && $notification->pointsBehind === 60
-                && $notification->source === $this->game->source
-                && $notification->accent === $this->game->accent;
+                && $notification->source === $this->pool->source
+                && $notification->accent === $this->pool->accent;
         });
         Notification::assertNotSentTo($ada, TopOfLeaderboardNotification::class);
         Notification::assertNotSentTo($bo, LeaderboardRankChangedNotification::class);
@@ -135,7 +135,7 @@ class LeaderboardNotifierTest extends TestCase
         $this->entryFor($bo, ['total_points' => 150, 'rank' => 2, 'previous_rank' => 3]);  // up 1
         $this->entryFor($cy, ['total_points' => 100, 'rank' => 3, 'previous_rank' => 2]);  // down 1
 
-        $this->notifier->notify($this->game);
+        $this->notifier->notify($this->pool);
 
         Notification::assertNothingSent();
     }
@@ -150,7 +150,7 @@ class LeaderboardNotifierTest extends TestCase
         $this->entryFor($ada, ['total_points' => 200, 'rank' => 1, 'previous_rank' => 1]);
         $this->entryFor($bo, ['total_points' => 150, 'rank' => 2, 'previous_rank' => 2]);
 
-        $this->notifier->notify($this->game);
+        $this->notifier->notify($this->pool);
 
         Notification::assertNothingSent();
     }
@@ -164,7 +164,7 @@ class LeaderboardNotifierTest extends TestCase
         // Ranked first but without any points yet — no real milestone to celebrate.
         $this->entryFor($ada, ['total_points' => null, 'rank' => 1, 'previous_rank' => 2]);
 
-        $this->notifier->notify($this->game);
+        $this->notifier->notify($this->pool);
 
         Notification::assertNothingSent();
     }
@@ -180,7 +180,7 @@ class LeaderboardNotifierTest extends TestCase
         $this->entryFor($ada, ['total_points' => 120, 'rank' => 1, 'previous_rank' => null]);
         $this->entryFor($bo, ['total_points' => 80, 'rank' => 2, 'previous_rank' => null]);
 
-        $this->notifier->notify($this->game);
+        $this->notifier->notify($this->pool);
 
         Notification::assertSentTo($ada, TopOfLeaderboardNotification::class);
         // No prior position, so no climb/drop emails on the first scoring.

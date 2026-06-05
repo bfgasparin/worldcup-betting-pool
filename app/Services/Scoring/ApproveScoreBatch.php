@@ -14,8 +14,8 @@ use Illuminate\Support\Facades\DB;
 /**
  * Applies an approved batch of proposed scores, end to end and atomically: it writes each
  * (non-rejected) proposal onto its fixture and re-projects the official bracket from the new
- * results. The results are shared by every game played over the tournament, so it then cascades
- * to each game — recomputing its entries' points and snapshotting its leaderboard ranks so
+ * results. The results are shared by every pool played over the tournament, so it then cascades
+ * to each pool — recomputing its entries' points and snapshotting its leaderboard ranks so
  * movement arrows have a baseline. Running it again after a correction simply re-applies and
  * recomputes.
  */
@@ -31,9 +31,9 @@ class ApproveScoreBatch
     public function approve(ScoreBatch $batch, User $approver): void
     {
         $tournament = $batch->tournament;
-        $games = $tournament->games()->get();
+        $pools = $tournament->pools()->get();
 
-        DB::transaction(function () use ($batch, $tournament, $games, $approver): void {
+        DB::transaction(function () use ($batch, $tournament, $pools, $approver): void {
             $proposals = $batch->proposals()
                 ->where('status', '!=', ProposalStatus::Rejected)
                 ->with('fixture')
@@ -51,12 +51,12 @@ class ApproveScoreBatch
             ]);
 
             // Fixtures now carry the official results; cascade the bracket once, then re-score
-            // and rank each game played over this tournament.
+            // and rank each pool played over this tournament.
             $this->projector->project($tournament);
 
-            foreach ($games as $game) {
-                $this->engine->recompute($game);
-                $this->snapshotter->snapshot($game);
+            foreach ($pools as $pool) {
+                $this->engine->recompute($pool);
+                $this->snapshotter->snapshot($pool);
             }
         });
 
@@ -65,10 +65,10 @@ class ApproveScoreBatch
         // transaction so the status-changed event can't fire and then roll back.
         $tournament->syncStatus();
 
-        // Ranks are committed; email each game's players about milestones and significant moves.
-        // Kept outside the transaction so a later game's failure can't fire and then roll back.
-        foreach ($games as $game) {
-            $this->notifier->notify($game);
+        // Ranks are committed; email each pool's players about milestones and significant moves.
+        // Kept outside the transaction so a later pool's failure can't fire and then roll back.
+        foreach ($pools as $pool) {
+            $this->notifier->notify($pool);
         }
     }
 

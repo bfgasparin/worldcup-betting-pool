@@ -1,7 +1,7 @@
 import { MovementArrow } from '@/components/movement-arrow';
 import PlayerAvatar from '@/components/player-avatar';
 import { cn } from '@/lib/utils';
-import type { RankMovement } from '@/types/games';
+import type { RankMovement } from '@/types/pools';
 
 export interface LeaderboardEntry {
     rank: number;

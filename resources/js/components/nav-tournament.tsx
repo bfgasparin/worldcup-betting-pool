@@ -1,6 +1,6 @@
 import { LayoutDashboard, ListOrdered, PencilLine } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import games from '@/routes/games';
+import pools from '@/routes/pools';
 
 export type TournamentNavItem = {
     title: string;
@@ -9,25 +9,25 @@ export type TournamentNavItem = {
 };
 
 /**
- * The per-game nav: the three screens a game in context exposes. Shared by the sidebar, which
- * expands these beneath the active game so every joined game can reach Overview, Predict and
- * Leaderboards without leaving the persistent "Your games" list.
+ * The per-pool nav: the three screens a pool in context exposes. Shared by the sidebar, which
+ * expands these beneath the active pool so every joined pool can reach Overview, Predict and
+ * Leaderboards without leaving the persistent "Your pools" list.
  */
 export function tournamentNavItems(slug: string): TournamentNavItem[] {
     return [
         {
             title: 'Overview',
-            href: games.show(slug).url,
+            href: pools.show(slug).url,
             icon: LayoutDashboard,
         },
         {
             title: 'Predict',
-            href: games.predict.edit(slug).url,
+            href: pools.predict.edit(slug).url,
             icon: PencilLine,
         },
         {
             title: 'Leaderboards',
-            href: games.leaderboard(slug).url,
+            href: pools.leaderboard(slug).url,
             icon: ListOrdered,
         },
     ];

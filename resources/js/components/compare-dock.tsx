@@ -2,7 +2,7 @@ import { Pencil, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { lane } from '@/lib/compare';
 import { cn } from '@/lib/utils';
-import type { PlayerDirectoryEntry } from '@/types/games';
+import type { PlayerDirectoryEntry } from '@/types/pools';
 
 type SelectingProps = {
     mode: 'selecting';

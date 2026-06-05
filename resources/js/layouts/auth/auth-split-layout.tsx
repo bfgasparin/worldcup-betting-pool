@@ -42,7 +42,7 @@ export default function AuthSplitLayout({
                     <span className="inline-flex items-baseline font-display text-lg font-semibold tracking-tight text-foreground">
                         Brothers
                         <span className="ml-2 text-[10px] font-bold tracking-[0.22em] text-muted-foreground uppercase">
-                            Betting Pool
+                            Bets
                         </span>
                     </span>
                 </Link>
@@ -89,7 +89,7 @@ export default function AuthSplitLayout({
                             <AppLogoIcon className="size-7 text-white" />
                         </div>
                         <span className="font-display text-lg font-semibold tracking-tight">
-                            Brothers Betting Pool
+                            Brothers Bets
                         </span>
                     </Link>
 

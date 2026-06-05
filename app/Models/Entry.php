@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['game_id', 'user_id', 'total_points', 'rank', 'previous_rank'])]
+#[Fillable(['pool_id', 'user_id', 'total_points', 'rank', 'previous_rank'])]
 class Entry extends Model
 {
     /** @use HasFactory<EntryFactory> */
@@ -31,11 +31,11 @@ class Entry extends Model
     }
 
     /**
-     * @return BelongsTo<Game, $this>
+     * @return BelongsTo<Pool, $this>
      */
-    public function game(): BelongsTo
+    public function pool(): BelongsTo
     {
-        return $this->belongsTo(Game::class);
+        return $this->belongsTo(Pool::class);
     }
 
     /**

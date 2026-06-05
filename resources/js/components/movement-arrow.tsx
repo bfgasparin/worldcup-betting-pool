@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowUp, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { RankMovement } from '@/types/games';
+import type { RankMovement } from '@/types/pools';
 
 /**
  * A compact indicator of how an entry moved on the pool table since the last approved results:

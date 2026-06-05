@@ -6,7 +6,7 @@ use App\Models\Team;
 use Illuminate\Support\Collection;
 
 /**
- * Turns a {@see GroupStandings} into the ranked, frontend-ready row shape shared by the game
+ * Turns a {@see GroupStandings} into the ranked, frontend-ready row shape shared by the pool
  * page (official + the viewer's predicted standings) and the prediction wizard, so the row
  * contract lives in one place across its several producers.
  */

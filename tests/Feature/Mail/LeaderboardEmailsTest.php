@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Mail;
 
-use App\Enums\GameAccent;
+use App\Enums\PoolAccent;
 use App\Models\User;
 use App\Notifications\LeaderboardRankChangedNotification;
 use App\Notifications\TopOfLeaderboardNotification;
@@ -15,9 +15,9 @@ class LeaderboardEmailsTest extends TestCase
 
     public function test_the_top_of_leaderboard_email_renders_the_milestone(): void
     {
-        $accent = GameAccent::Teal;
+        $accent = PoolAccent::Teal;
         $data = [
-            'gameName' => 'World Cup 2026',
+            'poolName' => 'World Cup 2026',
             'source' => 'FF&A',
             'accentGradient' => $accent->gradientCss(),
             'accentSolid' => $accent->solidHex(),
@@ -28,7 +28,7 @@ class LeaderboardEmailsTest extends TestCase
             'runnerUpName' => 'Aisha',
             'leadOverRunnerUp' => 35,
             'userName' => 'Sam',
-            'url' => 'https://ffa.test/games/world-cup-2026/leaderboard',
+            'url' => 'https://ffa.test/pools/world-cup-2026/leaderboard',
         ];
 
         $html = view('emails.top-of-leaderboard', $data)->render();
@@ -39,15 +39,15 @@ class LeaderboardEmailsTest extends TestCase
         $this->assertStringContainsString('35 pts', $html);
         $this->assertStringContainsString('Aisha', $html);
         $this->assertStringContainsString('Overall leaderboard', $html);
-        // The source leads the hero and footer so the email's game is unmistakable
+        // The source leads the hero and footer so the email's pool is unmistakable
         // (Blade escapes the ampersand in "FF&A").
-        $this->assertStringContainsString('Game by FF&amp;A', $html);
+        $this->assertStringContainsString('Pool by FF&amp;A', $html);
         $this->assertStringContainsString("FF&amp;A's World Cup 2026", $html);
-        // The game's accent tints the hero eyebrow (a contrast-safe ink) and the brand bar.
+        // The pool's accent tints the hero eyebrow (a contrast-safe ink) and the brand bar.
         $this->assertStringContainsString($accent->eyebrowInk(), $html);
         $this->assertStringContainsString($accent->gradientCss(), $html);
-        $this->assertStringContainsString('https://ffa.test/games/world-cup-2026/leaderboard', $html);
-        // Copy must stay strategy-neutral — "keep predicting" is wrong for upfront-bracket games,
+        $this->assertStringContainsString('https://ffa.test/pools/world-cup-2026/leaderboard', $html);
+        // Copy must stay strategy-neutral — "keep predicting" is wrong for upfront-bracket pools,
         // where the whole bracket is already locked in (apostrophe-free fragment dodges Blade escaping).
         $this->assertStringContainsString('plenty of football still to play', $html);
         $this->assertStringNotContainsString('keep predicting', $html);
@@ -57,7 +57,7 @@ class LeaderboardEmailsTest extends TestCase
         $this->assertStringContainsString('1st', $text);
         $this->assertStringContainsString('Overall leaderboard', $text);
         $this->assertStringContainsString("FF&A's World Cup 2026", $text);
-        $this->assertStringContainsString('https://ffa.test/games/world-cup-2026/leaderboard', $text);
+        $this->assertStringContainsString('https://ffa.test/pools/world-cup-2026/leaderboard', $text);
         $this->assertStringContainsString('plenty of football still to play', $text);
         $this->assertStringNotContainsString('keep predicting', $text);
 
@@ -70,9 +70,9 @@ class LeaderboardEmailsTest extends TestCase
 
     public function test_the_rank_change_email_renders_a_climb(): void
     {
-        $accent = GameAccent::Teal;
+        $accent = PoolAccent::Teal;
         $data = [
-            'gameName' => 'World Cup 2026',
+            'poolName' => 'World Cup 2026',
             'source' => 'FF&A',
             'accentGradient' => $accent->gradientCss(),
             'accentSolid' => $accent->solidHex(),
@@ -87,7 +87,7 @@ class LeaderboardEmailsTest extends TestCase
             'aheadName' => 'Aisha',
             'pointsBehind' => 35,
             'userName' => 'Sam',
-            'url' => 'https://ffa.test/games/world-cup-2026/leaderboard',
+            'url' => 'https://ffa.test/pools/world-cup-2026/leaderboard',
         ];
 
         $html = view('emails.rank-change', $data)->render();
@@ -97,10 +97,10 @@ class LeaderboardEmailsTest extends TestCase
         $this->assertStringContainsString('Aisha', $html);
         $this->assertStringContainsString('35 pts', $html);
         $this->assertStringContainsString('Overall leaderboard', $html);
-        $this->assertStringContainsString('Game by FF&amp;A', $html);
+        $this->assertStringContainsString('Pool by FF&amp;A', $html);
         $this->assertStringContainsString($accent->eyebrowInk(), $html);
-        $this->assertStringContainsString('https://ffa.test/games/world-cup-2026/leaderboard', $html);
-        // The footer must stay strategy-neutral — "next matchday" is wrong for upfront-bracket games.
+        $this->assertStringContainsString('https://ffa.test/pools/world-cup-2026/leaderboard', $html);
+        // The footer must stay strategy-neutral — "next matchday" is wrong for upfront-bracket pools.
         $this->assertStringContainsString('plenty of football still to come', $html);
         $this->assertStringNotContainsString('matchday', $html);
 
@@ -108,16 +108,16 @@ class LeaderboardEmailsTest extends TestCase
         $this->assertStringContainsString('4th', $text);
         $this->assertStringContainsString('Overall leaderboard', $text);
         $this->assertStringContainsString("FF&A's World Cup 2026", $text);
-        $this->assertStringContainsString('https://ffa.test/games/world-cup-2026/leaderboard', $text);
+        $this->assertStringContainsString('https://ffa.test/pools/world-cup-2026/leaderboard', $text);
         $this->assertStringContainsString('plenty of football still to come', $text);
         $this->assertStringNotContainsString('matchday', $text);
     }
 
     public function test_the_rank_change_email_renders_a_drop(): void
     {
-        $accent = GameAccent::Teal;
+        $accent = PoolAccent::Teal;
         $html = view('emails.rank-change', [
-            'gameName' => 'World Cup 2026',
+            'poolName' => 'World Cup 2026',
             'source' => 'FF&A',
             'accentGradient' => $accent->gradientCss(),
             'accentSolid' => $accent->solidHex(),
@@ -132,7 +132,7 @@ class LeaderboardEmailsTest extends TestCase
             'aheadName' => 'Aisha',
             'pointsBehind' => 20,
             'userName' => 'Sam',
-            'url' => 'https://ffa.test/games/world-cup-2026/leaderboard',
+            'url' => 'https://ffa.test/pools/world-cup-2026/leaderboard',
         ])->render();
 
         $this->assertStringContainsString('slipped', $html);
@@ -143,9 +143,9 @@ class LeaderboardEmailsTest extends TestCase
 
     public function test_the_rank_change_body_copy_is_strategy_neutral_when_no_one_is_ahead(): void
     {
-        $accent = GameAccent::Teal;
+        $accent = PoolAccent::Teal;
         $data = [
-            'gameName' => 'World Cup 2026',
+            'poolName' => 'World Cup 2026',
             'source' => 'FF&A',
             'accentGradient' => $accent->gradientCss(),
             'accentSolid' => $accent->solidHex(),
@@ -161,7 +161,7 @@ class LeaderboardEmailsTest extends TestCase
             'aheadName' => null,
             'pointsBehind' => null,
             'userName' => 'Sam',
-            'url' => 'https://ffa.test/games/world-cup-2026/leaderboard',
+            'url' => 'https://ffa.test/pools/world-cup-2026/leaderboard',
         ];
 
         // A climber at the top: the body must not nudge toward predicting "the next matchday".
@@ -179,15 +179,15 @@ class LeaderboardEmailsTest extends TestCase
     {
         $user = User::factory()->make(['name' => 'Sam']);
 
-        $milestone = (new TopOfLeaderboardNotification('World Cup 2026', 'world-cup-2026', 'FF&A', GameAccent::Pitch, 200, 12, 'Aisha', 35))
+        $milestone = (new TopOfLeaderboardNotification('World Cup 2026', 'world-cup-2026', 'FF&A', PoolAccent::Pitch, 200, 12, 'Aisha', 35))
             ->toMail($user);
         $this->assertStringContainsString("top of FF&A's World Cup 2026", $milestone->subject);
 
-        $climb = (new LeaderboardRankChangedNotification('World Cup 2026', 'world-cup-2026', 'FF&A', GameAccent::Pitch, 'up', 4, 6, 12, 120, 'Aisha', 35))
+        $climb = (new LeaderboardRankChangedNotification('World Cup 2026', 'world-cup-2026', 'FF&A', PoolAccent::Pitch, 'up', 4, 6, 12, 120, 'Aisha', 35))
             ->toMail($user);
         $this->assertStringContainsString("climbed to 4th in FF&A's World Cup 2026", $climb->subject);
 
-        $drop = (new LeaderboardRankChangedNotification('World Cup 2026', 'world-cup-2026', 'FF&A', GameAccent::Pitch, 'down', 6, 4, 12, 80, 'Aisha', 20))
+        $drop = (new LeaderboardRankChangedNotification('World Cup 2026', 'world-cup-2026', 'FF&A', PoolAccent::Pitch, 'down', 6, 4, 12, 80, 'Aisha', 20))
             ->toMail($user);
         $this->assertStringContainsString("slipped to 6th in FF&A's World Cup 2026", $drop->subject);
     }

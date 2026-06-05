@@ -18,9 +18,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withSchedule(function (Schedule $schedule): void {
         // SCALE-TO-ZERO WINDOW — hardcoded to World Cup 2026 (11 Jun – 19 Jul 2026), the only
-        // live game for now. The window lives in the CRON EXPRESSION (not ->between()) on
+        // live tournament for now. The window lives in the CRON EXPRESSION (not ->between()) on
         // purpose: Laravel Cloud reads `schedule:list` (i.e. the cron expression) to decide when
-        // to wake the app, so a cron-encoded window lets the app/DB hibernate outside game hours.
+        // to wake the app, so a cron-encoded window lets the app/DB hibernate outside match hours.
         // ->between() is only a post-boot filter — it would leave the cron at "* * * * *" and the
         // app would still wake every minute, defeating scale-to-zero and costing us money.
         //
@@ -30,7 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
         //   • 15:00 start / 08:40 end is the safety margin. Hibernates daily 09:00–14:59 UTC and
         //     entirely outside June/July. App timezone is UTC, so the cron is evaluated in UTC.
         //
-        // TODO: revisit when the platform hosts more games/tournaments. Other tournaments with a
+        // TODO: revisit when the platform hosts more pools/tournaments. Other tournaments with a
         // different schedule (or running outside June/July) will NOT have fixtures ticked or
         // scores fetched until this window is widened — or, better, derived from the fixtures
         // table. Covered by tests/Feature/Console/ScheduleConfigurationTest.php.

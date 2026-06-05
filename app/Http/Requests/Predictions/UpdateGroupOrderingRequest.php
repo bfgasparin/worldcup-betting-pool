@@ -8,7 +8,7 @@ use Illuminate\Contracts\Validation\Validator;
 
 /**
  * Saves a player's manual ordering of a tie in their own predicted standings. Only meaningful for
- * upfront-bracket games, whose knockout slots are derived from the player's group predictions.
+ * upfront-bracket pools, whose knockout slots are derived from the player's group predictions.
  */
 class UpdateGroupOrderingRequest extends PredictionRequest
 {
@@ -16,7 +16,7 @@ class UpdateGroupOrderingRequest extends PredictionRequest
 
     public function authorize(): bool
     {
-        return parent::authorize() && $this->game()->predictsKnockoutBracket();
+        return parent::authorize() && $this->pool()->predictsKnockoutBracket();
     }
 
     /**
@@ -24,7 +24,7 @@ class UpdateGroupOrderingRequest extends PredictionRequest
      */
     public function rules(): array
     {
-        return $this->tieOrderingRules($this->game()->tournament->groups()->pluck('name')->all());
+        return $this->tieOrderingRules($this->pool()->tournament->groups()->pluck('name')->all());
     }
 
     public function withValidator(Validator $validator): void

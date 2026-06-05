@@ -1,6 +1,6 @@
 /**
- * Shared helpers for turning a game's `scoring_config` JSON into a readable, points-sorted
- * legend. Used by both the prediction wizard and the game-selection card so the labels and
+ * Shared helpers for turning a pool's `scoring_config` JSON into a readable, points-sorted
+ * legend. Used by both the prediction wizard and the pool-selection card so the labels and
  * ordering stay in one place.
  */
 

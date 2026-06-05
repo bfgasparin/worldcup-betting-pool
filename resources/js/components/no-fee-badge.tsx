@@ -2,8 +2,8 @@ import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
- * The "no organizer fee" selling point: when a game takes no house cut, the whole buy-in goes into
- * the pot. Shown on the games-list card and the game page wherever the organizer fee would
+ * The "no organizer fee" selling point: when a pool takes no house cut, the whole buy-in goes into
+ * the pot. Shown on the pools-list card and the pool page wherever the organizer fee would
  * otherwise be noted — a positive, pitch-green signal (distinct from the gold prize figures).
  */
 export function NoFeeBadge({ className }: { className?: string }) {

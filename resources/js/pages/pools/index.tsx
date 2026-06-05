@@ -1,0 +1,461 @@
+import { Head, Link, usePage } from '@inertiajs/react';
+import {
+    ArrowRight,
+    CalendarDays,
+    Check,
+    ChevronLeft,
+    ChevronRight,
+    Layers,
+    Sparkles,
+    Trophy,
+    Users,
+} from 'lucide-react';
+import type { ComponentType, ReactNode } from 'react';
+import { PrizeSplit } from '@/components/prize-split';
+import { Button } from '@/components/ui/button';
+import { Chip } from '@/components/ui/chip';
+import { resolveAccent, sourceMonogram } from '@/lib/accents';
+import type { PoolAccent } from '@/lib/accents';
+import { cn } from '@/lib/utils';
+import { index, show } from '@/routes/pools';
+import type { PoolListItem, Paginated } from '@/types/pools';
+
+interface PoolsIndexProps {
+    pools: Paginated<PoolListItem>;
+}
+
+/** A tournament and the pools played over it, in the order they arrived from the server. */
+interface TournamentGroup {
+    tournament: PoolListItem['tournament'];
+    pools: PoolListItem[];
+}
+
+function greeting(): string {
+    const hour = new Date().getHours();
+
+    if (hour < 12) {
+        return 'Good morning';
+    }
+
+    if (hour < 18) {
+        return 'Good afternoon';
+    }
+
+    return 'Good evening';
+}
+
+/**
+ * Cluster the page's pools by the tournament they're played over, preserving order. Sibling pools
+ * arrive adjacent (the server orders by tournament then id), so each tournament forms one run.
+ */
+function groupByTournament(pools: PoolListItem[]): TournamentGroup[] {
+    const groups: TournamentGroup[] = [];
+    const byId = new Map<number, TournamentGroup>();
+
+    for (const pool of pools) {
+        let group = byId.get(pool.tournament.id);
+
+        if (!group) {
+            group = { tournament: pool.tournament, pools: [] };
+            byId.set(pool.tournament.id, group);
+            groups.push(group);
+        }
+
+        group.pools.push(pool);
+    }
+
+    return groups;
+}
+
+function formatDates(pool: PoolListItem): string | null {
+    if (!pool.starts_on) {
+        return null;
+    }
+
+    return pool.ends_on
+        ? `${pool.starts_on} – ${pool.ends_on}`
+        : pool.starts_on;
+}
+
+function StatPill({
+    icon: Icon,
+    label,
+}: {
+    icon: ComponentType<{ className?: string }>;
+    label: ReactNode;
+}) {
+    return (
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-3 py-1 font-display text-xs font-semibold">
+            <Icon className="size-3.5 text-primary" />
+            {label}
+        </span>
+    );
+}
+
+/** "12 players" / "1 player" / "No players yet" — a pool's player count. */
+function playersLabel(count: number): string {
+    if (count === 0) {
+        return 'No players yet';
+    }
+
+    return count === 1 ? '1 player' : `${count} players`;
+}
+
+/** A pool's pool size — its own per-pool stat, the same shape as the tournament stat pills. */
+function PlayersStat({ count }: { count: number }) {
+    return <StatPill icon={Users} label={playersLabel(count)} />;
+}
+
+/**
+ * The shared tournament facts (sport, group & match counts) — identical for every sibling pool.
+ * `playersCount`, when given, appends the pool's own pool size (used on a solo pool's card, where
+ * the shared facts and the per-pool count sit on one row).
+ */
+function StatPills({
+    pool,
+    playersCount,
+}: {
+    pool: PoolListItem;
+    playersCount?: number;
+}) {
+    return (
+        <div className="flex flex-wrap gap-2">
+            <StatPill
+                icon={Trophy}
+                label={<span className="capitalize">{pool.sport}</span>}
+            />
+            {pool.groups_count != null && (
+                <StatPill icon={Layers} label={`${pool.groups_count} Groups`} />
+            )}
+            {pool.fixtures_count != null && (
+                <StatPill
+                    icon={Sparkles}
+                    label={`${pool.fixtures_count} Matches`}
+                />
+            )}
+            {playersCount != null && <PlayersStat count={playersCount} />}
+        </div>
+    );
+}
+
+function StatusBadge({ status }: { status: string }) {
+    return (
+        <span className="bg-brand-gradient inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-display text-xs font-semibold text-white capitalize shadow-[var(--sh-sm)]">
+            {status.replace('_', ' ')}
+        </span>
+    );
+}
+
+function DateRange({ pool }: { pool: PoolListItem }) {
+    const dates = formatDates(pool);
+
+    if (!dates) {
+        return null;
+    }
+
+    return (
+        <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+            <CalendarDays className="size-4" />
+            {dates}
+        </span>
+    );
+}
+
+function SourceTag({ source }: { source: string }) {
+    return (
+        <span className="inline-flex items-center gap-1.5 text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">
+            <span className="opacity-70">Pool by</span>
+            <span className="bg-gold-gradient rounded-full px-3 py-1 font-display text-sm font-bold tracking-normal text-[#0D2E23] normal-case shadow-[var(--sh-sm)]">
+                {source}
+            </span>
+        </span>
+    );
+}
+
+/** The accent-coloured call-to-action at the foot of a ticket. */
+function EnterButton({ accent }: { accent: PoolAccent }) {
+    return (
+        <span
+            className={cn(
+                'inline-flex w-fit items-center gap-2 rounded-full px-6 py-3 font-display text-base font-semibold transition-all group-hover:gap-3',
+                accent.buttonClass,
+                accent.glowClass,
+                accent.textClass,
+            )}
+        >
+            View pool
+            <ArrowRight className="size-5" />
+        </span>
+    );
+}
+
+/**
+ * The source rail — the ticket's coloured top banner. Carries the source emblem (a monogram) in
+ * the pool's kit colour + texture; it's the per-pool visual anchor that sits above the body so a
+ * vertical ticket reads cleanly in the multi-column pools grid.
+ */
+function SourceRail({
+    source,
+    accent,
+}: {
+    source: string;
+    accent: PoolAccent;
+}) {
+    return (
+        <div
+            className={cn(
+                'flex shrink-0 items-center justify-center gap-2.5 px-6 py-4',
+                accent.railClass,
+                accent.textClass,
+            )}
+        >
+            <span className="font-display text-[0.6rem] font-bold tracking-[0.2em] uppercase opacity-75">
+                Pool by
+            </span>
+            <span className="font-display text-3xl leading-none font-bold">
+                {sourceMonogram(source)}
+            </span>
+        </div>
+    );
+}
+
+/**
+ * A single pool as a ticket: the source rail (kit colour) + the body. A pool over a tournament that
+ * has more than one pool leads with its *source* (the thing that differs from its siblings) so the
+ * shared name never reads as a duplicate; a pool that's alone over its tournament keeps the full
+ * header (status, dates, stats, name) in the house pitch kit.
+ */
+function PoolTicket({
+    pool,
+    grouped,
+}: {
+    pool: PoolListItem;
+    /**
+     * Whether this ticket sits in a multi-pool group on this page (and so under a
+     * {@see TournamentHeader} carrying the shared facts). Driven by the visible group, not a global
+     * count, so the body and the header can never disagree — a pool shown on its own always renders
+     * the full solo layout rather than an orphaned, contextless compact ticket.
+     */
+    grouped: boolean;
+}) {
+    const accent = resolveAccent(pool.accent, pool.accent_index);
+
+    return (
+        <Link
+            href={show(pool.slug)}
+            className={cn(
+                'group card-elevated flex flex-col overflow-hidden rounded-3xl transition-transform duration-200 hover:-translate-y-1',
+                accent.ringClass,
+            )}
+        >
+            <SourceRail source={pool.source} accent={accent} />
+
+            <div className="flex flex-1 flex-col gap-4 p-6 sm:p-7">
+                {grouped ? (
+                    <div className="flex flex-wrap items-start justify-between gap-2.5">
+                        <div className="flex flex-col gap-1">
+                            <h3 className="text-2xl font-semibold tracking-tight text-balance text-foreground">
+                                {pool.source}
+                            </h3>
+                            <span className="font-display text-sm font-semibold text-muted-foreground">
+                                {pool.scoring_label}
+                            </span>
+                        </div>
+                        <PlayersStat count={pool.players_count} />
+                    </div>
+                ) : (
+                    <>
+                        <div className="flex flex-wrap items-center justify-between gap-2.5">
+                            <div className="flex flex-wrap items-center gap-2.5">
+                                <StatusBadge status={pool.status} />
+                                <SourceTag source={pool.source} />
+                            </div>
+                            <DateRange pool={pool} />
+                        </div>
+                        <h2 className="text-2xl font-semibold tracking-tight text-balance text-foreground sm:text-3xl">
+                            {pool.name}
+                        </h2>
+                        <StatPills
+                            pool={pool}
+                            playersCount={pool.players_count}
+                        />
+                        <Chip
+                            variant="points"
+                            className="w-fit px-3 py-1 text-xs"
+                        >
+                            {pool.scoring_label}
+                        </Chip>
+                    </>
+                )}
+
+                <p className="text-sm text-muted-foreground">
+                    {pool.scoring_description}
+                </p>
+
+                <PrizeSplit pricing={pool.pricing} canJoin={pool.can_join} />
+
+                <div className="mt-auto flex flex-wrap items-center gap-3">
+                    {pool.joined && <StatPill icon={Check} label="Joined" />}
+                    <EnterButton accent={accent} />
+                </div>
+            </div>
+        </Link>
+    );
+}
+
+/**
+ * A header above a cluster of same-tournament pools. It carries the facts every sibling shares —
+ * name, status, dates, sport & counts — once, so the tickets beneath it only have to show what
+ * makes each different. Framed as multiple pools over one competition, not as a pick-one choice.
+ * The "N pools" chip counts the pools shown here, so it always matches the tickets beneath it.
+ */
+function TournamentHeader({ group }: { group: TournamentGroup }) {
+    const lead = group.pools[0];
+
+    return (
+        <div className="flex flex-col gap-3 border-b border-border pb-5">
+            <div className="flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex flex-wrap items-center gap-2.5">
+                    <StatusBadge status={lead.status} />
+                    <DateRange pool={lead} />
+                </div>
+                <Chip variant="outline" className="px-3 py-1 text-xs">
+                    {group.pools.length} pools
+                </Chip>
+            </div>
+            <h2 className="text-2xl font-semibold tracking-tight text-balance text-foreground sm:text-3xl">
+                {group.tournament.name}
+            </h2>
+            <StatPills pool={lead} />
+            <p className="max-w-xl text-sm text-muted-foreground">
+                Each pool below scores this competition its own way — play as
+                many as you like.
+            </p>
+        </div>
+    );
+}
+
+/**
+ * One tournament's block: a single pool renders as a lone ticket; multiple pools render under a
+ * shared tournament header, each in its own kit colour.
+ */
+function TournamentGroupSection({ group }: { group: TournamentGroup }) {
+    if (group.pools.length === 1) {
+        return <PoolTicket pool={group.pools[0]} grouped={false} />;
+    }
+
+    return (
+        <section className="flex flex-col gap-5">
+            <TournamentHeader group={group} />
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 2xl:grid-cols-3">
+                {group.pools.map((pool) => (
+                    <PoolTicket key={pool.slug} pool={pool} grouped />
+                ))}
+            </div>
+        </section>
+    );
+}
+
+/** Previous / next controls, shown only when the list spans more than one page. */
+function Pagination({ pools }: { pools: Paginated<PoolListItem> }) {
+    if (pools.last_page <= 1) {
+        return null;
+    }
+
+    return (
+        <nav className="mt-8 flex items-center justify-between gap-4">
+            {pools.prev_page_url ? (
+                <Button variant="outline" asChild>
+                    <Link href={pools.prev_page_url} preserveScroll>
+                        <ChevronLeft className="size-4" />
+                        Previous
+                    </Link>
+                </Button>
+            ) : (
+                <Button variant="outline" disabled>
+                    <ChevronLeft className="size-4" />
+                    Previous
+                </Button>
+            )}
+
+            <span className="text-sm font-medium text-muted-foreground">
+                Page {pools.current_page} of {pools.last_page}
+            </span>
+
+            {pools.next_page_url ? (
+                <Button variant="outline" asChild>
+                    <Link href={pools.next_page_url} preserveScroll>
+                        Next
+                        <ChevronRight className="size-4" />
+                    </Link>
+                </Button>
+            ) : (
+                <Button variant="outline" disabled>
+                    Next
+                    <ChevronRight className="size-4" />
+                </Button>
+            )}
+        </nav>
+    );
+}
+
+export default function PoolsIndex({ pools }: PoolsIndexProps) {
+    const groups = groupByTournament(pools.data);
+    const { auth } = usePage().props;
+    const name = auth.user?.name ?? 'there';
+    const firstName = name.split(' ')[0] || name;
+
+    return (
+        <>
+            <Head title="Pools" />
+            <div className="relative min-h-full bg-background">
+                <div className="relative w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-10">
+                    <header className="hero relative mb-8 overflow-hidden rounded-3xl border border-border p-8">
+                        <div className="hero-lines" />
+                        <div className="relative flex flex-col gap-3">
+                            <span className="inline-flex w-fit items-center gap-2 text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">
+                                <span className="bg-brand-gradient size-2 rounded-full" />
+                                Brothers Bets
+                            </span>
+                            <span className="text-sm font-semibold text-muted-foreground">
+                                {greeting()}, {firstName} 👋
+                            </span>
+                            <h1 className="text-4xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl">
+                                Join a pool
+                            </h1>
+                            <span className="bg-gold-gradient mt-1 h-1 w-12 rounded-full" />
+                            <p className="max-w-2xl text-base text-muted-foreground">
+                                Browse the pools below, check the buy-in and
+                                prize pot, and buy into the ones you fancy.
+                                There’s no picking just one — play as many as
+                                you like, each scoring its tournament its own
+                                way.
+                            </p>
+                        </div>
+                    </header>
+
+                    {pools.data.length > 0 ? (
+                        <div className="flex flex-col gap-10">
+                            {groups.map((group) => (
+                                <TournamentGroupSection
+                                    key={group.tournament.id}
+                                    group={group}
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-sm text-muted-foreground">
+                            No pools are available yet.
+                        </p>
+                    )}
+
+                    <Pagination pools={pools} />
+                </div>
+            </div>
+        </>
+    );
+}
+
+PoolsIndex.layout = {
+    breadcrumbs: [{ title: 'Pools', href: index() }],
+};

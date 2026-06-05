@@ -27,7 +27,7 @@ import { UserMenuContent } from '@/components/user-menu-content';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { useInitials } from '@/hooks/use-initials';
 import { cn } from '@/lib/utils';
-import { index as games } from '@/routes/games';
+import { index as pools } from '@/routes/pools';
 import type { BreadcrumbItem, NavItem } from '@/types';
 
 type Props = {
@@ -36,8 +36,8 @@ type Props = {
 
 const mainNavItems: NavItem[] = [
     {
-        title: 'Games',
-        href: games(),
+        title: 'Pools',
+        href: pools(),
         icon: Trophy,
     },
 ];
@@ -100,7 +100,7 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
                     </div>
 
                     <Link
-                        href={games()}
+                        href={pools()}
                         prefetch
                         className="flex items-center space-x-2"
                     >

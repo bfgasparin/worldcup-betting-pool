@@ -12,7 +12,7 @@ import type {
     BoardDescriptor,
     ComparePlayer,
     PredictionWindowStatus,
-} from '@/types/games';
+} from '@/types/pools';
 
 function LaneCard({
     player,

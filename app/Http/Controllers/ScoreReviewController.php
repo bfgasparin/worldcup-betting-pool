@@ -5,12 +5,12 @@ namespace App\Http\Controllers;
 use App\Enums\BatchStatus;
 use App\Enums\OrderingScope;
 use App\Enums\ProposalStatus;
-use App\Http\Controllers\Concerns\BuildsGameIdentity;
+use App\Http\Controllers\Concerns\BuildsPoolIdentity;
 use App\Http\Requests\Tournaments\ApproveScoreBatchRequest;
 use App\Http\Requests\Tournaments\UpdateGroupOrderingRequest;
 use App\Http\Requests\Tournaments\UpdateScoreProposalRequest;
 use App\Models\Fixture;
-use App\Models\Game;
+use App\Models\Pool;
 use App\Models\ScoreBatch;
 use App\Models\ScoreProposal;
 use App\Models\Team;
@@ -27,14 +27,14 @@ use Inertia\Response;
 
 class ScoreReviewController extends Controller
 {
-    use BuildsGameIdentity;
+    use BuildsPoolIdentity;
 
     /**
      * The admin screen for reviewing, editing and approving a batch of proposed official scores.
      */
-    public function review(Game $game): Response
+    public function review(Pool $pool): Response
     {
-        $tournament = $game->tournament;
+        $tournament = $pool->tournament;
         $batch = $this->currentOpenBatch($tournament);
         $proposals = $batch?->proposals()->get()->keyBy('fixture_id') ?? collect();
 
@@ -64,8 +64,8 @@ class ScoreReviewController extends Controller
             $thirdsTie = $this->mapThirdsTie($tieState, $teamsById);
         }
 
-        return Inertia::render('games/scores/review', [
-            'game' => $this->gameIdentity($game),
+        return Inertia::render('pools/scores/review', [
+            'pool' => $this->poolIdentity($pool),
             'tied_groups' => $tiedGroups,
             'thirds_tie' => $thirdsTie,
             'rows' => $fixtures->map(function (Fixture $fixture) use ($proposals): array {
@@ -100,11 +100,11 @@ class ScoreReviewController extends Controller
     /**
      * Create or update the proposed score for one fixture in the tournament's open batch.
      */
-    public function updateProposal(UpdateScoreProposalRequest $request, Game $game, Fixture $fixture): RedirectResponse
+    public function updateProposal(UpdateScoreProposalRequest $request, Pool $pool, Fixture $fixture): RedirectResponse
     {
-        abort_unless($fixture->tournament_id === $game->tournament->id, 404);
+        abort_unless($fixture->tournament_id === $pool->tournament->id, 404);
 
-        $batch = $this->ensureOpenBatch($game->tournament);
+        $batch = $this->ensureOpenBatch($pool->tournament);
         $validated = $request->validated();
 
         ScoreProposal::updateOrCreate(
@@ -125,7 +125,7 @@ class ScoreReviewController extends Controller
     /**
      * Approve the open batch: write the scores, project the bracket, score everyone and rank.
      */
-    public function approve(ApproveScoreBatchRequest $request, Game $game, ApproveScoreBatch $action): RedirectResponse
+    public function approve(ApproveScoreBatchRequest $request, Pool $pool, ApproveScoreBatch $action): RedirectResponse
     {
         $action->approve($request->openBatch(), $request->user());
 
@@ -133,7 +133,7 @@ class ScoreReviewController extends Controller
 
         // Stay on the review screen and re-render it: the approved batch is now closed, so the page
         // refreshes to the post-approval state (its proposals and resolved ties clear) in place.
-        return to_route('games.scores.review', $game);
+        return to_route('pools.scores.review', $pool);
     }
 
     /**
@@ -141,9 +141,9 @@ class ScoreReviewController extends Controller
      * cluster or the thirds cut), then re-project so a now-resolved tie fills its bracket slots and
      * can open phased prediction windows.
      */
-    public function updateOrdering(UpdateGroupOrderingRequest $request, Game $game, OfficialBracketProjector $projector): RedirectResponse
+    public function updateOrdering(UpdateGroupOrderingRequest $request, Pool $pool, OfficialBracketProjector $projector): RedirectResponse
     {
-        $tournament = $game->tournament;
+        $tournament = $pool->tournament;
         $scope = OrderingScope::from($request->string('scope')->value());
         $ordered = array_map('intval', $request->input('ordered_team_ids'));
         $tied = $ordered;

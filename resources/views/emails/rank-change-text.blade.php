@@ -5,7 +5,7 @@
     $isUp = $direction === 'up';
     $places = \Illuminate\Support\Str::plural('place', $delta);
 @endphp
-{!! $source !!}'s {!! $gameName !!} — {{ $leaderboardLabel }} leaderboard update
+{!! $source !!}'s {!! $poolName !!} — {{ $leaderboardLabel }} leaderboard update
 
 {{ $isUp ? "You climbed to {$rankOrdinal}!" : "You slipped to {$rankOrdinal}" }}
 
@@ -19,4 +19,4 @@ See the full table: {{ $url }}
 
 There's plenty of football still to come — keep an eye on the table.
 
-— Brothers Betting Pool
+— Brothers Bets

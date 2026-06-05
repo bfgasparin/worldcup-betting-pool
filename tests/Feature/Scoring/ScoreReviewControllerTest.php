@@ -4,7 +4,7 @@ namespace Tests\Feature\Scoring;
 
 use App\Enums\ProposalStatus;
 use App\Models\Fixture;
-use App\Models\Game;
+use App\Models\Pool;
 use App\Models\Team;
 use App\Models\Tournament;
 use App\Models\User;
@@ -21,7 +21,7 @@ class ScoreReviewControllerTest extends TestCase
 
     private Tournament $tournament;
 
-    private Game $game;
+    private Pool $pool;
 
     protected function setUp(): void
     {
@@ -29,7 +29,7 @@ class ScoreReviewControllerTest extends TestCase
 
         $this->seed(WorldCup2026Seeder::class);
         $this->tournament = Tournament::firstOrFail();
-        $this->game = $this->tournament->games()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
+        $this->pool = $this->tournament->pools()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
     }
 
     public function test_an_admin_sees_only_ended_matches_to_review(): void
@@ -37,14 +37,14 @@ class ScoreReviewControllerTest extends TestCase
         $ended = $this->markEnded($this->firstGroupFixture());
 
         $this->actingAs($this->admin())
-            ->get(route('games.scores.review', $this->game))
+            ->get(route('pools.scores.review', $this->pool))
             ->assertInertia(fn (AssertableInertia $page) => $page
-                ->component('games/scores/review')
-                ->where('game.slug', $this->game->slug)
-                // The review header (and sidebar) carries the game identity to disambiguate siblings.
-                ->where('game.source', 'FF&A')
-                ->where('game.accent', 'pitch')
-                ->where('game.scoring_label', 'Upfront Bracket')
+                ->component('pools/scores/review')
+                ->where('pool.slug', $this->pool->slug)
+                // The review header (and sidebar) carries the pool identity to disambiguate siblings.
+                ->where('pool.source', 'FF&A')
+                ->where('pool.accent', 'pitch')
+                ->where('pool.scoring_label', 'Upfront Bracket')
                 ->has('rows', 1)
                 ->where('rows.0.fixture_id', $ended->id)
                 ->where('rows.0.has_ended', true)
@@ -54,7 +54,7 @@ class ScoreReviewControllerTest extends TestCase
     public function test_a_non_admin_cannot_review(): void
     {
         $this->actingAs(User::factory()->create())
-            ->get(route('games.scores.review', $this->game))
+            ->get(route('pools.scores.review', $this->pool))
             ->assertForbidden();
     }
 
@@ -63,7 +63,7 @@ class ScoreReviewControllerTest extends TestCase
         $fixture = $this->markEnded($this->firstGroupFixture());
 
         $this->actingAs($this->admin())
-            ->patch(route('games.scores.proposal', [$this->game, $fixture]), [
+            ->patch(route('pools.scores.proposal', [$this->pool, $fixture]), [
                 'home_goals' => 2,
                 'away_goals' => 1,
             ])
@@ -82,7 +82,7 @@ class ScoreReviewControllerTest extends TestCase
         $fixture = $this->markEnded($this->firstGroupFixture());
 
         $this->actingAs($this->admin())
-            ->patch(route('games.scores.proposal', [$this->game, $fixture]), [
+            ->patch(route('pools.scores.proposal', [$this->pool, $fixture]), [
                 'home_goals' => 2,
                 'away_goals' => 1,
                 'rejected' => true,
@@ -101,8 +101,8 @@ class ScoreReviewControllerTest extends TestCase
         $fixture = $this->firstGroupFixture();
 
         $this->actingAs($this->admin())
-            ->from(route('games.scores.review', $this->game))
-            ->patch(route('games.scores.proposal', [$this->game, $fixture]), [
+            ->from(route('pools.scores.review', $this->pool))
+            ->patch(route('pools.scores.proposal', [$this->pool, $fixture]), [
                 'home_goals' => 2,
                 'away_goals' => 1,
             ])
@@ -117,7 +117,7 @@ class ScoreReviewControllerTest extends TestCase
         $fixture = $this->endedKnockout($home, $away);
 
         $this->actingAs($this->admin())
-            ->patch(route('games.scores.proposal', [$this->game, $fixture]), [
+            ->patch(route('pools.scores.proposal', [$this->pool, $fixture]), [
                 'home_goals' => 2,
                 'away_goals' => 1,
             ])
@@ -135,7 +135,7 @@ class ScoreReviewControllerTest extends TestCase
         $fixture = $this->endedKnockout($home, $away);
 
         $this->actingAs($this->admin())
-            ->patch(route('games.scores.proposal', [$this->game, $fixture]), [
+            ->patch(route('pools.scores.proposal', [$this->pool, $fixture]), [
                 'home_goals' => 2,
                 'away_goals' => 1,
                 'winner_team_id' => $away->id,
@@ -154,7 +154,7 @@ class ScoreReviewControllerTest extends TestCase
         $fixture = $this->endedKnockout($home, $away);
 
         $this->actingAs($this->admin())
-            ->patch(route('games.scores.proposal', [$this->game, $fixture]), [
+            ->patch(route('pools.scores.proposal', [$this->pool, $fixture]), [
                 'home_goals' => 1,
                 'away_goals' => 1,
                 'winner_team_id' => $away->id,
@@ -173,8 +173,8 @@ class ScoreReviewControllerTest extends TestCase
         $fixture = $this->endedKnockout($home, $away);
 
         $this->actingAs($this->admin())
-            ->from(route('games.scores.review', $this->game))
-            ->patch(route('games.scores.proposal', [$this->game, $fixture]), [
+            ->from(route('pools.scores.review', $this->pool))
+            ->patch(route('pools.scores.proposal', [$this->pool, $fixture]), [
                 'home_goals' => 1,
                 'away_goals' => 1,
             ])
@@ -189,8 +189,8 @@ class ScoreReviewControllerTest extends TestCase
         $fixture = $this->endedKnockout($teams[0], $teams[1]);
 
         $this->actingAs($this->admin())
-            ->from(route('games.scores.review', $this->game))
-            ->patch(route('games.scores.proposal', [$this->game, $fixture]), [
+            ->from(route('pools.scores.review', $this->pool))
+            ->patch(route('pools.scores.proposal', [$this->pool, $fixture]), [
                 'home_goals' => 1,
                 'away_goals' => 1,
                 'winner_team_id' => $teams[2]->id,
@@ -205,7 +205,7 @@ class ScoreReviewControllerTest extends TestCase
         $fixture = $this->markEnded($this->firstGroupFixture());
 
         $this->actingAs($this->admin())
-            ->patch(route('games.scores.proposal', [$this->game, $fixture]), [
+            ->patch(route('pools.scores.proposal', [$this->pool, $fixture]), [
                 'home_goals' => 2,
                 'away_goals' => 1,
                 'winner_team_id' => $fixture->home_team_id,
@@ -224,7 +224,7 @@ class ScoreReviewControllerTest extends TestCase
         $fixture = $this->endedKnockout($home, $away);
 
         $this->actingAs($this->admin())
-            ->patch(route('games.scores.proposal', [$this->game, $fixture]), [
+            ->patch(route('pools.scores.proposal', [$this->pool, $fixture]), [
                 'home_goals' => 1,
             ])
             ->assertRedirect();
@@ -244,7 +244,7 @@ class ScoreReviewControllerTest extends TestCase
         $fixture = $this->markEnded($this->firstKnockoutFixture());
 
         $this->actingAs($this->admin())
-            ->patch(route('games.scores.proposal', [$this->game, $fixture]), [
+            ->patch(route('pools.scores.proposal', [$this->pool, $fixture]), [
                 'home_goals' => 1,
                 'away_goals' => 1,
                 'winner_team_id' => $home->id,

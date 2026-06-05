@@ -7,7 +7,7 @@
     <meta name="x-apple-disable-message-reformatting">
     <meta name="color-scheme" content="light">
     <meta name="supported-color-schemes" content="light">
-    <title>@yield('title', 'Brothers Betting Pool')</title>
+    <title>@yield('title', 'Brothers Bets')</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -72,7 +72,7 @@
                     </tr>
 
                     {{-- ============ BRAND BAR ============ --}}
-                    {{-- A game email may tint this to its accent via @section('accentBar*'); defaults to pitch. --}}
+                    {{-- A pool email may tint this to its accent via @section('accentBar*'); defaults to pitch. --}}
                     <tr>
                         <td height="6" style="height:6px;line-height:6px;font-size:0;background-color:@yield('accentBarSolid', '#0FA968');background-image:@yield('accentBarGradient', 'linear-gradient(135deg,#16C07A 0%,#0A6B49 100%)');">&nbsp;</td>
                     </tr>

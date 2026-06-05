@@ -5,7 +5,7 @@ namespace Tests\Unit\Services\Predictions;
 use App\Enums\PhaseKey;
 use App\Enums\PredictionWindowStatus;
 use App\Enums\ScoringStrategy;
-use App\Models\Game;
+use App\Models\Pool;
 use App\Models\Tournament;
 use App\Services\Predictions\OfficialBracketProjector;
 use App\Services\Predictions\PredictionWindowResolver;
@@ -35,9 +35,9 @@ class PredictionWindowResolverTest extends TestCase
         $this->resolver = new PredictionWindowResolver;
     }
 
-    private function game(ScoringStrategy $strategy, \DateTimeInterface|string|null $lockAt): Game
+    private function pool(ScoringStrategy $strategy, \DateTimeInterface|string|null $lockAt): Pool
     {
-        return Game::factory()->create([
+        return Pool::factory()->create([
             'tournament_id' => $this->tournament->id,
             'scoring_strategy' => $strategy,
             'predictions_lock_at' => $lockAt,
@@ -50,10 +50,10 @@ class PredictionWindowResolverTest extends TestCase
         $phase->fixtures()->update(['kicks_off_at' => $when]);
     }
 
-    public function test_upfront_game_opens_every_phase_until_the_single_lock(): void
+    public function test_upfront_pool_opens_every_phase_until_the_single_lock(): void
     {
-        $open = $this->game(ScoringStrategy::UpfrontBracket, now()->addDay());
-        $locked = $this->game(ScoringStrategy::UpfrontBracket, now()->subDay());
+        $open = $this->pool(ScoringStrategy::UpfrontBracket, now()->addDay());
+        $locked = $this->pool(ScoringStrategy::UpfrontBracket, now()->subDay());
 
         $this->assertSame(
             [PredictionWindowStatus::Open],
@@ -65,10 +65,10 @@ class PredictionWindowResolverTest extends TestCase
         );
     }
 
-    public function test_phased_group_window_follows_the_game_lock(): void
+    public function test_phased_group_window_follows_the_pool_lock(): void
     {
-        $open = $this->game(ScoringStrategy::PhasedBracket, now()->addDay());
-        $locked = $this->game(ScoringStrategy::PhasedBracket, now()->subDay());
+        $open = $this->pool(ScoringStrategy::PhasedBracket, now()->addDay());
+        $locked = $this->pool(ScoringStrategy::PhasedBracket, now()->subDay());
 
         $this->assertSame(PredictionWindowStatus::Open, $this->resolver->windows($open)[PhaseKey::Group->value]);
         $this->assertSame(PredictionWindowStatus::Locked, $this->resolver->windows($locked)[PhaseKey::Group->value]);
@@ -76,9 +76,9 @@ class PredictionWindowResolverTest extends TestCase
 
     public function test_phased_knockout_round_is_pending_until_its_teams_are_known(): void
     {
-        $game = $this->game(ScoringStrategy::PhasedBracket, now()->addDay());
+        $pool = $this->pool(ScoringStrategy::PhasedBracket, now()->addDay());
 
-        $windows = $this->resolver->windows($game);
+        $windows = $this->resolver->windows($pool);
 
         $this->assertSame(PredictionWindowStatus::Pending, $windows[PhaseKey::RoundOf32->value]);
         $this->assertSame(PredictionWindowStatus::Pending, $windows[PhaseKey::Final->value]);
@@ -86,7 +86,7 @@ class PredictionWindowResolverTest extends TestCase
 
     public function test_phased_knockout_round_opens_once_projected_then_locks_at_kickoff(): void
     {
-        $game = $this->game(ScoringStrategy::PhasedBracket, now()->subDay());
+        $pool = $this->pool(ScoringStrategy::PhasedBracket, now()->subDay());
 
         // Record every group result and project — the Round of 32 now has real participants.
         $this->recordOfficialGroupResults($this->tournament, $this->seedOrderScores());
@@ -94,7 +94,7 @@ class PredictionWindowResolverTest extends TestCase
 
         // Teams known + kickoff in the future → open. Later rounds still pending.
         $this->setPhaseKickoff(PhaseKey::RoundOf32, now()->addDay());
-        $windows = $this->resolver->windows($game);
+        $windows = $this->resolver->windows($pool);
         $this->assertSame(PredictionWindowStatus::Open, $windows[PhaseKey::RoundOf32->value]);
         $this->assertSame(PredictionWindowStatus::Pending, $windows[PhaseKey::RoundOf16->value]);
 
@@ -102,13 +102,13 @@ class PredictionWindowResolverTest extends TestCase
         $this->setPhaseKickoff(PhaseKey::RoundOf32, now()->subHour());
         $this->assertSame(
             PredictionWindowStatus::Locked,
-            $this->resolver->windows($game)[PhaseKey::RoundOf32->value],
+            $this->resolver->windows($pool)[PhaseKey::RoundOf32->value],
         );
     }
 
     public function test_phased_round_stays_pending_until_an_unresolved_thirds_tie_is_ordered(): void
     {
-        $game = $this->game(ScoringStrategy::PhasedBracket, now()->subDay());
+        $pool = $this->pool(ScoringStrategy::PhasedBracket, now()->subDay());
 
         // Results that tie all twelve thirds, with no ordering recorded — the best-third R32 slots
         // cannot be projected, so the round cannot open.
@@ -118,7 +118,7 @@ class PredictionWindowResolverTest extends TestCase
 
         $this->assertSame(
             PredictionWindowStatus::Pending,
-            $this->resolver->windows($game)[PhaseKey::RoundOf32->value],
+            $this->resolver->windows($pool)[PhaseKey::RoundOf32->value],
         );
 
         // Once an admin orders the tied thirds, the round's teams are all known and it opens.
@@ -127,14 +127,14 @@ class PredictionWindowResolverTest extends TestCase
 
         $this->assertSame(
             PredictionWindowStatus::Open,
-            $this->resolver->windows($game)[PhaseKey::RoundOf32->value],
+            $this->resolver->windows($pool)[PhaseKey::RoundOf32->value],
         );
     }
 
     public function test_phased_knockout_round_locks_the_buffer_before_its_first_kickoff(): void
     {
         config(['scoring.prediction_lock_buffer_minutes' => 60]);
-        $game = $this->game(ScoringStrategy::PhasedBracket, now()->subDay());
+        $pool = $this->pool(ScoringStrategy::PhasedBracket, now()->subDay());
 
         // Give the Round of 32 real participants so its window is no longer pending.
         $this->recordOfficialGroupResults($this->tournament, $this->seedOrderScores());
@@ -147,14 +147,14 @@ class PredictionWindowResolverTest extends TestCase
         Carbon::setTestNow($kickoff->copy()->subMinutes(61));
         $this->assertSame(
             PredictionWindowStatus::Open,
-            $this->resolver->windows($game)[PhaseKey::RoundOf32->value],
+            $this->resolver->windows($pool)[PhaseKey::RoundOf32->value],
         );
 
         // Exactly the buffer before kickoff → locked.
         Carbon::setTestNow($kickoff->copy()->subMinutes(60));
         $this->assertSame(
             PredictionWindowStatus::Locked,
-            $this->resolver->windows($game)[PhaseKey::RoundOf32->value],
+            $this->resolver->windows($pool)[PhaseKey::RoundOf32->value],
         );
 
         Carbon::setTestNow();
@@ -162,9 +162,9 @@ class PredictionWindowResolverTest extends TestCase
 
     public function test_is_open_answers_for_a_single_phase(): void
     {
-        $game = $this->game(ScoringStrategy::PhasedBracket, now()->addDay());
+        $pool = $this->pool(ScoringStrategy::PhasedBracket, now()->addDay());
 
-        $this->assertTrue($this->resolver->isOpen($game, PhaseKey::Group));
-        $this->assertFalse($this->resolver->isOpen($game, PhaseKey::RoundOf32));
+        $this->assertTrue($this->resolver->isOpen($pool, PhaseKey::Group));
+        $this->assertFalse($this->resolver->isOpen($pool, PhaseKey::RoundOf32));
     }
 }

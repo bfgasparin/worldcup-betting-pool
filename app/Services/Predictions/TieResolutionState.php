@@ -30,15 +30,15 @@ class TieResolutionState
     public function forEntry(Entry $entry): TieState
     {
         $entry->loadMissing([
-            'game.tournament.groups.teams',
-            'game.tournament.groups.fixtures',
-            'game.tournament.knockoutFixtures.phase',
+            'pool.tournament.groups.teams',
+            'pool.tournament.groups.fixtures',
+            'pool.tournament.knockoutFixtures.phase',
         ]);
 
         $resolved = $this->bracketResolver->resolve($entry);
         $ordering = ManualTieOrdering::fromEntry($entry);
 
-        return $this->summarise($resolved->standings, $entry->game->tournament->groups, $resolved->rankedThirds, $ordering->thirds);
+        return $this->summarise($resolved->standings, $entry->pool->tournament->groups, $resolved->rankedThirds, $ordering->thirds);
     }
 
     /**

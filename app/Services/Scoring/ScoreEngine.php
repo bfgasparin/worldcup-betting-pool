@@ -5,14 +5,14 @@ namespace App\Services\Scoring;
 use App\Enums\LeaderboardCategory;
 use App\Models\Entry;
 use App\Models\Fixture;
-use App\Models\Game;
 use App\Models\LeaderboardStanding;
+use App\Models\Pool;
 use App\Services\Scoring\Strategies\ScoringRules;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Recomputes points for an entire game from the official results currently on its tournament's
- * fixtures. It resolves the game's scoring strategy, scores every prediction (writing
+ * Recomputes points for an entire pool from the official results currently on its tournament's
+ * fixtures. It resolves the pool's scoring strategy, scores every prediction (writing
  * `points_awarded` per group/knockout prediction) and rolls them up into `Entry.total_points`.
  *
  * The same pass aggregates each entry's per-category metrics ({@see LeaderboardMetrics}) and upserts
@@ -28,18 +28,18 @@ class ScoreEngine
 {
     public function __construct(private readonly ScoringRulesFactory $rulesFactory = new ScoringRulesFactory) {}
 
-    public function recompute(Game $game): void
+    public function recompute(Pool $pool): void
     {
-        $config = ScoringConfig::fromGame($game);
-        $rules = $this->rulesFactory->make($game->scoring_strategy);
+        $config = ScoringConfig::fromPool($pool);
+        $rules = $this->rulesFactory->make($pool->scoring_strategy);
 
-        // Structure and official results live on the shared tournament; entries on the game.
-        $tournament = $game->tournament;
+        // Structure and official results live on the shared tournament; entries on the pool.
+        $tournament = $pool->tournament;
         $tournament->load([
             'groups.fixtures',
             'knockoutFixtures.phase',
         ]);
-        $game->load([
+        $pool->load([
             'entries.groupPredictions',
             'entries.knockoutPredictions',
         ]);
@@ -54,8 +54,8 @@ class ScoreEngine
             $fixturesById[$fixture->id] = $fixture;
         }
 
-        DB::transaction(function () use ($game, $fixturesById, $rules, $config): void {
-            foreach ($game->entries as $entry) {
+        DB::transaction(function () use ($pool, $fixturesById, $rules, $config): void {
+            foreach ($pool->entries as $entry) {
                 $this->scoreEntry($entry, $fixturesById, $rules, $config);
             }
         });

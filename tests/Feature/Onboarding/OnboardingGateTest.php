@@ -35,7 +35,7 @@ class OnboardingGateTest extends TestCase
         // A wizard endpoint must not bounce a not-onboarded user back to the wizard.
         $this->actingAs($user)
             ->post(route('onboarding.complete'))
-            ->assertRedirect(route('games.index'));
+            ->assertRedirect(route('pools.index'));
     }
 
     public function test_logout_is_never_gated(): void
