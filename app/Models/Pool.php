@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\UniqueConstraintViolationException;
 
 #[Fillable([
     'tournament_id',
@@ -194,6 +195,12 @@ class Pool extends Model
      */
     public function markBriefingSeenBy(User $user): void
     {
-        $this->briefedUsers()->syncWithoutDetaching([$user->id]);
+        try {
+            $this->briefedUsers()->syncWithoutDetaching([$user->id]);
+        } catch (UniqueConstraintViolationException) {
+            // Two concurrent first-time views (e.g. React StrictMode's double-invoked effect) can
+            // both pass syncWithoutDetaching's existence check and then race on the insert. The
+            // unique (pool_id, user_id) index keeps it a single row, so losing that race is a no-op.
+        }
     }
 }

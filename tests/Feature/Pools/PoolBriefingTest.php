@@ -6,6 +6,7 @@ use App\Models\Tournament;
 use App\Models\User;
 use Database\Seeders\WorldCup2026Seeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
@@ -60,6 +61,34 @@ class PoolBriefingTest extends TestCase
         $this->actingAs($user)->post(route('pools.briefing.seen', $pool->slug))->assertNoContent();
         $this->actingAs($user)->post(route('pools.briefing.seen', $pool->slug))->assertNoContent();
 
+        $this->assertDatabaseCount('pool_briefing_views', 1);
+    }
+
+    public function test_marking_the_briefing_seen_survives_a_concurrent_insert_race(): void
+    {
+        $user = User::factory()->create();
+        $pool = Tournament::firstOrFail()->pools()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
+
+        // Simulate a concurrent request winning the race: right after syncWithoutDetaching reads the
+        // (empty) pivot, sneak in the conflicting row so its follow-up insert hits the unique index.
+        $injected = false;
+        DB::listen(function ($query) use (&$injected, $pool, $user) {
+            if (! $injected
+                && str_contains($query->sql, 'select')
+                && str_contains($query->sql, 'pool_briefing_views')) {
+                $injected = true;
+                DB::table('pool_briefing_views')->insert([
+                    'pool_id' => $pool->id,
+                    'user_id' => $user->id,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+        });
+
+        $pool->markBriefingSeenBy($user); // must not throw
+
+        $this->assertTrue($injected, 'the existence-check SELECT should have fired');
         $this->assertDatabaseCount('pool_briefing_views', 1);
     }
 
