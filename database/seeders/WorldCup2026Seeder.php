@@ -297,6 +297,14 @@ class WorldCup2026Seeder extends Seeder
                 ],
                 // No override: the lock derives from the first group kickoff (minus the buffer).
                 'predictions_lock_at' => null,
+                'entry_price' => 50.00,
+                'currency' => 'BRL',
+                'house_fee_percentage' => 15.00,
+                'prize_structure' => [
+                    ['place' => 1, 'percentage' => 70],
+                    ['place' => 2, 'percentage' => 20],
+                    ['place' => 3, 'percentage' => 10],
+                ],
             ],
         );
 
@@ -334,6 +342,14 @@ class WorldCup2026Seeder extends Seeder
                 // No override: the group lock derives from the first group kickoff (minus the
                 // buffer); each knockout round locks the buffer before its own first kickoff.
                 'predictions_lock_at' => null,
+                'entry_price' => 40.00,
+                'currency' => 'BRL',
+                'house_fee_percentage' => 10.00,
+                'prize_structure' => [
+                    ['place' => 1, 'percentage' => 70],
+                    ['place' => 2, 'percentage' => 20],
+                    ['place' => 3, 'percentage' => 10],
+                ],
             ],
         );
     }

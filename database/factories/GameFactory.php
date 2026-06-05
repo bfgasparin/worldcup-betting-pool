@@ -54,6 +54,14 @@ class GameFactory extends Factory
                 ],
             ],
             'predictions_lock_at' => fake()->dateTimeBetween('+1 week', '+1 month'),
+            'entry_price' => fake()->randomElement([20, 30, 40, 50, 100]),
+            'currency' => 'BRL',
+            'house_fee_percentage' => fake()->randomElement([0, 10, 15, 20]),
+            'prize_structure' => [
+                ['place' => 1, 'percentage' => 70],
+                ['place' => 2, 'percentage' => 20],
+                ['place' => 3, 'percentage' => 10],
+            ],
         ];
     }
 

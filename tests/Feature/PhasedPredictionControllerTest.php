@@ -42,6 +42,12 @@ class PhasedPredictionControllerTest extends TestCase
         ]);
     }
 
+    /** The acting user joins the game — the prerequisite for predicting. */
+    private function join(Game $game): Entry
+    {
+        return Entry::factory()->for($game)->for($this->user)->create();
+    }
+
     private function projectRoundOf32(): void
     {
         $this->recordOfficialGroupResults($this->tournament, $this->seedOrderScores());
@@ -57,6 +63,7 @@ class PhasedPredictionControllerTest extends TestCase
     public function test_predict_page_shows_official_knockout_teams_and_phase_windows(): void
     {
         $game = $this->phasedGame(now()->subDay()); // group already locked
+        $this->join($game);
         $this->projectRoundOf32();
         $this->setPhaseKickoff(PhaseKey::RoundOf32, now()->addDay());
 
@@ -79,6 +86,7 @@ class PhasedPredictionControllerTest extends TestCase
     public function test_saving_a_knockout_round_persists_the_scoreline_without_cascading(): void
     {
         $game = $this->phasedGame(now()->subDay());
+        $this->join($game);
         $this->projectRoundOf32();
         $this->setPhaseKickoff(PhaseKey::RoundOf32, now()->addDay());
 
@@ -112,6 +120,7 @@ class PhasedPredictionControllerTest extends TestCase
     public function test_saving_a_pending_knockout_round_is_forbidden(): void
     {
         $game = $this->phasedGame(now()->addDay()); // group open, but no rounds projected
+        $this->join($game);
         $r16 = $this->knockoutFixture($this->tournament, 'R16-1');
 
         $this->actingAs($this->user)
@@ -128,6 +137,7 @@ class PhasedPredictionControllerTest extends TestCase
     public function test_saving_a_round_after_kickoff_is_forbidden(): void
     {
         $game = $this->phasedGame(now()->subDay());
+        $this->join($game);
         $this->projectRoundOf32();
         $this->setPhaseKickoff(PhaseKey::RoundOf32, now()->subHour()); // round has kicked off
 
@@ -145,6 +155,7 @@ class PhasedPredictionControllerTest extends TestCase
     public function test_group_save_does_not_create_knockout_rows(): void
     {
         $game = $this->phasedGame(now()->addDay()); // group open
+        $this->join($game);
         $fixtures = $this->tournament->groups()->where('name', 'A')->firstOrFail()
             ->fixtures()->orderBy('match_number')->get();
 
@@ -167,6 +178,7 @@ class PhasedPredictionControllerTest extends TestCase
     public function test_a_phased_draw_validates_the_advancing_pick_against_official_teams(): void
     {
         $game = $this->phasedGame(now()->subDay());
+        $this->join($game);
         $this->projectRoundOf32();
         $this->setPhaseKickoff(PhaseKey::RoundOf32, now()->addDay());
 

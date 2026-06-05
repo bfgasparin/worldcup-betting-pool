@@ -87,6 +87,8 @@ class PredictionOrderingTest extends TestCase
             'scoring_strategy' => ScoringStrategy::PhasedBracket,
             'predictions_lock_at' => now()->addWeek(),
         ]);
+        // Joined and within the window, so the rejection is specifically the phased scoring strategy.
+        Entry::factory()->for($phased)->for($this->user)->create();
 
         $this->actingAs($this->user)
             ->put(route('games.predict.ordering', $phased), [

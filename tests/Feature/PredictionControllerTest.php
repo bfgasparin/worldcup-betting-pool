@@ -41,8 +41,20 @@ class PredictionControllerTest extends TestCase
         $this->get(route('games.predict.edit', 'world-cup-2026-ffa'))->assertRedirect(route('login'));
     }
 
-    public function test_visiting_predict_creates_a_draft_entry_and_renders_the_wizard(): void
+    public function test_visiting_predict_without_joining_redirects_to_the_game(): void
     {
+        $this->actingAs($this->user)
+            ->get(route('games.predict.edit', 'world-cup-2026-ffa'))
+            ->assertRedirect(route('games.show', 'world-cup-2026-ffa'));
+
+        // Predictions now require joining first, so merely visiting creates no entry.
+        $this->assertDatabaseCount('entries', 0);
+    }
+
+    public function test_visiting_predict_after_joining_renders_the_wizard(): void
+    {
+        Entry::factory()->for($this->game)->for($this->user)->create();
+
         $this->actingAs($this->user)
             ->get(route('games.predict.edit', 'world-cup-2026-ffa'))
             ->assertOk()
@@ -63,6 +75,7 @@ class PredictionControllerTest extends TestCase
                 ->has('bracket.0.fixtures', 16)
             );
 
+        // The upfront bracket is cascaded onto the joined player's knockout rows on first visit.
         $entry = $this->entry();
         $this->assertNotNull($entry);
         $this->assertSame(32, $entry->knockoutPredictions()->count());
@@ -83,6 +96,7 @@ class PredictionControllerTest extends TestCase
 
     public function test_saving_group_predictions_persists_and_recomputes_the_round_of_32(): void
     {
+        Entry::factory()->for($this->game)->for($this->user)->create();
         $fixtures = $this->groupFixtures('A');
         $rule = $this->seedOrderScores();
         $positions = $this->tournament->groups()->where('name', 'A')->firstOrFail()
@@ -242,6 +256,7 @@ class PredictionControllerTest extends TestCase
 
     public function test_group_save_rejects_a_fixture_from_another_tournament(): void
     {
+        Entry::factory()->for($this->game)->for($this->user)->create();
         $foreignFixture = Fixture::factory()->create();
 
         $payload = ['predictions' => [[
@@ -257,6 +272,7 @@ class PredictionControllerTest extends TestCase
 
     public function test_group_save_rejects_goals_out_of_range(): void
     {
+        Entry::factory()->for($this->game)->for($this->user)->create();
         $fixture = $this->groupFixtures('A')->first();
 
         $payload = ['predictions' => [[
@@ -288,8 +304,20 @@ class PredictionControllerTest extends TestCase
         $this->assertDatabaseCount('entries', 0);
     }
 
-    public function test_locked_tournament_renders_a_read_only_wizard(): void
+    public function test_visiting_a_locked_game_without_joining_redirects_to_the_game(): void
     {
+        $this->game->update(['predictions_lock_at' => now()->subDay()]);
+
+        $this->actingAs($this->user)
+            ->get(route('games.predict.edit', 'world-cup-2026-ffa'))
+            ->assertRedirect(route('games.show', 'world-cup-2026-ffa'));
+
+        $this->assertDatabaseCount('entries', 0);
+    }
+
+    public function test_a_joined_player_sees_a_read_only_wizard_once_locked(): void
+    {
+        Entry::factory()->for($this->game)->for($this->user)->create();
         $this->game->update(['predictions_lock_at' => now()->subDay()]);
 
         $this->actingAs($this->user)
@@ -299,12 +327,11 @@ class PredictionControllerTest extends TestCase
                 ->component('games/predict')
                 ->where('game.can_edit', false)
             );
-
-        $this->assertDatabaseCount('entries', 0);
     }
 
     public function test_a_user_cannot_change_another_users_predictions(): void
     {
+        Entry::factory()->for($this->game)->for($this->user)->create();
         $other = User::factory()->create();
         $otherEntry = Entry::factory()->for($this->game)->for($other)->create();
         $fixture = $this->groupFixtures('A')->first();

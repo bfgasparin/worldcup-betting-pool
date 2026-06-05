@@ -30,10 +30,12 @@ import {
 } from '@/components/fixtures-compare';
 import { GameIdentity } from '@/components/game-identity';
 import { GameInfoDialog } from '@/components/game-info-dialog';
+import { JoinGameDialog } from '@/components/join-game-dialog';
 import { LeaderboardRow } from '@/components/leaderboard-row';
 import { MovementArrow } from '@/components/movement-arrow';
 import PlayerAvatar from '@/components/player-avatar';
 import { PredictionCountdown } from '@/components/prediction-countdown';
+import { PrizePanel } from '@/components/prize-panel';
 import { Button } from '@/components/ui/button';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
 import { COMPARE_LIMIT } from '@/lib/compare';
@@ -65,13 +67,19 @@ interface GameShowProps {
 }
 
 /**
- * The hero's one-line context for the text states: not entered yet, or locked but not yet scored.
- * The "predictions still open" state is a live <PredictionCountdown /> in the banner, not a string.
- * Null once results are landing — the standings carry it from there.
+ * The hero's one-line context for the text states: not joined (open or closed), or joined but not
+ * yet scored. The "joined + predictions still open" state is a live <PredictionCountdown /> in the
+ * banner, not a string. Null once results are landing — the standings carry it from there.
  */
-function heroContextLine(hasEntry: boolean, hasScores: boolean): string | null {
+function heroContextLine(
+    hasEntry: boolean,
+    hasScores: boolean,
+    canJoin: boolean,
+): string | null {
     if (!hasEntry) {
-        return "You're not in yet — make your predictions.";
+        return canJoin
+            ? "You're not in yet — join the pool to play."
+            : 'Joining has closed — predictions are locked.';
     }
 
     if (!hasScores) {
@@ -107,7 +115,11 @@ function DashboardBanner({
     // the locked-but-unscored note (incl. games with no derivable lock).
     const showCountdown =
         hasEntry && !pool.has_scores && game.predictions_lock_at !== null;
-    const contextLine = heroContextLine(hasEntry, pool.has_scores);
+    const contextLine = heroContextLine(
+        hasEntry,
+        pool.has_scores,
+        game.can_join,
+    );
 
     return (
         <header className="hero relative overflow-hidden rounded-3xl border border-border p-6 sm:p-8">
@@ -158,15 +170,26 @@ function DashboardBanner({
                     <GameInfoDialog game={game} />
                 </div>
 
+                <PrizePanel
+                    pricing={game.pricing}
+                    className="bg-card/80 sm:max-w-md"
+                />
+
                 <div className="flex flex-wrap items-center gap-3">
-                    <Button asChild>
-                        <Link href={games.predict.edit(game.slug)}>
-                            <PencilLine className="size-4" />
-                            {hasEntry
-                                ? 'Edit predictions'
-                                : 'Make your predictions'}
-                        </Link>
-                    </Button>
+                    {hasEntry ? (
+                        <Button asChild>
+                            <Link href={games.predict.edit(game.slug)}>
+                                <PencilLine className="size-4" />
+                                Edit predictions
+                            </Link>
+                        </Button>
+                    ) : game.can_join ? (
+                        <JoinGameDialog game={game} />
+                    ) : (
+                        <span className="inline-flex items-center rounded-full border border-border bg-muted px-4 py-2 text-sm font-semibold text-muted-foreground">
+                            Joining closed
+                        </span>
+                    )}
                     {canCompare && (
                         <Button
                             type="button"

@@ -231,6 +231,15 @@ class WorldCup2026SeederTest extends TestCase
         $this->assertSame(GameAccent::Pitch, $game->accent);
         $this->assertSame(ScoringStrategy::UpfrontBracket, $game->scoring_strategy);
         $this->assertSame(20, $game->scoring_config['group']['exact_score']);
+
+        // The buy-in, currency, house fee and 70/20/10 prize split.
+        $this->assertSame('50.00', $game->entry_price);
+        $this->assertSame('BRL', $game->currency);
+        $this->assertSame('15.00', $game->house_fee_percentage);
+        $this->assertSame(
+            [70, 20, 10],
+            array_column($game->prize_structure, 'percentage'),
+        );
     }
 
     public function test_it_seeds_the_brothers_association_phased_game(): void
@@ -250,6 +259,10 @@ class WorldCup2026SeederTest extends TestCase
         $this->assertSame(10, $game->scoring_config['knockout']['advancing_team']);
         $this->assertSame(8, $game->scoring_config['knockout']['round_multipliers']['final']);
         $this->assertSame(1, $game->scoring_config['knockout']['round_multipliers']['round_of_32']);
+
+        // A cheaper buy-in and a lighter house fee than the FF&A pool.
+        $this->assertSame('40.00', $game->entry_price);
+        $this->assertSame('10.00', $game->house_fee_percentage);
     }
 
     public function test_the_two_seeded_games_get_distinct_accents(): void

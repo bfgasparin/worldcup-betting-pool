@@ -21,16 +21,20 @@ abstract class PredictionRequest extends FormRequest
 
     public function authorize(): bool
     {
-        return $this->user() !== null && $this->game()->acceptsPredictions();
+        return $this->user() !== null
+            && $this->game()->acceptsPredictions()
+            && $this->game()->isJoinedBy($this->user());
     }
 
     /**
-     * The current user's entry for this game, created on first save.
+     * The current user's entry for this game. The user must have joined first; authorize() runs
+     * before this, so on the save path the entry always exists.
      */
     public function entry(): Entry
     {
-        return $this->entry ??= Entry::firstOrCreate(
-            ['game_id' => $this->game()->id, 'user_id' => $this->user()->id],
-        );
+        return $this->entry ??= Entry::query()
+            ->where('game_id', $this->game()->id)
+            ->where('user_id', $this->user()->id)
+            ->firstOrFail();
     }
 }
