@@ -5,8 +5,10 @@ namespace Tests\Feature;
 use App\Models\Entry;
 use App\Models\Pool;
 use App\Models\User;
+use App\Notifications\PlayerJoinedPoolNotification;
 use Database\Seeders\WorldCup2026Seeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
@@ -54,6 +56,82 @@ class JoinPoolTest extends TestCase
         $this->actingAs($this->user)->post(route('pools.join', 'world-cup-2026-ffa'));
 
         $this->assertDatabaseCount('entries', 1);
+    }
+
+    public function test_a_new_join_notifies_each_admin_user(): void
+    {
+        Notification::fake();
+
+        $admins = User::factory()->count(2)->create();
+        config()->set('admin.emails', $admins->pluck('email')->all());
+
+        $this->actingAs($this->user)->post(route('pools.join', 'world-cup-2026-ffa'));
+
+        foreach ($admins as $admin) {
+            Notification::assertSentTo(
+                $admin,
+                PlayerJoinedPoolNotification::class,
+                fn (PlayerJoinedPoolNotification $notification): bool => $notification->pool->is($this->pool)
+                    && $notification->player->is($this->user),
+            );
+        }
+    }
+
+    public function test_non_admins_are_not_notified(): void
+    {
+        Notification::fake();
+
+        $admin = User::factory()->create();
+        config()->set('admin.emails', [$admin->email]);
+
+        $this->actingAs($this->user)->post(route('pools.join', 'world-cup-2026-ffa'));
+
+        Notification::assertNotSentTo($this->user, PlayerJoinedPoolNotification::class);
+    }
+
+    public function test_re_joining_does_not_notify_again(): void
+    {
+        Notification::fake();
+
+        $admin = User::factory()->create();
+        config()->set('admin.emails', [$admin->email]);
+
+        // firstOrCreate is idempotent, so a repeat join must not re-alert the organizers.
+        $this->actingAs($this->user)->post(route('pools.join', 'world-cup-2026-ffa'));
+        $this->actingAs($this->user)->post(route('pools.join', 'world-cup-2026-ffa'));
+
+        Notification::assertSentToTimes($admin, PlayerJoinedPoolNotification::class, 1);
+    }
+
+    public function test_the_email_renders_with_the_buy_in_details(): void
+    {
+        $admin = User::factory()->create();
+        $player = User::factory()->create(['name' => 'Ada Lovelace', 'phone' => '+55 11 99999-0000']);
+
+        $mail = (new PlayerJoinedPoolNotification($this->pool, $player))->toMail($admin);
+
+        $this->assertStringContainsString('Ada Lovelace', $mail->subject);
+
+        [$htmlView] = $mail->view;
+        $html = view($htmlView, $mail->viewData)->render();
+
+        $this->assertStringContainsString('Ada Lovelace', $html);
+        $this->assertStringContainsString($player->email, $html);
+        $this->assertStringContainsString('+55 11 99999-0000', $html);
+        $this->assertStringContainsString('BRL 50.00', $html);
+    }
+
+    public function test_the_email_handles_a_free_pool_with_no_buy_in(): void
+    {
+        $admin = User::factory()->create();
+        $freePool = Pool::factory()->create(['entry_price' => 0]);
+
+        $mail = (new PlayerJoinedPoolNotification($freePool, $this->user))->toMail($admin);
+
+        [$htmlView] = $mail->view;
+        $html = view($htmlView, $mail->viewData)->render();
+
+        $this->assertStringContainsString('No buy-in (free pool)', $html);
     }
 
     public function test_joining_is_forbidden_after_predictions_lock(): void

@@ -14,6 +14,8 @@ use App\Models\LeaderboardStanding;
 use App\Models\Pool;
 use App\Models\Team;
 use App\Models\Tournament;
+use App\Models\User;
+use App\Notifications\PlayerJoinedPoolNotification;
 use App\Services\Pools\PrizePot;
 use App\Services\Predictions\GroupStandings;
 use App\Services\Predictions\GroupStandingsPresenter;
@@ -21,6 +23,7 @@ use App\Services\Predictions\PlayerComparison;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Notification;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -166,7 +169,13 @@ class PoolController extends Controller
      */
     public function join(JoinPoolRequest $request, Pool $pool): RedirectResponse
     {
-        $pool->entries()->firstOrCreate(['user_id' => $request->user()->id]);
+        $entry = $pool->entries()->firstOrCreate(['user_id' => $request->user()->id]);
+
+        // Only on a genuinely new join (firstOrCreate is idempotent): tell the organizers so they
+        // can arrange the externally-collected buy-in with the player.
+        if ($entry->wasRecentlyCreated) {
+            Notification::send(User::admins()->get(), new PlayerJoinedPoolNotification($pool, $request->user()));
+        }
 
         return to_route('pools.show', $pool);
     }
