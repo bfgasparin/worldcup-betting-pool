@@ -198,6 +198,8 @@ export interface PoolDetail extends PoolSummary {
     can_review_scores: boolean;
     /** Whether the viewer may still join the pool (the join window closes with the prediction lock). */
     can_join: boolean;
+    /** Whether this viewer has already seen the "how it works" briefing, so it only auto-opens on their first visit. */
+    has_seen_briefing: boolean;
     /** Buy-in and prizes, computed from the current pool size. */
     pricing: PoolPricing;
     /** Board descriptors for the "How this pool works" dialog. */

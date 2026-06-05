@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
@@ -162,5 +163,37 @@ class Pool extends Model
     public function isJoinedBy(?User $user): bool
     {
         return $this->entryFor($user) !== null;
+    }
+
+    /**
+     * Users who have already opened this pool's "how it works" briefing. Tracked separately from
+     * {@see entries()} so the one-time briefing fires for viewers who haven't joined yet.
+     *
+     * @return BelongsToMany<User, $this>
+     */
+    public function briefedUsers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'pool_briefing_views')->withTimestamps();
+    }
+
+    /**
+     * Whether the user has already seen this pool's briefing, so it shouldn't auto-open again.
+     */
+    public function briefingSeenBy(?User $user): bool
+    {
+        if ($user === null) {
+            return false;
+        }
+
+        return $this->briefedUsers()->whereKey($user->id)->exists();
+    }
+
+    /**
+     * Record that the user has now seen this pool's briefing. Idempotent — backed by the unique
+     * (pool_id, user_id) index, so a repeat call leaves a single row.
+     */
+    public function markBriefingSeenBy(User $user): void
+    {
+        $this->briefedUsers()->syncWithoutDetaching([$user->id]);
     }
 }
