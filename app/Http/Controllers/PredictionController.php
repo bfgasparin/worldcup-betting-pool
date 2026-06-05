@@ -43,18 +43,16 @@ class PredictionController extends Controller
      * Show the prediction wizard for a game, prefilled with the user's saved picks
      * and the bracket teams resolved from their group-stage scores.
      */
-    public function edit(Request $request, Game $game): Response
+    public function edit(Request $request, Game $game): Response|RedirectResponse
     {
         $windows = $this->windowResolver->windows($game);
         $canEdit = $game->acceptsPredictions();
-        $anyOpen = in_array(PredictionWindowStatus::Open, $windows, true);
 
         $entry = $game->entries()->where('user_id', $request->user()->id)->first();
 
-        if ($entry === null && $anyOpen) {
-            $entry = $game->entries()->create([
-                'user_id' => $request->user()->id,
-            ]);
+        if ($entry === null) {
+            // Predictions require joining the pool first; send non-members to the game page to join.
+            return to_route('games.show', $game);
         }
 
         // Upfront games cascade the self-derived bracket onto the entry's knockout rows; phased

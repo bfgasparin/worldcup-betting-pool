@@ -43,6 +43,34 @@ export interface GameListItem extends GameSummary {
     accent_index: number;
     /** Size of this game's pool (number of entries) — distinct per game. */
     players_count: number;
+    /** Whether the viewer has already joined this pool. */
+    joined: boolean;
+    /** Buy-in and prizes, computed from the current pool size. */
+    pricing: GamePricing;
+}
+
+/** One place's cut of the net prize pool. */
+export interface PrizeAllocation {
+    place: number;
+    percentage: number;
+    /** The amount for this place, in the game's currency, with the house fee already removed. */
+    amount: number;
+}
+
+/**
+ * A game's money side: the buy-in, the pool it accumulates from joined players, the organizer's
+ * fee, and the net pool split per place. Payment is handled externally — these are display figures.
+ */
+export interface GamePricing {
+    currency: string;
+    entry_price: number;
+    players: number;
+    /** entry_price × players, before the house fee. */
+    pool: number;
+    house_fee_percentage: number;
+    /** The pool after the house fee — what the prizes are split from. */
+    net: number;
+    prizes: PrizeAllocation[];
 }
 
 export interface TeamRef {
@@ -167,6 +195,10 @@ export interface GameDetail extends GameSummary {
     predictions_lock_at: string | null;
     /** Whether the viewer may open the admin score-review screen. */
     can_review_scores: boolean;
+    /** Whether the viewer may still join the pool (the join window closes with the prediction lock). */
+    can_join: boolean;
+    /** Buy-in and prizes, computed from the current pool size. */
+    pricing: GamePricing;
     /** Board descriptors for the "How this game works" dialog. */
     leaderboards: BoardDescriptor[];
 }

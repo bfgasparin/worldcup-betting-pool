@@ -22,6 +22,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'scoring_strategy',
     'scoring_config',
     'predictions_lock_at',
+    'entry_price',
+    'currency',
+    'house_fee_percentage',
+    'prize_structure',
 ])]
 class Game extends Model
 {
@@ -45,6 +49,9 @@ class Game extends Model
             'scoring_strategy' => ScoringStrategy::class,
             'scoring_config' => 'array',
             'predictions_lock_at' => 'datetime',
+            'entry_price' => 'decimal:2',
+            'house_fee_percentage' => 'decimal:2',
+            'prize_structure' => 'array',
         ];
     }
 
@@ -120,5 +127,27 @@ class Game extends Model
     public function entries(): HasMany
     {
         return $this->hasMany(Entry::class);
+    }
+
+    /**
+     * The user's entry in this game, or null if they haven't joined. {@see User} has no
+     * `entries()` relation, so participation is always reached from the game side.
+     */
+    public function entryFor(?User $user): ?Entry
+    {
+        if ($user === null) {
+            return null;
+        }
+
+        return $this->entries()->where('user_id', $user->id)->first();
+    }
+
+    /**
+     * Whether the user has joined this game (an entry exists). Joining is the prerequisite for
+     * making predictions and for seeing the prediction-lock countdown.
+     */
+    public function isJoinedBy(?User $user): bool
+    {
+        return $this->entryFor($user) !== null;
     }
 }

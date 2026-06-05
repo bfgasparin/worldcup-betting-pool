@@ -30,7 +30,7 @@ class UpdateKnockoutPredictionsRequest extends PredictionRequest
             return parent::authorize();
         }
 
-        if ($this->user() === null) {
+        if ($this->user() === null || ! $game->isJoinedBy($this->user())) {
             return false;
         }
 

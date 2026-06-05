@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\LeaderboardCategory;
 use App\Http\Controllers\Concerns\BuildsGameIdentity;
+use App\Http\Requests\Games\JoinGameRequest;
 use App\Models\Entry;
 use App\Models\Fixture;
 use App\Models\Game;
@@ -13,9 +14,11 @@ use App\Models\KnockoutPrediction;
 use App\Models\LeaderboardStanding;
 use App\Models\Team;
 use App\Models\Tournament;
+use App\Services\Games\PrizePool;
 use App\Services\Predictions\GroupStandings;
 use App\Services\Predictions\GroupStandingsPresenter;
 use App\Services\Predictions\PlayerComparison;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
@@ -28,12 +31,17 @@ class GameController extends Controller
     /**
      * List the available games (tournaments).
      */
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $userId = $request->user()->id;
+
         $games = Game::query()
             // The size of each game's pool — distinct per game (sibling games each have their own
             // entries), so it helps a player choose which to enter.
             ->withCount('entries')
+            // Whether the viewer has already joined each pool, so the card can flag it and never
+            // read "join" as the navigate-to-game action.
+            ->withExists(['entries as joined' => fn ($query) => $query->where('user_id', $userId)])
             ->with(['tournament' => fn ($query) => $query
                 ->withCount(['groups', 'fixtures'])
                 // The tournament's sibling game ids, so each list item can carry its position among
@@ -65,6 +73,11 @@ class GameController extends Controller
                     // a game's accent colour never shifts when the list paginates.
                     'accent_index' => $siblingIds->search($game->id),
                     'players_count' => $game->entries_count,
+                    // Whether the viewer is already in this pool.
+                    'joined' => (bool) $game->joined,
+                    // The buy-in and the prizes computed from the current pool size, so a player can
+                    // weigh the stakes before opening the game.
+                    'pricing' => PrizePool::forGame($game, $game->entries_count)->toArray(),
                 ];
             });
 
@@ -110,6 +123,9 @@ class GameController extends Controller
         // always-present directory the picker filters; `comparison` is null in normal mode.
         $compareIds = $this->parseCompareIds($request, $game, $request->user()->id);
 
+        // Built once so the pricing's player count and the banner's pool snapshot stay consistent.
+        $pool = $this->poolSummary($game, $request->user()->id);
+
         return Inertia::render('games/show', [
             'game' => [
                 // gameHeader() already carries scoring_label (via the game-identity payload).
@@ -120,17 +136,33 @@ class GameController extends Controller
                 'scoring_config' => $game->scoring_config,
                 'predictions_lock_at' => $game->predictionsLockAt()?->toIso8601String(),
                 'can_review_scores' => (bool) $request->user()?->can('manage-tournament'),
+                // Whether the player may still join (and pay in): the join window closes with the
+                // group-stage prediction lock, mirroring can_edit on the predict screen.
+                'can_join' => $game->acceptsPredictions(),
+                'pricing' => PrizePool::forGame($game, $pool['participants'])->toArray(),
                 'leaderboards' => $this->boardDescriptors(),
             ],
             'groups' => $tournament->groups->map(
                 fn (Group $group): array => $this->mapGroup($group, $groupPredictions),
             ),
             'bracket' => $this->mapBracket($tournament->knockoutFixtures, $knockoutPredictions, $game->predictsKnockoutBracket()),
-            'pool' => $this->poolSummary($game, $request->user()->id),
+            'pool' => $pool,
             'boardSummaries' => $this->boardSummaries($game, $request->user()->id),
             'players' => $this->playerDirectory($game, $request->user()->id),
             'comparison' => (new PlayerComparison)->build($game, $request->user()->id, $compareIds),
         ]);
+    }
+
+    /**
+     * Join the game's pool. Creates the player's entry (the act of joining), which is the
+     * prerequisite for making predictions. Payment is arranged externally with the organizer, so
+     * this only records participation. Idempotent — backed by the unique (game_id, user_id) index.
+     */
+    public function join(JoinGameRequest $request, Game $game): RedirectResponse
+    {
+        $game->entries()->firstOrCreate(['user_id' => $request->user()->id]);
+
+        return to_route('games.show', $game);
     }
 
     /**

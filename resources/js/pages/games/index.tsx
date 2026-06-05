@@ -2,6 +2,7 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import {
     ArrowRight,
     CalendarDays,
+    Check,
     ChevronLeft,
     ChevronRight,
     Layers,
@@ -10,6 +11,7 @@ import {
     Users,
 } from 'lucide-react';
 import type { ComponentType, ReactNode } from 'react';
+import { PrizePanel } from '@/components/prize-panel';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { resolveAccent, sourceMonogram } from '@/lib/accents';
@@ -252,7 +254,7 @@ function EnterButton({ accent }: { accent: GameAccent }) {
                 accent.textClass,
             )}
         >
-            Enter game
+            View game
             <ArrowRight className="size-5" />
         </span>
     );
@@ -355,7 +357,12 @@ function GameTicket({
                     </>
                 )}
 
-                <EnterButton accent={accent} />
+                <PrizePanel pricing={game.pricing} />
+
+                <div className="flex flex-wrap items-center gap-3">
+                    {game.joined && <StatPill icon={Check} label="Joined" />}
+                    <EnterButton accent={accent} />
+                </div>
             </div>
         </Link>
     );
