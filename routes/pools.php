@@ -10,6 +10,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('pools', [PoolController::class, 'index'])->name('pools.index');
     Route::get('pools/{pool:slug}', [PoolController::class, 'show'])->name('pools.show');
     Route::post('pools/{pool:slug}/join', [PoolController::class, 'join'])->name('pools.join');
+    Route::post('pools/{pool:slug}/briefing-seen', [PoolController::class, 'markBriefingSeen'])->name('pools.briefing.seen');
     Route::get('pools/{pool:slug}/leaderboard', [PoolController::class, 'leaderboard'])->name('pools.leaderboard');
     Route::get('pools/{pool:slug}/predict', [PredictionController::class, 'edit'])->name('pools.predict.edit');
     Route::put('pools/{pool:slug}/predict/group', [PredictionController::class, 'updateGroupStage'])->name('pools.predict.group');

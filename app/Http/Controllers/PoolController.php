@@ -7,11 +7,11 @@ use App\Http\Controllers\Concerns\BuildsPoolIdentity;
 use App\Http\Requests\Pools\JoinPoolRequest;
 use App\Models\Entry;
 use App\Models\Fixture;
-use App\Models\Pool;
 use App\Models\Group;
 use App\Models\GroupPrediction;
 use App\Models\KnockoutPrediction;
 use App\Models\LeaderboardStanding;
+use App\Models\Pool;
 use App\Models\Team;
 use App\Models\Tournament;
 use App\Services\Pools\PrizePot;
@@ -142,6 +142,9 @@ class PoolController extends Controller
                 // Whether the player may still join (and pay in): the join window closes with the
                 // group-stage prediction lock, mirroring can_edit on the predict screen.
                 'can_join' => $pool->acceptsPredictions(),
+                // Whether this viewer has already seen the "how it works" briefing, so the dialog
+                // only auto-opens on their first visit to this pool.
+                'has_seen_briefing' => $pool->briefingSeenBy($request->user()),
                 'pricing' => PrizePot::forPool($pool, $standings['participants'])->toArray(),
                 'leaderboards' => $this->boardDescriptors(),
             ],
@@ -166,6 +169,18 @@ class PoolController extends Controller
         $pool->entries()->firstOrCreate(['user_id' => $request->user()->id]);
 
         return to_route('pools.show', $pool);
+    }
+
+    /**
+     * Record that the viewer has seen this pool's "how it works" briefing, so it doesn't auto-open
+     * on their next visit. A fire-and-forget side effect from the dialog — no body, no redirect.
+     * Idempotent via {@see Pool::markBriefingSeenBy()}.
+     */
+    public function markBriefingSeen(Request $request, Pool $pool): \Illuminate\Http\Response
+    {
+        $pool->markBriefingSeenBy($request->user());
+
+        return response()->noContent();
     }
 
     /**

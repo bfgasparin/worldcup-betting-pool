@@ -1,3 +1,4 @@
+import { useHttp } from '@inertiajs/react';
 import {
     CalendarClock,
     Coins,
@@ -7,10 +8,9 @@ import {
     Scale,
     Trophy,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { formatLongDate } from '@/components/fixtures';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Chip } from '@/components/ui/chip';
 import {
     Dialog,
@@ -23,10 +23,8 @@ import { useDisplayTimeZone } from '@/hooks/use-timezone';
 import { tiebreakRule } from '@/lib/leaderboards';
 import type { ScoringRule } from '@/lib/scoring';
 import { scoringRules } from '@/lib/scoring';
+import pools from '@/routes/pools';
 import type { PoolDetail } from '@/types/pools';
-
-const dismissKey = (slug: string): string =>
-    `bbp:how-it-works-dismissed:${slug}`;
 
 /** When predictions lock for this pool, phrased for the viewer's timezone. */
 function lockLine(pool: PoolDetail, tz: string): string | null {
@@ -90,26 +88,26 @@ function PointsRow({ label, rules }: { label: string; rules: ScoringRule[] }) {
 
 /**
  * The "How this pool works" dialog: how & when to predict, the scoring strategy, and how
- * points are earned. It renders its own header trigger button and auto-opens once per pool
- * (dismissible, stored client-side) so newcomers always get the briefing on first visit.
+ * points are earned. It renders its own header trigger button and auto-opens once per pool, the
+ * first time this user opens it, so newcomers always get the briefing. "Seen" is tracked
+ * server-side per user (see {@link pools.briefing.seen}) so it follows the user across devices.
  */
 export function PoolInfoDialog({ pool }: { pool: PoolDetail }) {
     const tz = useDisplayTimeZone();
-    // Auto-open on first visit. The lazy initializer is SSR-safe (no window on the server, so
-    // the dialog starts closed and its portal — client-only — matches on hydration).
-    const [open, setOpen] = useState(
-        () =>
-            typeof window !== 'undefined' &&
-            localStorage.getItem(dismissKey(pool.slug)) === null,
-    );
-    // Mirrors the first-visit auto-open decision; only true on the initial mount auto-open.
-    // The "Don't show this again" opt-out is only relevant for that auto-open, not manual re-reads.
-    const [autoOpened, setAutoOpened] = useState(
-        () =>
-            typeof window !== 'undefined' &&
-            localStorage.getItem(dismissKey(pool.slug)) === null,
-    );
-    const [dontShowAgain, setDontShowAgain] = useState(false);
+    const { post } = useHttp();
+    // Auto-open the first time this user opens the pool; the server tells us whether they've seen it.
+    const [open, setOpen] = useState(!pool.has_seen_briefing);
+
+    // Record the briefing as seen so it never auto-opens again for this user — even if they just
+    // close it. Fire-and-forget standalone request (not a page visit); the unique index keeps it
+    // idempotent, so React StrictMode's double-invoke in dev is harmless.
+    useEffect(() => {
+        if (!pool.has_seen_briefing) {
+            post(pools.briefing.seen(pool.slug).url);
+        }
+        // `post` is stable; re-run only when switching pools.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pool.slug]);
 
     const lock = lockLine(pool, tz);
     const groupRules = scoringRules(pool.scoring_config, 'group');
@@ -120,10 +118,7 @@ export function PoolInfoDialog({ pool }: { pool: PoolDetail }) {
             <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                    setAutoOpened(false);
-                    setOpen(true);
-                }}
+                onClick={() => setOpen(true)}
                 className="gap-1.5"
             >
                 <Info className="size-4" />
@@ -217,31 +212,6 @@ export function PoolInfoDialog({ pool }: { pool: PoolDetail }) {
                             </Section>
                         )}
                     </div>
-
-                    {autoOpened && (
-                        <label className="flex cursor-pointer items-center gap-2 border-t border-border pt-4 text-sm text-muted-foreground select-none">
-                            <Checkbox
-                                checked={dontShowAgain}
-                                onCheckedChange={(checked) => {
-                                    const dismiss = checked === true;
-
-                                    setDontShowAgain(dismiss);
-
-                                    if (dismiss) {
-                                        localStorage.setItem(
-                                            dismissKey(pool.slug),
-                                            '1',
-                                        );
-                                    } else {
-                                        localStorage.removeItem(
-                                            dismissKey(pool.slug),
-                                        );
-                                    }
-                                }}
-                            />
-                            Don&apos;t show this again
-                        </label>
-                    )}
                 </DialogContent>
             </Dialog>
         </>
