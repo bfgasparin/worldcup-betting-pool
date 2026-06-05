@@ -152,7 +152,7 @@ class PoolController extends Controller
                 'leaderboards' => $this->boardDescriptors(),
             ],
             'groups' => $tournament->groups->map(
-                fn (Group $group): array => $this->mapGroup($group, $groupPredictions),
+                fn (Group $group): array => $this->mapGroup($group, $groupPredictions, $pool->predictsKnockoutBracket()),
             ),
             'bracket' => $this->mapBracket($tournament->knockoutFixtures, $knockoutPredictions, $pool->predictsKnockoutBracket()),
             'standings' => $standings,
@@ -531,11 +531,12 @@ class PoolController extends Controller
 
     /**
      * @param  Collection<int, GroupPrediction>  $predictions
-     * @return array{name: string, teams: list<array<string, mixed>>, fixtures: list<array<string, mixed>>, standings: list<array<string, mixed>>, predicted_standings: list<array<string, mixed>>|null}
+     * @param  bool  $showPredicted  whether to expose the viewer's projected table (upfront pools only)
+     * @return array{name: string, teams: list<array<string, mixed>>, fixtures: list<array<string, mixed>>, standings: list<array<string, mixed>>, predicted_standings?: list<array<string, mixed>>|null}
      */
-    private function mapGroup(Group $group, Collection $predictions): array
+    private function mapGroup(Group $group, Collection $predictions, bool $showPredicted): array
     {
-        return [
+        $mapped = [
             'name' => $group->name,
             'teams' => $group->teams
                 ->map(fn (Team $team): array => [
@@ -566,8 +567,15 @@ class PoolController extends Controller
                 ];
             })->all(),
             'standings' => $this->officialStandings($group),
-            'predicted_standings' => $this->predictedStandings($group, $predictions),
         ];
+
+        // Phased pools predict the official bracket, so the projected group order decides nothing —
+        // omit it (and its Official|Predicted toggle) rather than invite a meaningless comparison.
+        if ($showPredicted) {
+            $mapped['predicted_standings'] = $this->predictedStandings($group, $predictions);
+        }
+
+        return $mapped;
     }
 
     /**

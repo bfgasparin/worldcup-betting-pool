@@ -107,7 +107,7 @@ class PlayerComparison
             'boards' => $this->boards($entry),
             'group_predictions' => $this->groupPredictionMap($groupPredictions, $phaseKeyByFixture, $windows, $isViewer),
             'knockout_predictions' => $this->knockoutPredictionMap($knockoutPredictions, $phaseKeyByFixture, $windows, $isViewer, $pool),
-            'projected_standings' => $this->projectedStandings($groups, $groupPredictions, $windows, $isViewer),
+            'projected_standings' => $this->projectedStandings($groups, $groupPredictions, $windows, $isViewer, $pool->predictsKnockoutBracket()),
         ];
     }
 
@@ -211,11 +211,14 @@ class PlayerComparison
      * @param  Collection<int, Group>  $groups
      * @param  Collection<int, GroupPrediction>  $groupPredictions  keyed by fixture id
      * @param  array<string, PredictionWindowStatus>  $windows
+     * @param  bool  $showProjected  whether projected tables are meaningful (upfront pools only)
      * @return array<string, list<array<string, mixed>>|null>
      */
-    private function projectedStandings(Collection $groups, Collection $groupPredictions, array $windows, bool $isViewer): array
+    private function projectedStandings(Collection $groups, Collection $groupPredictions, array $windows, bool $isViewer, bool $showProjected): array
     {
-        $revealed = $this->revealed($isViewer, PhaseKey::Group->value, $windows);
+        // Phased pools predict the official bracket, so a projected group order decides nothing —
+        // never surface it for comparison (the frontend then drops the standings toggle).
+        $revealed = $showProjected && $this->revealed($isViewer, PhaseKey::Group->value, $windows);
         $map = [];
 
         foreach ($groups as $group) {

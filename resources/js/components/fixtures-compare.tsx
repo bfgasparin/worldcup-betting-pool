@@ -233,9 +233,27 @@ function CompareStandingsPanel({
     official: StandingRow[];
     players: ComparePlayer[];
 }) {
+    // Phased pools never surface a projected table (the bracket follows real results), so when no
+    // player has one, show the official table alone — no toggle. This also tidies the pre-prediction
+    // case where nothing has been projected yet.
+    const anyProjected = players.some(
+        (player) => (player.projected_standings[groupName]?.length ?? 0) > 0,
+    );
+
     // Keyed by a stable player identity, not array position: removing a lane reindexes `players`, so
     // an index-based selection would silently point at a different (or missing) player's table.
     const [view, setView] = useState('official');
+
+    if (!anyProjected) {
+        return official.length > 0 ? (
+            <StandingsTable standings={official} />
+        ) : (
+            <p className="py-4 text-center text-sm text-muted-foreground">
+                No results yet.
+            </p>
+        );
+    }
+
     const selected =
         view === 'official'
             ? null

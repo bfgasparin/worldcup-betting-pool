@@ -253,6 +253,18 @@ class PredictionController extends Controller
     {
         $standings = $bracket->standings[$group->name];
 
+        // Phased pools can't reorder a standings tie (their bracket is official) and show no resolve
+        // panel, so flag the genuinely-tied rows — otherwise the deterministic fallback order reads
+        // like a bug. Upfront pools surface the editable tied_clusters panel instead.
+        $tiedTeamIds = (! $surfaceTies && $standings->isComplete())
+            ? collect($standings->tieClustersWithStatus())->flatMap(fn (array $cluster): array => $cluster['teamIds'])->all()
+            : [];
+
+        $rows = array_map(fn (array $row): array => [
+            ...$row,
+            'tied' => in_array($row['team']['id'] ?? null, $tiedTeamIds, true),
+        ], GroupStandingsPresenter::rows($standings, $teamsById));
+
         return [
             'name' => $group->name,
             'teams' => $group->teams->map(fn (Team $team): array => [
@@ -274,7 +286,7 @@ class PredictionController extends Controller
                     'venue_timezone' => $fixture->venue_timezone,
                 ];
             })->all(),
-            'standings' => GroupStandingsPresenter::rows($standings, $teamsById),
+            'standings' => $rows,
             // Tied clusters the player drags into order (only for self-derived, complete groups), in
             // their effective order, each flagged resolved so the UI can confirm a saved choice.
             'tied_clusters' => $surfaceTies && $standings->isComplete()

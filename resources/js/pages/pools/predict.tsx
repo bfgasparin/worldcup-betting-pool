@@ -360,6 +360,17 @@ function GroupCard({
 
             <div className="mt-4 border-t border-border pt-2">
                 <StandingsTable standings={group.standings} />
+                {group.standings.some((row) => row.tied) && (
+                    <div className="mt-2 flex items-start gap-2 rounded-xl border border-border bg-muted/40 px-3 py-2 text-[12px] text-muted-foreground">
+                        <Info className="mt-0.5 size-3.5 shrink-0" />
+                        <span>
+                            The teams marked = are level on every tiebreaker, so
+                            this projected order is only a guess — it may not
+                            match the real standings, and it does not affect
+                            this pool.
+                        </span>
+                    </div>
+                )}
             </div>
 
             {tiedClusters.length > 0 && (

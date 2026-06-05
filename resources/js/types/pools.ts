@@ -139,9 +139,10 @@ export interface GroupView {
     standings: StandingRow[];
     /**
      * The viewer's projected group table from their own predicted scores, or null when they
-     * have predicted none of this group's fixtures.
+     * have predicted none of this group's fixtures. Absent on phased pools, where the projected
+     * order decides nothing — the standings then show official-only.
      */
-    predicted_standings: StandingRow[] | null;
+    predicted_standings?: StandingRow[] | null;
 }
 
 export interface BracketFixture {
@@ -374,6 +375,11 @@ export interface StandingRow {
     goal_difference: number;
     points: number;
     form: string[];
+    /**
+     * Phased-pool predict page only: the row is part of a genuine tie (teams level on every
+     * tiebreaker), so the projected order is just a fallback. Unset elsewhere.
+     */
+    tied?: boolean;
 }
 
 export interface PredictGroupFixture {

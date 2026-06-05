@@ -97,6 +97,15 @@ export function StandingsTable({ standings }: { standings: StandingRow[] }) {
                                             <span className="truncate">
                                                 {row.team?.name ?? '—'}
                                             </span>
+                                            {row.tied && (
+                                                <span
+                                                    aria-label="Tied"
+                                                    title="Level on every tiebreaker — this projected order is just a guess"
+                                                    className="inline-flex size-[15px] shrink-0 items-center justify-center rounded-[4px] bg-muted text-[10px] font-bold text-muted-foreground"
+                                                >
+                                                    =
+                                                </span>
+                                            )}
                                         </span>
                                     </td>
                                     <td>{row.played}</td>
