@@ -45,7 +45,9 @@ class HandleInertiaRequests extends Middleware
             ],
             'timezone' => $request->cookie('timezone'),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
-            'joinedPools' => (new JoinedPools)->forUser($request->user()),
+            // Resolved from the container so the per-request {@see PredictionAttention} is shared
+            // with the pool page and a player's bracket is never resolved twice in one request.
+            'joinedPools' => app(JoinedPools::class)->forUser($request->user()),
         ];
     }
 }

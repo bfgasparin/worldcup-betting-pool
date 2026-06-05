@@ -7,6 +7,7 @@ use App\Enums\PhaseType;
 use App\Enums\PredictionWindowStatus;
 use App\Models\Phase;
 use App\Models\Pool;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
@@ -66,6 +67,23 @@ class PredictionWindowResolver
         return $tournament->phases;
     }
 
+    /**
+     * The instant a phase's prediction window closes — the deadline shown in the pool reminder and
+     * the "window opened" email. The pool-level lock for the group stage and every upfront phase;
+     * the configured buffer before a phased knockout round's first kickoff otherwise (null when that
+     * round has no scheduled kickoff yet).
+     */
+    public function lockAtFor(Pool $pool, Phase $phase): ?CarbonInterface
+    {
+        if (! $pool->usesPhasedPredictionWindows() || $phase->type === PhaseType::Group) {
+            return $pool->predictionsLockAt();
+        }
+
+        $firstKickoff = $phase->fixtures->whereNotNull('kicks_off_at')->min('kicks_off_at');
+
+        return $firstKickoff?->copy()->subMinutes((int) config('scoring.prediction_lock_buffer_minutes'));
+    }
+
     private function statusFor(Pool $pool, Phase $phase): PredictionWindowStatus
     {
         // Upfront pools, and the group stage of any pool, ride the single pool-level lock.
@@ -87,10 +105,9 @@ class PredictionWindowResolver
             return PredictionWindowStatus::Pending;
         }
 
-        $firstKickoff = $fixtures->whereNotNull('kicks_off_at')->min('kicks_off_at');
-        $buffer = (int) config('scoring.prediction_lock_buffer_minutes');
+        $lock = $this->lockAtFor($pool, $phase);
 
-        if ($firstKickoff !== null && now()->gte($firstKickoff->copy()->subMinutes($buffer))) {
+        if ($lock !== null && now()->gte($lock)) {
             return PredictionWindowStatus::Locked;
         }
 

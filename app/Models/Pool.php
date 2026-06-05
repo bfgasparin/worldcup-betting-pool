@@ -5,7 +5,6 @@ namespace App\Models;
 use App\Enums\PoolAccent;
 use App\Enums\ScoringStrategy;
 use App\Enums\TournamentStatus;
-use App\Services\Pools\JoinedPools;
 use Carbon\CarbonInterface;
 use Database\Factories\PoolFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -88,18 +87,6 @@ class Pool extends Model
         $lock = $this->predictionsLockAt();
 
         return $lock !== null && now()->lessThan($lock);
-    }
-
-    /**
-     * Whether this pool wants the player's attention in the sidebar: the prediction window is still
-     * open and they have not finished their group-stage picks. The counts are passed in (already
-     * loaded by {@see JoinedPools}) so the always-shared list stays query-free
-     * here — only the cheap, memoised window check runs.
-     */
-    public function needsAttention(int $groupPredictionsMade, int $groupFixtureCount): bool
-    {
-        return $this->acceptsPredictions()
-            && $groupPredictionsMade < $groupFixtureCount;
     }
 
     /**

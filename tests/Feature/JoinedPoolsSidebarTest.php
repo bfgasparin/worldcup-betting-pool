@@ -2,17 +2,22 @@
 
 namespace Tests\Feature;
 
+use App\Enums\PhaseKey;
+use App\Models\Entry;
 use App\Models\Pool;
 use App\Models\Tournament;
 use App\Models\User;
+use App\Services\Predictions\OfficialBracketProjector;
 use Database\Seeders\WorldCup2026Seeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia;
+use Tests\Concerns\InteractsWithOfficialResults;
 use Tests\Concerns\InteractsWithPredictions;
 use Tests\TestCase;
 
 class JoinedPoolsSidebarTest extends TestCase
 {
+    use InteractsWithOfficialResults;
     use InteractsWithPredictions;
     use RefreshDatabase;
 
@@ -67,6 +72,44 @@ class JoinedPoolsSidebarTest extends TestCase
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('joinedPools.0.slug', 'world-cup-2026-ffa')
                 ->where('joinedPools.0.needs_attention', false)
+            );
+    }
+
+    public function test_a_joined_pool_with_only_unresolved_ties_needs_attention(): void
+    {
+        $this->actingAs($this->user)->post(route('pools.join', $this->pool->slug));
+        $entry = $this->pool->entryFor($this->user);
+
+        // Every group pick is made, but all-draw scores leave every standing tied with no ordering
+        // recorded — the player still has work to do, so the sidebar must keep nagging.
+        $this->predictAllGroups($entry, $this->tournament, fn (): array => [0, 0], resolveTies: false);
+
+        $this->actingAs($this->user)
+            ->get(route('pools.index'))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('joinedPools.0.slug', 'world-cup-2026-ffa')
+                ->where('joinedPools.0.needs_attention', true)
+            );
+    }
+
+    public function test_a_joined_phased_pool_with_an_open_knockout_round_needs_attention(): void
+    {
+        $phased = $this->tournament->pools()->where('slug', 'world-cup-2026-brothers')->firstOrFail();
+        // Close the group window so attention can only come from the open knockout round.
+        $phased->update(['predictions_lock_at' => now()->subDay()]);
+        Entry::factory()->for($phased)->for($this->user)->create();
+
+        $this->recordOfficialGroupResults($this->tournament, $this->seedOrderScores());
+        (new OfficialBracketProjector)->project($this->tournament);
+        $this->tournament->syncStatus();
+        $this->tournament->phases()->where('key', PhaseKey::RoundOf32->value)->firstOrFail()
+            ->fixtures()->update(['kicks_off_at' => now()->addDays(5)]);
+
+        $this->actingAs($this->user)
+            ->get(route('pools.index'))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('joinedPools.0.slug', 'world-cup-2026-brothers')
+                ->where('joinedPools.0.needs_attention', true)
             );
     }
 

@@ -6,6 +6,8 @@ export type TournamentNavItem = {
     title: string;
     href: string;
     icon: LucideIcon;
+    /** The screen that owns prediction work, so the sidebar can mark it when picks are unfinished. */
+    predict?: boolean;
 };
 
 /**
@@ -24,6 +26,7 @@ export function tournamentNavItems(slug: string): TournamentNavItem[] {
             title: 'Predict',
             href: pools.predict.edit(slug).url,
             icon: PencilLine,
+            predict: true,
         },
         {
             title: 'Leaderboards',

@@ -16,6 +16,7 @@ use App\Models\Team;
 use App\Models\Tournament;
 use App\Models\User;
 use App\Notifications\PlayerJoinedPoolNotification;
+use App\Services\Pools\PredictionAttention;
 use App\Services\Pools\PrizePot;
 use App\Services\Predictions\GroupStandings;
 use App\Services\Predictions\GroupStandingsPresenter;
@@ -94,7 +95,7 @@ class PoolController extends Controller
      * Show a single pool's structure: groups, fixtures and the knockout bracket, plus the
      * viewer's pool standing for the dashboard banner.
      */
-    public function show(Request $request, Pool $pool): Response
+    public function show(Request $request, Pool $pool, PredictionAttention $attention): Response
     {
         $tournament = $pool->tournament;
 
@@ -159,6 +160,8 @@ class PoolController extends Controller
             'boardSummaries' => $this->boardSummaries($pool, $request->user()->id),
             'players' => $this->playerDirectory($pool, $request->user()->id),
             'comparison' => (new PlayerComparison)->build($pool, $request->user()->id, $compareIds),
+            // What prediction work the viewer still has in an open window, for the reminder banner.
+            'attention' => $attention->summary($pool, $entry)->toArray(),
         ]);
     }
 

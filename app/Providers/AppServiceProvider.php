@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Contracts\ScoreProvider;
 use App\Models\User;
+use App\Services\Pools\PredictionAttention;
 use App\Services\Scoring\Providers\ManualScoreProvider;
 use App\Services\Scoring\Providers\SimulatedScoreProvider;
 use App\Support\DevClock;
@@ -27,6 +28,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ScoreProvider::class, fn (): ScoreProvider => config('scoring.simulated_provider')
             ? new SimulatedScoreProvider
             : new ManualScoreProvider);
+
+        // One instance per request, shared by the sidebar (middleware) and the pool page
+        // (controller) so a player's prediction attention is resolved at most once per pool.
+        $this->app->scoped(PredictionAttention::class);
     }
 
     /**
