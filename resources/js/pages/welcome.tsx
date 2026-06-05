@@ -1,4 +1,5 @@
 import { Head, Link, usePage } from '@inertiajs/react';
+import AppLogoIcon from '@/components/app-logo-icon';
 import { Button } from '@/components/ui/button';
 import { login } from '@/routes';
 import { index as pools } from '@/routes/pools';
@@ -25,10 +26,15 @@ export default function Welcome() {
                 </div>
 
                 <nav className="relative z-10 mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-7">
-                    <span className="inline-flex items-baseline font-display text-xl font-semibold tracking-tight text-foreground">
-                        Brothers
-                        <span className="ml-2 text-[10px] font-bold tracking-[0.22em] text-muted-foreground uppercase">
-                            Bets
+                    <span className="inline-flex items-center gap-2.5">
+                        <span className="app-icon size-9 shrink-0 rounded-xl shadow-[var(--sh-sm)]">
+                            <AppLogoIcon className="size-5 text-white" />
+                        </span>
+                        <span className="inline-flex items-baseline font-display text-xl font-semibold tracking-tight text-foreground">
+                            Brothers
+                            <span className="ml-2 text-[10px] font-bold tracking-[0.22em] text-amber uppercase">
+                                Bets
+                            </span>
                         </span>
                     </span>
                     <Button asChild size="sm" variant="outline">
