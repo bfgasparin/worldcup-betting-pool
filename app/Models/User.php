@@ -6,6 +6,7 @@ namespace App\Models;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -85,6 +86,17 @@ class User extends Authenticatable implements PasskeyUser
     public function isAdmin(): bool
     {
         return in_array($this->email, config('admin.emails', []), true);
+    }
+
+    /**
+     * Scope to the application's administrators — users whose email is in config('admin.emails').
+     * The config-driven counterpart to {@see isAdmin()}; an empty admin list matches no one.
+     *
+     * @param  Builder<User>  $query
+     */
+    public function scopeAdmins(Builder $query): void
+    {
+        $query->whereIn('email', config('admin.emails', []));
     }
 
     /**
