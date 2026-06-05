@@ -24,3 +24,16 @@ export type TournamentNavInfo = {
     source: string;
     accent?: string | null;
 };
+
+/**
+ * A game the viewer has joined, as shared globally for the sidebar's "Your games" list.
+ * `needs_attention` is true when the prediction window is open and the player's picks are
+ * unfinished — surfaced as a gold dot so they can see at a glance where there's work to do.
+ */
+export type JoinedGame = {
+    slug: string;
+    name: string;
+    source: string;
+    accent?: string | null;
+    needs_attention: boolean;
+};

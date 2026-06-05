@@ -1,7 +1,6 @@
 import { useForm } from '@inertiajs/react';
 import { Coins } from 'lucide-react';
 import { useState } from 'react';
-import { PrizePanel } from '@/components/prize-panel';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -16,8 +15,9 @@ import games from '@/routes/games';
 import type { GameDetail } from '@/types/games';
 
 /**
- * The "Join the pool" call to action. Opens a confirmation that states the buy-in and that
- * payment is settled with the organizer outside the app, shows the prizes, then posts the join.
+ * The "Join the pool" call to action. Opens a confirmation that heroes the buy-in and states that
+ * payment is settled with the organizer outside the app, then posts the join. The prize split and
+ * fee are deliberately left to the game page — this step is just "pay this much to lock your spot".
  * Joining creates the player's entry — the prerequisite for making predictions.
  */
 export function JoinGameDialog({ game }: { game: GameDetail }) {
@@ -43,17 +43,23 @@ export function JoinGameDialog({ game }: { game: GameDetail }) {
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle className="font-display text-xl">
-                            Join the pool
+                            Join {game.source}&apos;s pool
                         </DialogTitle>
                         <DialogDescription>
-                            The {buyIn} buy-in for {game.source}&apos;s pool is
-                            arranged directly with the organizer — there&apos;s
-                            no payment inside the app. Join to lock in your spot
-                            and start predicting.
+                            Payment is arranged directly with the organizer —
+                            there&apos;s no payment inside the app. Join to lock
+                            in your spot and start predicting.
                         </DialogDescription>
                     </DialogHeader>
 
-                    <PrizePanel pricing={game.pricing} />
+                    <div className="flex flex-col items-center gap-1 py-2">
+                        <span className="font-display text-4xl font-bold text-foreground">
+                            {buyIn}
+                        </span>
+                        <span className="text-[0.65rem] font-bold tracking-[0.14em] text-muted-foreground uppercase">
+                            Buy-in
+                        </span>
+                    </div>
 
                     <DialogFooter>
                         <Button

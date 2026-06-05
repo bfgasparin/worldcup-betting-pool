@@ -821,7 +821,7 @@ export default function GameShow({
     return (
         <>
             <Head title={gameTitle(game.source, game.name)} />
-            <div className="flex h-full flex-1 flex-col gap-10 p-4">
+            <div className="flex h-full flex-1 flex-col gap-10 p-4 sm:p-6 lg:p-8">
                 <DashboardBanner
                     game={game}
                     pool={pool}

@@ -76,7 +76,7 @@ export default function Leaderboard({
     return (
         <>
             <Head title={gameTitle(game.source, game.name, 'Leaderboards')} />
-            <div className="flex h-full flex-1 flex-col gap-6 p-4">
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
                 <header className="hero relative overflow-hidden rounded-3xl border border-border p-8">
                     <div className="hero-lines" />
                     <div className="relative flex flex-col gap-3">

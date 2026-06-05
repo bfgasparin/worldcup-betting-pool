@@ -60,9 +60,9 @@ class GameController extends Controller
                 return [
                     // gameHeader() already carries scoring_label (via the game-identity payload).
                     ...$this->gameHeader($game),
-                    'scoring_strategy' => $game->scoring_strategy->value,
+                    // The one-line explainer of how this game scores — what sets it apart from its
+                    // siblings over the same tournament.
                     'scoring_description' => $game->scoring_strategy->description(),
-                    'scoring_config' => $game->scoring_config,
                     'groups_count' => $game->tournament->groups_count,
                     'fixtures_count' => $game->tournament->fixtures_count,
                     'tournament' => [
@@ -75,6 +75,9 @@ class GameController extends Controller
                     'players_count' => $game->entries_count,
                     // Whether the viewer is already in this pool.
                     'joined' => (bool) $game->joined,
+                    // Whether joining is still open — the card shows the buy-in and percentage prize
+                    // split while joinable, then switches to the now-final raw prize amounts.
+                    'can_join' => $game->acceptsPredictions(),
                     // The buy-in and the prizes computed from the current pool size, so a player can
                     // weigh the stakes before opening the game.
                     'pricing' => PrizePool::forGame($game, $game->entries_count)->toArray(),

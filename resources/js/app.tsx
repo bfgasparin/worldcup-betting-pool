@@ -5,7 +5,6 @@ import { initializeTheme } from '@/hooks/use-appearance';
 import { initializeTimezone } from '@/hooks/use-timezone';
 import AppLayout from '@/layouts/app-layout';
 import AuthLayout from '@/layouts/auth-layout';
-import HubLayout from '@/layouts/hub-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Brothers Betting Pool';
@@ -17,8 +16,6 @@ createInertiaApp({
             case name === 'welcome':
             case name === 'onboarding/wizard':
                 return null;
-            case name === 'games/index':
-                return HubLayout;
             case name.startsWith('auth/'):
                 return AuthLayout;
             case name.startsWith('settings/'):

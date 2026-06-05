@@ -11,14 +11,13 @@ import {
     Users,
 } from 'lucide-react';
 import type { ComponentType, ReactNode } from 'react';
-import { PrizePanel } from '@/components/prize-panel';
+import { PrizeSplit } from '@/components/prize-split';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { resolveAccent, sourceMonogram } from '@/lib/accents';
 import type { GameAccent } from '@/lib/accents';
-import { scoringRules } from '@/lib/scoring';
 import { cn } from '@/lib/utils';
-import { show } from '@/routes/games';
+import { index, show } from '@/routes/games';
 import type { GameListItem, Paginated } from '@/types/games';
 
 interface GamesIndexProps {
@@ -173,76 +172,6 @@ function SourceTag({ source }: { source: string }) {
     );
 }
 
-/**
- * The point pills for one phase, under a small heading. Renders nothing when the phase has no
- * configured rules.
- */
-function PhaseRules({
-    heading,
-    rules,
-}: {
-    heading: string;
-    rules: { label: string; points: number }[];
-}) {
-    if (rules.length === 0) {
-        return null;
-    }
-
-    return (
-        <div className="flex flex-col gap-1.5">
-            <span className="text-[0.65rem] font-bold tracking-wide text-muted-foreground uppercase">
-                {heading}
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-                {rules.map((rule) => (
-                    <span
-                        key={rule.label}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-secondary-foreground"
-                    >
-                        {rule.label}
-                        <b className="font-display text-primary">
-                            +{rule.points}
-                        </b>
-                    </span>
-                ))}
-            </div>
-        </div>
-    );
-}
-
-/** The one-line explanation plus the per-rule points, split by phase. */
-function ScoringDetails({ game }: { game: GameListItem }) {
-    return (
-        <>
-            <p className="text-sm text-muted-foreground">
-                {game.scoring_description}
-            </p>
-            <div className="flex flex-col gap-3">
-                <PhaseRules
-                    heading="Group stage"
-                    rules={scoringRules(game.scoring_config, 'group')}
-                />
-                <PhaseRules
-                    heading="Knockouts"
-                    rules={scoringRules(game.scoring_config, 'knockout')}
-                />
-            </div>
-        </>
-    );
-}
-
-/** Solo-game scoring: the strategy chip leads, since the headline is the game name (not the source). */
-function ScoringSummary({ game }: { game: GameListItem }) {
-    return (
-        <div className="flex flex-col gap-3">
-            <Chip variant="points" className="w-fit px-3 py-1 text-xs">
-                {game.scoring_label}
-            </Chip>
-            <ScoringDetails game={game} />
-        </div>
-    );
-}
-
 /** The accent-coloured call-to-action at the foot of a ticket. */
 function EnterButton({ accent }: { accent: GameAccent }) {
     return (
@@ -261,9 +190,9 @@ function EnterButton({ accent }: { accent: GameAccent }) {
 }
 
 /**
- * The source rail — the ticket's coloured stub. Carries the source emblem (a monogram) in the
- * game's kit colour + texture; it's the per-game visual anchor. Sits as a left rail on `sm+` and a
- * top banner on mobile.
+ * The source rail — the ticket's coloured top banner. Carries the source emblem (a monogram) in
+ * the game's kit colour + texture; it's the per-game visual anchor that sits above the body so a
+ * vertical ticket reads cleanly in the multi-column games grid.
  */
 function SourceRail({
     source,
@@ -275,7 +204,7 @@ function SourceRail({
     return (
         <div
             className={cn(
-                'flex shrink-0 items-center justify-center gap-2.5 px-6 py-5 sm:w-36 sm:flex-col sm:gap-1.5 sm:py-8',
+                'flex shrink-0 items-center justify-center gap-2.5 px-6 py-4',
                 accent.railClass,
                 accent.textClass,
             )}
@@ -283,7 +212,7 @@ function SourceRail({
             <span className="font-display text-[0.6rem] font-bold tracking-[0.2em] uppercase opacity-75">
                 Game by
             </span>
-            <span className="font-display text-4xl leading-none font-bold sm:text-5xl">
+            <span className="font-display text-3xl leading-none font-bold">
                 {sourceMonogram(source)}
             </span>
         </div>
@@ -315,7 +244,7 @@ function GameTicket({
         <Link
             href={show(game.slug)}
             className={cn(
-                'group card-elevated flex flex-col overflow-hidden rounded-3xl transition-transform duration-200 hover:-translate-y-1 sm:flex-row',
+                'group card-elevated flex flex-col overflow-hidden rounded-3xl transition-transform duration-200 hover:-translate-y-1',
                 accent.ringClass,
             )}
         >
@@ -323,20 +252,17 @@ function GameTicket({
 
             <div className="flex flex-1 flex-col gap-4 p-6 sm:p-7">
                 {grouped ? (
-                    <>
-                        <div className="flex flex-wrap items-start justify-between gap-2.5">
-                            <div className="flex flex-col gap-1">
-                                <h3 className="text-2xl font-semibold tracking-tight text-balance text-foreground">
-                                    {game.source}
-                                </h3>
-                                <span className="font-display text-sm font-semibold text-muted-foreground">
-                                    {game.scoring_label}
-                                </span>
-                            </div>
-                            <PlayersStat count={game.players_count} />
+                    <div className="flex flex-wrap items-start justify-between gap-2.5">
+                        <div className="flex flex-col gap-1">
+                            <h3 className="text-2xl font-semibold tracking-tight text-balance text-foreground">
+                                {game.source}
+                            </h3>
+                            <span className="font-display text-sm font-semibold text-muted-foreground">
+                                {game.scoring_label}
+                            </span>
                         </div>
-                        <ScoringDetails game={game} />
-                    </>
+                        <PlayersStat count={game.players_count} />
+                    </div>
                 ) : (
                     <>
                         <div className="flex flex-wrap items-center justify-between gap-2.5">
@@ -353,13 +279,22 @@ function GameTicket({
                             game={game}
                             playersCount={game.players_count}
                         />
-                        <ScoringSummary game={game} />
+                        <Chip
+                            variant="points"
+                            className="w-fit px-3 py-1 text-xs"
+                        >
+                            {game.scoring_label}
+                        </Chip>
                     </>
                 )}
 
-                <PrizePanel pricing={game.pricing} />
+                <p className="text-sm text-muted-foreground">
+                    {game.scoring_description}
+                </p>
 
-                <div className="flex flex-wrap items-center gap-3">
+                <PrizeSplit pricing={game.pricing} canJoin={game.can_join} />
+
+                <div className="mt-auto flex flex-wrap items-center gap-3">
                     {game.joined && <StatPill icon={Check} label="Joined" />}
                     <EnterButton accent={accent} />
                 </div>
@@ -410,9 +345,9 @@ function TournamentGroupSection({ group }: { group: TournamentGroup }) {
     }
 
     return (
-        <section className="flex flex-col gap-4">
+        <section className="flex flex-col gap-5">
             <TournamentHeader group={group} />
-            <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 2xl:grid-cols-3">
                 {group.games.map((game) => (
                     <GameTicket key={game.slug} game={game} grouped />
                 ))}
@@ -474,7 +409,7 @@ export default function GamesIndex({ games }: GamesIndexProps) {
         <>
             <Head title="Games" />
             <div className="relative min-h-full bg-background">
-                <div className="relative mx-auto w-full max-w-4xl px-6 py-10">
+                <div className="relative w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-10">
                     <header className="hero relative mb-8 overflow-hidden rounded-3xl border border-border p-8">
                         <div className="hero-lines" />
                         <div className="relative flex flex-col gap-3">
@@ -517,3 +452,7 @@ export default function GamesIndex({ games }: GamesIndexProps) {
         </>
     );
 }
+
+GamesIndex.layout = {
+    breadcrumbs: [{ title: 'Games', href: index() }],
+};

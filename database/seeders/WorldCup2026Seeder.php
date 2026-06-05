@@ -299,7 +299,7 @@ class WorldCup2026Seeder extends Seeder
                 'predictions_lock_at' => null,
                 'entry_price' => 50.00,
                 'currency' => 'BRL',
-                'house_fee_percentage' => 15.00,
+                'house_fee_percentage' => 7.00,
                 'prize_structure' => [
                     ['place' => 1, 'percentage' => 70],
                     ['place' => 2, 'percentage' => 20],
@@ -344,11 +344,13 @@ class WorldCup2026Seeder extends Seeder
                 'predictions_lock_at' => null,
                 'entry_price' => 40.00,
                 'currency' => 'BRL',
-                'house_fee_percentage' => 10.00,
+                // No house cut — the whole buy-in goes into the pot ("100% to players").
+                'house_fee_percentage' => 0.00,
+                // A flatter split than FF&A so 2nd and 3rd are worth chasing, not a winner-take-most.
                 'prize_structure' => [
-                    ['place' => 1, 'percentage' => 70],
-                    ['place' => 2, 'percentage' => 20],
-                    ['place' => 3, 'percentage' => 10],
+                    ['place' => 1, 'percentage' => 50],
+                    ['place' => 2, 'percentage' => 30],
+                    ['place' => 3, 'percentage' => 20],
                 ],
             ],
         );

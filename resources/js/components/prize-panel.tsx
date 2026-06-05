@@ -1,28 +1,15 @@
-import { Coins } from 'lucide-react';
+import { NoFeeBadge } from '@/components/no-fee-badge';
 import { ordinal } from '@/lib/leaderboards';
 import { formatMoney } from '@/lib/money';
+import { placeBadge } from '@/lib/prizes';
 import { cn } from '@/lib/utils';
 import type { GamePricing } from '@/types/games';
 
-/** 🥇🥈🥉 for the podium, an ordinal ("4th") for anything deeper. */
-const MEDALS = ['🥇', '🥈', '🥉'];
-
-function placeBadge(place: number): string {
-    return MEDALS[place - 1] ?? ordinal(place);
-}
-
-/** "after 15% organizer fee", or null when the organizer takes no cut. */
-function feeNote(pricing: GamePricing): string | null {
-    return pricing.house_fee_percentage > 0
-        ? `after ${pricing.house_fee_percentage}% organizer fee`
-        : null;
-}
-
 /**
- * The money side of a game: the buy-in and the per-place prizes (raw amounts, net of the house
- * fee). Before anyone has joined the pool is empty, so the split shows as percentages with a
- * "grows as players join" hint instead of a row of R$0,00. Shared by the games list card and the
- * game banner.
+ * The full money breakdown for a game's page: the prize pool, each place's share (the raw amount net
+ * of the house fee, kept next to its percentage so the split stays clear), the buy-in, and the
+ * organizer's cut. Before anyone has joined the pool is empty, so the shares show as percentages
+ * under a "grows as players join" header. The lighter games-list teaser is {@link PrizeSplit}.
  */
 export function PrizePanel({
     pricing,
@@ -32,57 +19,69 @@ export function PrizePanel({
     className?: string;
 }) {
     const hasMoney = pricing.net > 0;
-    const fee = feeNote(pricing);
-
-    const footer = hasMoney
-        ? [`From a ${formatMoney(pricing.pool, pricing.currency)} pool`, fee]
-              .filter(Boolean)
-              .join(' · ')
-        : ['Prizes grow as players join', fee].filter(Boolean).join(' · ');
 
     return (
         <div
             className={cn(
-                'flex flex-col gap-3 rounded-2xl border border-border bg-secondary/40 p-4',
+                'flex flex-col gap-4 rounded-2xl border border-border bg-card/80 p-5',
                 className,
             )}
         >
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-baseline justify-between gap-3">
                 <span className="text-[0.65rem] font-bold tracking-[0.12em] text-muted-foreground uppercase">
-                    Buy-in
+                    Prize pool
                 </span>
-                <span className="font-display text-lg font-bold text-foreground">
-                    {formatMoney(pricing.entry_price, pricing.currency)}
+                <span className="font-display text-xl font-bold text-foreground">
+                    {hasMoney
+                        ? formatMoney(pricing.pool, pricing.currency)
+                        : 'Grows as players join'}
                 </span>
             </div>
 
-            <div className="flex items-center gap-2">
-                <Coins className="size-4 shrink-0 text-accent" />
-                <div className="flex flex-wrap gap-1.5">
-                    {pricing.prizes.map((prize) => (
-                        <span
-                            key={prize.place}
-                            className="inline-flex items-center gap-1.5 rounded-full bg-card px-2.5 py-1 text-xs font-semibold shadow-[var(--sh-sm)]"
-                        >
-                            <span className="sr-only">
-                                {ordinal(prize.place)} place:{' '}
-                            </span>
+            <div className="flex flex-col gap-2">
+                {pricing.prizes.map((prize) => (
+                    <div
+                        key={prize.place}
+                        className="flex items-center justify-between gap-3 text-sm"
+                    >
+                        <span className="inline-flex items-center gap-2 font-medium text-foreground">
                             <span aria-hidden>{placeBadge(prize.place)}</span>
-                            <b className="font-display text-[#8a5a00] dark:text-amber-300">
-                                {hasMoney
-                                    ? formatMoney(prize.amount, pricing.currency)
-                                    : `${prize.percentage}%`}
-                            </b>
+                            {ordinal(prize.place)} place
                         </span>
-                    ))}
-                </div>
+                        <span className="font-display font-bold text-[#8a5a00] dark:text-amber-300">
+                            {hasMoney ? (
+                                <>
+                                    {formatMoney(
+                                        prize.amount,
+                                        pricing.currency,
+                                    )}
+                                    <span className="ml-1.5 text-xs font-semibold text-muted-foreground">
+                                        {prize.percentage}%
+                                    </span>
+                                </>
+                            ) : (
+                                `${prize.percentage}%`
+                            )}
+                        </span>
+                    </div>
+                ))}
             </div>
 
-            {footer && (
-                <span className="text-[0.7rem] text-muted-foreground">
-                    {footer}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-sm">
+                <span className="text-foreground">
+                    <span className="text-muted-foreground">Buy-in</span>{' '}
+                    <b className="font-display">
+                        {formatMoney(pricing.entry_price, pricing.currency)}
+                    </b>
                 </span>
-            )}
+                {pricing.house_fee_percentage > 0 ? (
+                    <span className="text-muted-foreground">
+                        Organizer fee {pricing.house_fee_percentage}%
+                    </span>
+                ) : (
+                    <NoFeeBadge />
+                )}
+            </div>
         </div>
     );
 }

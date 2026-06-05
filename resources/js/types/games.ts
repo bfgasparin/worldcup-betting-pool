@@ -33,10 +33,9 @@ export interface GameSummary {
  * games over the same competition apart.
  */
 export interface GameListItem extends GameSummary {
-    scoring_strategy: string;
     scoring_label: string;
+    /** One-line explainer of how this game scores — what differs from its siblings. */
     scoring_description: string;
-    scoring_config: Record<string, Record<string, number>>;
     /** The competition this game is played over. Sibling games share this identity. */
     tournament: { id: number; name: string };
     /** 0-based position among the tournament's games (by id) — drives the per-game kit colour. */
@@ -45,6 +44,8 @@ export interface GameListItem extends GameSummary {
     players_count: number;
     /** Whether the viewer has already joined this pool. */
     joined: boolean;
+    /** Whether joining is still open — drives the card's buy-in + percentage/raw prize display. */
+    can_join: boolean;
     /** Buy-in and prizes, computed from the current pool size. */
     pricing: GamePricing;
 }

@@ -1,41 +1,109 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
 import AppLogoIcon from '@/components/app-logo-icon';
 import { home } from '@/routes';
 import type { AuthLayoutProps } from '@/types';
 
+/** The pitch panel's talking points — the same brand voice as the welcome screen. */
+const STATS = [
+    { stat: 'Live', label: 'Match predictions' },
+    { stat: 'Season', label: 'Long leaderboards' },
+    { stat: 'Glory', label: 'Bragging rights' },
+];
+
+/**
+ * The branded split-screen auth shell: an immersive pitch panel (field lines, stadium glows, the
+ * tagline and a few stats) fills one half on large screens, the form fills the other — so the
+ * sign-in page wears the same pitch-green + gold identity as the rest of the app and leaves no
+ * dead space. On small screens the panel drops away and the form takes the stage with a compact
+ * logo lockup.
+ */
 export default function AuthSplitLayout({
     children,
     title,
     description,
 }: AuthLayoutProps) {
-    const { name } = usePage().props;
-
     return (
-        <div className="relative grid h-dvh flex-col items-center justify-center px-8 sm:px-0 lg:max-w-none lg:grid-cols-2 lg:px-0">
-            <div className="relative hidden h-full flex-col bg-muted p-10 text-white lg:flex dark:border-r">
-                <div className="absolute inset-0 bg-zinc-900" />
+        <div className="grid min-h-svh lg:grid-cols-2">
+            <div className="hero relative hidden flex-col justify-between overflow-hidden p-10 lg:flex xl:p-14">
+                <div className="hero-lines" />
+                {/* Stadium-light glows */}
+                <div className="pointer-events-none absolute inset-0 -z-10">
+                    <div className="absolute -top-24 -right-28 size-[34rem] rounded-full bg-primary/25 blur-[120px]" />
+                    <div className="absolute -bottom-40 -left-32 size-[26rem] rounded-full bg-accent/15 blur-[120px]" />
+                </div>
+
                 <Link
                     href={home()}
-                    className="relative z-20 flex items-center text-lg font-medium"
+                    className="relative z-10 flex w-fit items-center gap-3"
                 >
-                    <AppLogoIcon className="mr-2 size-8 fill-current text-white" />
-                    {name}
+                    <div className="app-icon size-10 rounded-2xl shadow-[var(--sh-sm)]">
+                        <AppLogoIcon className="size-6 text-white" />
+                    </div>
+                    <span className="inline-flex items-baseline font-display text-lg font-semibold tracking-tight text-foreground">
+                        Brothers
+                        <span className="ml-2 text-[10px] font-bold tracking-[0.22em] text-muted-foreground uppercase">
+                            Betting Pool
+                        </span>
+                    </span>
                 </Link>
+
+                <div className="relative z-10 flex flex-col gap-6">
+                    <span className="inline-flex w-fit items-center gap-2.5 rounded-full bg-muted px-4 py-1.5 text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">
+                        <span className="bg-brand-gradient size-2 rounded-full" />
+                        Members Only · Invite Required
+                    </span>
+                    <h2 className="max-w-md font-display text-4xl font-semibold tracking-tight text-balance text-foreground xl:text-5xl">
+                        Where the <span className="text-primary">pool</span>{' '}
+                        plays for <span className="text-gold">glory</span>.
+                    </h2>
+                    <p className="max-w-sm text-pretty text-muted-foreground">
+                        Predict the fixtures, climb the leaderboard, and settle
+                        the bragging rights — every match, every season.
+                    </p>
+                </div>
+
+                <dl className="relative z-10 grid grid-cols-3 gap-3">
+                    {STATS.map((item) => (
+                        <div
+                            key={item.label}
+                            className="rounded-2xl border border-border bg-card/70 p-4 shadow-[var(--sh-sm)] backdrop-blur"
+                        >
+                            <dt className="font-display text-lg font-semibold text-primary">
+                                {item.stat}
+                            </dt>
+                            <dd className="mt-0.5 text-xs text-muted-foreground">
+                                {item.label}
+                            </dd>
+                        </div>
+                    ))}
+                </dl>
             </div>
-            <div className="w-full lg:p-8">
-                <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
+
+            <div className="flex flex-col items-center justify-center bg-background px-6 py-12 sm:px-10">
+                <div className="flex w-full max-w-sm flex-col gap-8">
                     <Link
                         href={home()}
-                        className="relative z-20 flex items-center justify-center lg:hidden"
+                        className="flex flex-col items-center gap-3 lg:hidden"
                     >
-                        <AppLogoIcon className="h-10 fill-current text-black sm:h-12" />
+                        <div className="app-icon size-12 rounded-2xl shadow-[var(--sh-md)]">
+                            <AppLogoIcon className="size-7 text-white" />
+                        </div>
+                        <span className="font-display text-lg font-semibold tracking-tight">
+                            Brothers Betting Pool
+                        </span>
                     </Link>
-                    <div className="flex flex-col items-start gap-2 text-left sm:items-center sm:text-center">
-                        <h1 className="text-xl font-medium">{title}</h1>
-                        <p className="text-sm text-balance text-muted-foreground">
-                            {description}
-                        </p>
+
+                    <div className="flex flex-col gap-2">
+                        <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground">
+                            {title}
+                        </h1>
+                        {description && (
+                            <p className="text-sm text-muted-foreground">
+                                {description}
+                            </p>
+                        )}
                     </div>
+
                     {children}
                 </div>
             </div>
