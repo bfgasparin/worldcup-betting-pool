@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\OrderingScope;
 use App\Enums\PredictionWindowStatus;
 use App\Http\Controllers\Concerns\BuildsPoolIdentity;
+use App\Http\Requests\Predictions\ImportPredictionsRequest;
 use App\Http\Requests\Predictions\UpdateGroupOrderingRequest;
 use App\Http\Requests\Predictions\UpdateGroupPredictionsRequest;
 use App\Http\Requests\Predictions\UpdateKnockoutPredictionsRequest;
@@ -21,6 +22,7 @@ use App\Services\Predictions\GroupStandings;
 use App\Services\Predictions\GroupStandingsPresenter;
 use App\Services\Predictions\KnockoutSlotResolver;
 use App\Services\Predictions\ManualTieOrdering;
+use App\Services\Predictions\PredictionImporter;
 use App\Services\Predictions\PredictionWindowResolver;
 use App\Services\Predictions\ResolvedBracket;
 use Illuminate\Http\RedirectResponse;
@@ -37,6 +39,7 @@ class PredictionController extends Controller
     public function __construct(
         private readonly BracketResolver $resolver,
         private readonly PredictionWindowResolver $windowResolver,
+        private readonly PredictionImporter $importer,
     ) {}
 
     /**
@@ -95,6 +98,12 @@ class PredictionController extends Controller
                 : $this->mapOfficialBracket($tournament->knockoutFixtures, $knockoutPredictions, $teamsById, $windows),
             'thirds' => $pool->predictsKnockoutBracket() ? $this->mapThirds($bracket, $teamsById) : null,
             'thirds_tie' => $this->mapThirdsTie($pool, $bracket, $tournament, $teamsById, $entry !== null ? ManualTieOrdering::fromEntry($entry)->thirds : null),
+            // Sibling pools the user can copy predictions from, and whether to nudge them to do so.
+            'import_sources' => $this->importer->eligibleSources($pool, $request->user()),
+            'should_suggest_import' => $this->importer->shouldSuggest($pool, $request->user()),
+            // Phased pools can't resolve standings ties (the bracket is official); flag when one
+            // exists so the wizard can explain instead of leaving the user looking for a control.
+            'show_tie_note' => $this->phasedStandingsHaveTies($pool, $bracket, $tournament),
         ]);
     }
 
@@ -202,6 +211,22 @@ class PredictionController extends Controller
     }
 
     /**
+     * Overwrite the user's predictions in this pool's currently-open window(s) with their own
+     * picks from a sibling pool of the same tournament, then reload the prefilled wizard.
+     */
+    public function import(ImportPredictionsRequest $request, Pool $pool): RedirectResponse
+    {
+        $this->importer->import($request->entry(), $request->sourcePool());
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => __('Predictions imported from :source.', ['source' => $request->sourcePool()->source]),
+        ]);
+
+        return to_route('pools.predict.edit', $pool);
+    }
+
+    /**
      * Resolve the bracket for the entry, or an empty read-only bracket when the user has
      * no entry (e.g. a locked pool they never entered).
      */
@@ -286,6 +311,27 @@ class PredictionController extends Controller
             'teams' => array_map(fn (int $teamId): ?array => $this->teamRef($teamsById->get($teamId)), $straddling),
             'resolved' => $bracket->rankedThirds !== null,
         ];
+    }
+
+    /**
+     * Whether a phased pool's group standings contain a tie the player would expect to resolve (a
+     * within-group cluster or a straddling best-thirds cut). Upfront pools surface the editable tie
+     * panels instead; phased pools predict the official bracket, so a tie has no effect — the note
+     * keyed off this just explains that, rather than leaving the player hunting for a control.
+     */
+    private function phasedStandingsHaveTies(Pool $pool, ResolvedBracket $bracket, Tournament $tournament): bool
+    {
+        if ($pool->predictsKnockoutBracket()) {
+            return false;
+        }
+
+        foreach ($bracket->standings as $standings) {
+            if ($standings->isComplete() && $standings->tieClustersWithStatus() !== []) {
+                return true;
+            }
+        }
+
+        return (new KnockoutSlotResolver)->straddlingThirds($bracket->standings, $tournament->groups, null) !== [];
     }
 
     /**

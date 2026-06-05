@@ -38,12 +38,16 @@ use Illuminate\Support\Collection;
     {--until= : Play official results for matches ended on or before this datetime (UTC), e.g. "2026-06-18 22:00" — like --through but date-granular, so you can land mid-phase. Also advances the dev clock (local)}
     {--seed= : Optional seed string to generate a different but reproducible world}
     {--predict-only : Set up players + predictions only; leave fixtures scheduled with no official results}
+    {--me-skip= : Leave the --me user joined but WITHOUT predictions in this pool (by slug or source), so the "import from another pool" suggestion shows when you open it — its sibling, which the user fills, becomes the source}
     {--tie= : Stage an UNRESOLVED official tie for an admin to resolve on the review screen — "thirds" (a best-thirds cut tie) or "group" (every group level). Skips the normal results play.}
     {--reset : Clear official results + scoring for the tournament before simulating}')]
 #[Description('Locally simulate a closed, fully-scored tournament: demo players + predictions, official results, computed board.')]
 class SimulateTournament extends Command
 {
     private DeterministicScores $scores;
+
+    /** Pool id in which the --me user is deliberately left empty (see --me-skip), or null. */
+    private ?int $meSkipPoolId = null;
 
     /**
      * Each pool's demo entries paired with their prediction seed index, keyed by pool id. Built up
@@ -103,6 +107,23 @@ class SimulateTournament extends Command
             ? CarbonImmutable::parse($untilOption, 'UTC')
             : null;
 
+        if (($meSkip = $this->option('me-skip')) !== null) {
+            $meSkipPool = $pools->first(fn (Pool $pool): bool => strcasecmp($pool->slug, $meSkip) === 0
+                || strcasecmp($pool->source, $meSkip) === 0);
+
+            if ($meSkipPool === null) {
+                $this->components->error("Unknown --me-skip [{$meSkip}]. Use a pool slug or source: ".$pools->map(fn (Pool $pool): string => $pool->slug)->implode(', '));
+
+                return self::FAILURE;
+            }
+
+            if ($pools->count() < 2) {
+                $this->components->warn('Only one pool exists, so there is no sibling to import from — the suggestion will not appear.');
+            }
+
+            $this->meSkipPoolId = $meSkipPool->id;
+        }
+
         $this->scores = new DeterministicScores((string) ($this->option('seed') ?? ''));
 
         if ($this->option('reset')) {
@@ -115,6 +136,12 @@ class SimulateTournament extends Command
             $this->rosterByPool[$pool->id] = $entries;
 
             foreach ($entries as [$entry, $seedIndex]) {
+                // Leave the --me user (seed index 0) empty in the chosen pool so the import
+                // suggestion has a sibling to offer when that pool's predict page is opened.
+                if ($this->isMeSkipped($pool, $seedIndex)) {
+                    continue;
+                }
+
                 // Respect predictions already made in the UI (e.g. your own); only fill empties.
                 if ($entry->groupPredictions()->exists()) {
                     continue;
@@ -323,6 +350,15 @@ class SimulateTournament extends Command
         return $pool->entries()->firstOrCreate(['user_id' => $user->id]);
     }
 
+    /**
+     * Whether this entry is the --me user (seed index 0) in the pool chosen by --me-skip, and so
+     * should be left without generated predictions.
+     */
+    private function isMeSkipped(Pool $pool, int $seedIndex): bool
+    {
+        return $seedIndex === 0 && $pool->id === $this->meSkipPoolId;
+    }
+
     private function generateGroupPredictions(Tournament $tournament, Entry $entry, int $seedIndex): void
     {
         foreach ($tournament->groups()->with('fixtures')->get() as $group) {
@@ -403,6 +439,10 @@ class SimulateTournament extends Command
         }
 
         foreach ($this->rosterByPool[$pool->id] ?? [] as [$entry, $seedIndex]) {
+            if ($this->isMeSkipped($pool, $seedIndex)) {
+                continue;
+            }
+
             foreach ($fixtures as $fixture) {
                 if ($entry->knockoutPredictions()->where('fixture_id', $fixture->id)->exists()) {
                     continue;
@@ -666,6 +706,15 @@ class SimulateTournament extends Command
 
         if ($me !== '') {
             $this->components->info("Log in at /login as {$me} — the 6-digit code is written to the log (`php artisan pail`).");
+        }
+
+        if ($this->meSkipPoolId !== null && $me !== '') {
+            $skip = $pools->firstWhere('id', $this->meSkipPoolId);
+
+            if ($skip !== null) {
+                $this->newLine();
+                $this->components->info("Left {$me} with no predictions in {$skip->source} — open ".route('pools.predict.edit', $skip).' to see the "import from another pool" suggestion.');
+            }
         }
     }
 

@@ -246,4 +246,61 @@ class SimulateTournamentTest extends TestCase
         // The entry was left as-is, so no extra predictions were generated for it.
         $this->assertSame(1, $entry->groupPredictions()->count());
     }
+
+    public function test_me_skip_leaves_the_me_user_empty_in_the_named_pool(): void
+    {
+        $ffa = $this->tournament->pools()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
+        $brothers = $this->tournament->pools()->where('slug', 'world-cup-2026-brothers')->firstOrFail();
+
+        $this->artisan('tournament:simulate', [
+            '--players' => 2,
+            '--me' => 'me@example.com',
+            '--predict-only' => true,
+            '--me-skip' => 'world-cup-2026-brothers',
+        ])->assertSuccessful();
+
+        $me = User::firstWhere('email', 'me@example.com');
+        $this->assertNotNull($me);
+
+        // The --me user joined both pools (the entry exists so the predict page is reachable)...
+        $ffaEntry = $ffa->entries()->where('user_id', $me->id)->firstOrFail();
+        $brothersEntry = $brothers->entries()->where('user_id', $me->id)->firstOrFail();
+
+        // ...but is filled only in the sibling, leaving the skipped pool empty so the import
+        // suggestion fires there with the sibling as the source.
+        $this->assertSame(72, $ffaEntry->groupPredictions()->count());
+        $this->assertSame(0, $brothersEntry->groupPredictions()->count());
+        $this->assertSame(0, $brothersEntry->knockoutPredictions()->count());
+
+        // Demo players still fill the skipped pool — only the --me user is left empty there.
+        $demo = $brothers->entries()
+            ->whereHas('user', fn ($query) => $query->where('email', 'sim-player-1@ffa.test'))
+            ->firstOrFail();
+        $this->assertSame(72, $demo->groupPredictions()->count());
+    }
+
+    public function test_me_skip_also_matches_a_pool_by_source(): void
+    {
+        $brothers = $this->tournament->pools()->where('slug', 'world-cup-2026-brothers')->firstOrFail();
+
+        $this->artisan('tournament:simulate', [
+            '--players' => 1,
+            '--me' => 'me@example.com',
+            '--predict-only' => true,
+            '--me-skip' => $brothers->source,
+        ])->assertSuccessful();
+
+        $me = User::firstWhere('email', 'me@example.com');
+        $brothersEntry = $brothers->entries()->where('user_id', $me->id)->firstOrFail();
+        $this->assertSame(0, $brothersEntry->groupPredictions()->count());
+    }
+
+    public function test_me_skip_fails_on_an_unknown_pool(): void
+    {
+        $this->artisan('tournament:simulate', [
+            '--players' => 1,
+            '--predict-only' => true,
+            '--me-skip' => 'no-such-pool',
+        ])->assertFailed();
+    }
 }

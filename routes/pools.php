@@ -16,6 +16,7 @@ Route::middleware(['auth'])->group(function () {
     Route::put('pools/{pool:slug}/predict/group', [PredictionController::class, 'updateGroupStage'])->name('pools.predict.group');
     Route::put('pools/{pool:slug}/predict/knockout', [PredictionController::class, 'updateKnockout'])->name('pools.predict.knockout');
     Route::put('pools/{pool:slug}/predict/ordering', [PredictionController::class, 'updateOrdering'])->name('pools.predict.ordering');
+    Route::post('pools/{pool:slug}/predict/import', [PredictionController::class, 'import'])->name('pools.predict.import');
 
     // Admin-only score review & approval.
     Route::middleware('can:manage-tournament')->group(function () {

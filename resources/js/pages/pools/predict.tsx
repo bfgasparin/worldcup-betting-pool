@@ -5,12 +5,15 @@ import {
     ChevronLeft,
     ChevronRight,
     CircleAlert,
+    Download,
+    Info,
     Loader2,
     Lock,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { GroupBadge, TeamChip } from '@/components/fixtures';
 import { Flag } from '@/components/flag';
+import { ImportPredictionsDialog } from '@/components/import-predictions-dialog';
 import { PoolIdentity } from '@/components/pool-identity';
 import { ScoreStepper } from '@/components/score-stepper';
 import { StandingsTable } from '@/components/standings-table';
@@ -588,10 +591,17 @@ export default function Predict({
     bracket,
     thirds,
     thirds_tie: thirdsTie,
+    import_sources: importSources,
+    should_suggest_import: shouldSuggestImport,
+    show_tie_note: showTieNote,
 }: PredictPageProps) {
     const canEdit = pool.can_edit;
     const [step, setStep] = useState(0);
     const [saveStatus, setSaveStatus] = useState<SaveStatusValue>('idle');
+    const [importOpen, setImportOpen] = useState(false);
+    // A session-only dismissal of the nudge. The server prop drives whether it returns next visit,
+    // so skipping just hides it now and it reappears until the user has a prediction (or imports).
+    const [suggestionDismissed, setSuggestionDismissed] = useState(false);
     const [groupScores, setGroupScores] = useState<GroupScores>(() =>
         buildGroupScores(groups),
     );
@@ -654,6 +664,9 @@ export default function Predict({
     // results to open — phased pools shouldn't show the "all locked" banner while rounds are pending.
     const anyOpen = canEdit || bracket.some((phase) => phase.window === 'open');
     const anyPending = bracket.some((phase) => phase.window === 'pending');
+    const canImport = importSources.length > 0;
+    const showImportSuggestion =
+        shouldSuggestImport && canImport && !suggestionDismissed;
 
     function buildStepPayload(): {
         url: string;
@@ -772,6 +785,16 @@ export default function Predict({
         scheduleFlush();
     }
 
+    // Drop any queued auto-save before an import so a stale debounced PUT can't race the overwrite.
+    function cancelPendingSave(): void {
+        if (timerRef.current !== null) {
+            clearTimeout(timerRef.current);
+            timerRef.current = null;
+        }
+
+        dirtyRef.current = false;
+    }
+
     useEffect(() => {
         return () => {
             if (timerRef.current !== null) {
@@ -860,6 +883,16 @@ export default function Predict({
                             >
                                 ← Back to pool
                             </Link>
+                            {canImport && (
+                                <button
+                                    type="button"
+                                    onClick={() => setImportOpen(true)}
+                                    className="inline-flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                                >
+                                    <Download className="size-4" />
+                                    Import from another pool
+                                </button>
+                            )}
                         </div>
                         <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
                             My Predictions
@@ -896,6 +929,37 @@ export default function Predict({
                     </div>
                 )}
 
+                {showImportSuggestion && (
+                    <div className="flex flex-col gap-3 rounded-2xl border border-gold/40 bg-gold/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-start gap-3 text-sm text-foreground">
+                            <Download className="mt-0.5 size-4 shrink-0" />
+                            <span>
+                                You have already made these picks in{' '}
+                                <strong>{importSources[0].source}</strong>.
+                                Import them here instead of starting over?
+                            </span>
+                        </div>
+                        <div className="flex shrink-0 gap-2">
+                            <Button
+                                type="button"
+                                variant="gold"
+                                size="sm"
+                                onClick={() => setImportOpen(true)}
+                            >
+                                Import
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSuggestionDismissed(true)}
+                            >
+                                Not now
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
                 <ol className="flex flex-wrap gap-2">
                     {STEP_TITLES.map((title, index) => (
                         <li key={title}>
@@ -916,6 +980,17 @@ export default function Predict({
                 <section className="flex flex-1 flex-col gap-4">
                     {step === 0 ? (
                         <>
+                            {showTieNote && (
+                                <div className="flex items-start gap-3 rounded-2xl border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+                                    <Info className="mt-0.5 size-4 shrink-0" />
+                                    <span>
+                                        Some groups finish level on points. Ties
+                                        do not affect this pool — your knockout
+                                        predictions follow the real match-ups,
+                                        so there is nothing to resolve here.
+                                    </span>
+                                </div>
+                            )}
                             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                                 {groups.map((group) => (
                                     <GroupCard
@@ -996,6 +1071,16 @@ export default function Predict({
                     )}
                 </footer>
             </div>
+
+            {canImport && (
+                <ImportPredictionsDialog
+                    poolSlug={pool.slug}
+                    sources={importSources}
+                    open={importOpen}
+                    onOpenChange={setImportOpen}
+                    onBeforeImport={cancelPendingSave}
+                />
+            )}
         </>
     );
 }

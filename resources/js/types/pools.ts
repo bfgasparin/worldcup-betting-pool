@@ -464,6 +464,26 @@ export interface PredictPoolDetail {
     scoring_config: Record<string, Record<string, number>>;
 }
 
+/**
+ * A sibling pool of the same tournament whose predictions the user can copy into this pool's
+ * currently-open window(s). Surfaced on the predict wizard so the user can import instead of
+ * re-entering identical picks.
+ */
+export interface ImportSource {
+    slug: string;
+    name: string;
+    /** The group/source that created the pool, e.g. "FF&A". */
+    source: string;
+    /** The pool's colour identity key; null falls back to a positional colour. */
+    accent?: string | null;
+    /** Short human-readable scoring style, e.g. "Upfront Bracket". */
+    scoring_label?: string;
+    /** Display names of the phases that would be imported, e.g. ["Group Stage"]. */
+    phase_labels: string[];
+    /** How many of the user's own predictions would be copied — a completeness hint. */
+    predictions_count: number;
+}
+
 export interface PredictPageProps {
     pool: PredictPoolDetail;
     groups: PredictGroup[];
@@ -475,4 +495,10 @@ export interface PredictPageProps {
      * there is no such tie.
      */
     thirds_tie: { teams: TeamRef[]; resolved: boolean } | null;
+    /** Sibling pools the user can copy predictions from for the currently-open window(s). */
+    import_sources: ImportSource[];
+    /** Whether to nudge the user to import (an open window is empty and a source can fill it). */
+    should_suggest_import: boolean;
+    /** Whether this (phased) pool's standings hold a tie that has no effect, so we explain it. */
+    show_tie_note: boolean;
 }
