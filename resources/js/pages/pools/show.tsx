@@ -460,6 +460,7 @@ function PoolPreview({
                                   primary: row.points,
                                   isMe: row.is_me,
                                   movement: row.movement,
+                                  movementDelta: row.movement_delta,
                               }}
                           />
                       ))}
@@ -477,6 +478,7 @@ function PoolPreview({
                                 primary: pinnedMe.points,
                                 isMe: true,
                                 movement: pinnedMe.movement,
+                                movementDelta: pinnedMe.movement_delta,
                             }}
                         />
                     </>
@@ -589,6 +591,8 @@ function BoardSummaries({
                                     {board.you?.movement && (
                                         <MovementArrow
                                             movement={board.you.movement}
+                                            delta={board.you.movement_delta}
+                                            size="sm"
                                         />
                                     )}
                                 </span>

@@ -155,6 +155,7 @@ export default function Leaderboard({
                                             ),
                                             isMe: row.is_me,
                                             movement: row.movement,
+                                            movementDelta: row.movement_delta,
                                         }}
                                     />
                                 ))}

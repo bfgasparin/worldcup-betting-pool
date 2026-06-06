@@ -229,6 +229,8 @@ export interface LeaderboardEntryRow {
     points: number | null;
     is_me: boolean;
     movement: RankMovement | null;
+    /** How many places this row moved since the last results, or null when not comparable. */
+    movement_delta: number | null;
 }
 
 export interface PoolStandings {
@@ -297,6 +299,8 @@ export interface BoardRow {
     secondary_value: number | null;
     is_me: boolean;
     movement: RankMovement | null;
+    /** How many places this row moved since the last results, or null when not comparable. */
+    movement_delta: number | null;
 }
 
 export interface LeaderboardBoard {
@@ -327,6 +331,8 @@ export interface BoardSummary {
         rank: number;
         primary_value: number | null;
         movement: RankMovement | null;
+        /** How many places the viewer moved since the last results, or null when not comparable. */
+        movement_delta: number | null;
     } | null;
 }
 
