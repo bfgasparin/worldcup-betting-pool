@@ -289,6 +289,24 @@ export interface BoardRow {
     movement_delta: number | null;
 }
 
+/** One player's headline number for a single matchday — a card on the Leaderboards page. */
+export interface MatchdayStat {
+    entry_id: number;
+    name: string;
+    initials: string;
+    avatar: string | null;
+    /** The board's metric earned within the matchday (points / winners / team goals). */
+    value: number;
+    is_me: boolean;
+}
+
+/** The you / top / lowest cards for the selected matchday, in the active board's metric. */
+export interface MatchdayCards {
+    you: MatchdayStat | null;
+    top: MatchdayStat | null;
+    lowest: MatchdayStat | null;
+}
+
 export interface LeaderboardBoard {
     key: LeaderboardCategoryKey;
     label: string;
@@ -299,6 +317,23 @@ export interface LeaderboardBoard {
     awards_prizes: boolean;
     has_scores: boolean;
     rows: BoardRow[];
+    /** Per-matchday cards for this board, scoped to the selected matchday. */
+    matchday_stats: MatchdayCards;
+}
+
+/**
+ * A stop on the leaderboard's matchday timeline: a group-stage round or a knockout phase. Times are
+ * UTC ISO strings; render them in the viewer's zone.
+ */
+export interface LeaderboardMatchday {
+    key: string;
+    label: string;
+    short_label: string;
+    kind: 'group' | 'knockout';
+    status: 'complete' | 'in_progress' | 'upcoming';
+    is_current: boolean;
+    starts_at: string | null;
+    ends_at: string | null;
 }
 
 /**
@@ -361,6 +396,10 @@ export interface LeaderboardPageProps {
     pool: PoolSummary & { pricing: PoolPricing };
     boards: LeaderboardBoard[];
     active_board: LeaderboardCategoryKey | null;
+    /** The matchday timeline the viewer can travel along. */
+    matchdays: LeaderboardMatchday[];
+    /** The key of the currently selected matchday (server-validated, defaults to current). */
+    selected_matchday: string;
 }
 
 // --- Compare players ---

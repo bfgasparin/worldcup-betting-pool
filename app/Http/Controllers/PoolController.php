@@ -21,6 +21,8 @@ use App\Services\Pools\PrizePot;
 use App\Services\Predictions\GroupStandings;
 use App\Services\Predictions\GroupStandingsPresenter;
 use App\Services\Predictions\PlayerComparison;
+use App\Services\Scoring\MatchdayLeaderboard;
+use App\Services\Scoring\RankMovement;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -280,26 +282,37 @@ class PoolController extends Controller
     }
 
     /**
-     * The Leaderboards page — every board's full table. The viewer's row is marked, and each board
-     * reports whether scoring has begun so the page can lead with an explainer state. `active_board`
-     * preselects a tab when a valid `?board=` is given (e.g. from a leaders-strip link).
+     * The Leaderboards page — every board's full table for the selected matchday. The viewer can
+     * travel the tournament's matchday timeline (`?matchday=`, defaulting to the current one): the
+     * table shows how each board stood at that matchday's end, and the cards show what each player
+     * earned within it. The viewer's row is marked, and each board reports whether scoring has begun
+     * so the page can lead with an explainer state. `active_board` preselects a tab when a valid
+     * `?board=` is given (e.g. from a leaders-strip link).
      */
-    public function leaderboard(Request $request, Pool $pool): Response
+    public function leaderboard(Request $request, Pool $pool, MatchdayLeaderboard $matchdays): Response
     {
-        $boards = $this->boards($pool, $request->user()->id);
-        $requested = $request->query('board');
-        $active = is_string($requested) && in_array($requested, array_column($boards, 'key'), true)
-            ? $requested
+        $requestedMatchday = $request->query('matchday');
+        $view = $matchdays->build(
+            $pool,
+            $request->user()->id,
+            is_string($requestedMatchday) ? $requestedMatchday : null,
+        );
+
+        $requestedBoard = $request->query('board');
+        $active = is_string($requestedBoard) && in_array($requestedBoard, array_column($view->boards, 'key'), true)
+            ? $requestedBoard
             : null;
 
         return Inertia::render('pools/leaderboard', [
             // pricing gates the "Prize board" badge and feeds the inline prize amounts on Overall.
             'pool' => [
                 ...$this->poolHeader($pool),
-                'pricing' => PrizePot::forPool($pool, count($boards[0]['rows']))->toArray(),
+                'pricing' => PrizePot::forPool($pool, $view->participants)->toArray(),
             ],
-            'boards' => $boards,
+            'boards' => $view->boards,
             'active_board' => $active,
+            'matchdays' => $view->matchdays,
+            'selected_matchday' => $view->selectedKey,
         ]);
     }
 
@@ -541,19 +554,7 @@ class PoolController extends Controller
      */
     private function movement(?int $rank, ?int $previousRank): ?string
     {
-        if ($rank === null) {
-            return null;
-        }
-
-        if ($previousRank === null) {
-            return 'new';
-        }
-
-        return match (true) {
-            $rank < $previousRank => 'up',
-            $rank > $previousRank => 'down',
-            default => 'same',
-        };
+        return RankMovement::direction($rank, $previousRank);
     }
 
     /**
@@ -562,11 +563,7 @@ class PoolController extends Controller
      */
     private function movementDelta(?int $rank, ?int $previousRank): ?int
     {
-        if ($rank === null || $previousRank === null) {
-            return null;
-        }
-
-        return abs($rank - $previousRank) ?: null;
+        return RankMovement::delta($rank, $previousRank);
     }
 
     /**
