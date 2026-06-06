@@ -826,6 +826,8 @@ class PoolControllerTest extends TestCase
                 ->has('boards.0.matchday_stats.you')
                 ->has('boards.0.matchday_stats.top')
                 ->has('boards.0.matchday_stats.lowest')
+                ->has('boards.0.matchday_stats.biggest_climber')
+                ->has('boards.0.matchday_stats.biggest_faller')
             );
     }
 

@@ -300,11 +300,17 @@ export interface MatchdayStat {
     is_me: boolean;
 }
 
-/** The you / top / lowest cards for the selected matchday, in the active board's metric. */
+/**
+ * The per-matchday cards for the selected matchday on the active board. `you`/`top`/`lowest` carry
+ * the metric earned; `biggest_climber`/`biggest_faller` carry places moved on the board (their
+ * `value` is the number of places).
+ */
 export interface MatchdayCards {
     you: MatchdayStat | null;
     top: MatchdayStat | null;
     lowest: MatchdayStat | null;
+    biggest_climber: MatchdayStat | null;
+    biggest_faller: MatchdayStat | null;
 }
 
 export interface LeaderboardBoard {

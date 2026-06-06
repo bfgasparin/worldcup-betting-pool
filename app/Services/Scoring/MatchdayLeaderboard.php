@@ -223,7 +223,60 @@ class MatchdayLeaderboard
             'awards_prizes' => $category->awardsPrizes(),
             'has_scores' => $hasScores,
             'rows' => $rows,
-            'matchday_stats' => $this->matchdayStats($category, $entries, $userId, $breakdownsByEntry, $singleIds),
+            'matchday_stats' => [
+                ...$this->matchdayStats($category, $entries, $userId, $breakdownsByEntry, $singleIds),
+                ...$this->movers($rows),
+            ],
+        ];
+    }
+
+    /**
+     * The two movement cards for the selected matchday, read off the board's own rows: the row that
+     * climbed the most and the one that fell the most (largest `movement_delta` in each direction).
+     * Null when nobody moved that way (e.g. the first matchday, where every row is "new"). The
+     * `value` is places moved.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @return array{biggest_climber: ?array<string, mixed>, biggest_faller: ?array<string, mixed>}
+     */
+    private function movers(array $rows): array
+    {
+        $climber = null;
+        $faller = null;
+
+        foreach ($rows as $row) {
+            if ($row['movement_delta'] === null) {
+                continue;
+            }
+
+            if ($row['movement'] === 'up' && ($climber === null || $row['movement_delta'] > $climber['movement_delta'])) {
+                $climber = $row;
+            } elseif ($row['movement'] === 'down' && ($faller === null || $row['movement_delta'] > $faller['movement_delta'])) {
+                $faller = $row;
+            }
+        }
+
+        return [
+            'biggest_climber' => $climber !== null ? $this->moverStat($climber) : null,
+            'biggest_faller' => $faller !== null ? $this->moverStat($faller) : null,
+        ];
+    }
+
+    /**
+     * A movement card from a board row, carrying the places moved as its `value`.
+     *
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>
+     */
+    private function moverStat(array $row): array
+    {
+        return [
+            'entry_id' => $row['entry_id'],
+            'name' => $row['name'],
+            'initials' => $row['initials'],
+            'avatar' => $row['avatar'],
+            'value' => $row['movement_delta'],
+            'is_me' => $row['is_me'],
         ];
     }
 

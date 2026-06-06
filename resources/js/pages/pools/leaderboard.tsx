@@ -1,5 +1,7 @@
 import { Head, router } from '@inertiajs/react';
 import {
+    ArrowDown,
+    ArrowUp,
     ChevronLeft,
     ChevronRight,
     Crown,
@@ -225,6 +227,61 @@ function MatchdayStatCard({
             ) : (
                 <p className="mt-3 text-sm text-muted-foreground">
                     Not started
+                </p>
+            )}
+        </div>
+    );
+}
+
+/**
+ * A compact movement card (biggest climber / faller) — the player and how many places they moved on
+ * the board this matchday. `stat.value` is the number of places.
+ */
+function MoverCard({
+    title,
+    direction,
+    stat,
+}: {
+    title: string;
+    direction: 'up' | 'down';
+    stat: MatchdayStat | null;
+}) {
+    const up = direction === 'up';
+    const Icon = up ? ArrowUp : ArrowDown;
+
+    return (
+        <div className="card-elevated rounded-2xl border border-border bg-card p-4">
+            <div className="flex items-center gap-1.5 text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">
+                <Icon
+                    className={cn(
+                        'size-4',
+                        up ? 'text-primary' : 'text-destructive',
+                    )}
+                />
+                {title}
+            </div>
+
+            {stat ? (
+                <div className="mt-3 flex items-center gap-2.5">
+                    <AvatarBubble stat={stat} />
+                    <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold text-foreground">
+                            {stat.name}
+                        </div>
+                        <div
+                            className={cn(
+                                'mt-0.5 inline-flex items-center gap-0.5 font-display text-sm font-semibold tabular-nums',
+                                up ? 'text-primary' : 'text-destructive',
+                            )}
+                        >
+                            <Icon className="size-3.5" />
+                            {stat.value} {stat.value === 1 ? 'place' : 'places'}
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <p className="mt-3 text-sm text-muted-foreground">
+                    No movement
                 </p>
             )}
         </div>
@@ -475,6 +532,18 @@ export default function Leaderboard({
                                     statLabel={board.primary_stat_label}
                                     showName
                                 />
+                                <div className="grid grid-cols-2 gap-3">
+                                    <MoverCard
+                                        title="Climber"
+                                        direction="up"
+                                        stat={cards.biggest_climber}
+                                    />
+                                    <MoverCard
+                                        title="Faller"
+                                        direction="down"
+                                        stat={cards.biggest_faller}
+                                    />
+                                </div>
                             </aside>
                         )}
                     </div>
