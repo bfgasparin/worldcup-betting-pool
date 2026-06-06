@@ -7,6 +7,7 @@ import {
     CircleAlert,
     Download,
     Info,
+    ListFilter,
     Loader2,
     Lock,
 } from 'lucide-react';
@@ -82,6 +83,106 @@ function isStepEditable(
 
     return stepPhaseKeys(step).some(
         (key) => phasesByKey[key]?.window === 'open',
+    );
+}
+
+/** Whether a group fixture's scoreline is fully entered (reads the live local state). */
+function isGroupScoreDone(score: ScorePair | undefined): boolean {
+    return score !== undefined && score.home !== '' && score.away !== '';
+}
+
+/**
+ * Whether a knockout pick is complete — mirrors the server: an upfront bracket needs the advancing
+ * team chosen, a phased bracket needs a scoreline.
+ */
+function isKnockoutPickDone(
+    pick: KnockoutPick | undefined,
+    isUpfront: boolean,
+): boolean {
+    if (pick === undefined) {
+        return false;
+    }
+
+    return isUpfront
+        ? pick.advancing !== null
+        : pick.home !== '' && pick.away !== '';
+}
+
+/**
+ * How many matches in a step still need a prediction — counting only ones the player can actually
+ * fill: the group step counts while it is editable; a knockout step counts only its OPEN rounds and
+ * only fixtures whose participants are known (so an upfront bracket never points at an unresolved
+ * slot). A step spanning two rounds (Third Place & Final) sums both.
+ */
+function stepRemaining(
+    step: number,
+    groups: PredictGroup[],
+    phasesByKey: Record<string, PredictBracketPhase>,
+    groupScores: GroupScores,
+    picks: KnockoutPicks,
+    isUpfront: boolean,
+    canEdit: boolean,
+): number {
+    if (step === 0) {
+        if (!canEdit) {
+            return 0;
+        }
+
+        return groups
+            .flatMap((group) => group.fixtures)
+            .filter(
+                (fixture) => !isGroupScoreDone(groupScores[fixture.fixture_id]),
+            ).length;
+    }
+
+    return stepPhaseKeys(step)
+        .map((key) => phasesByKey[key])
+        .filter(
+            (phase): phase is PredictBracketPhase => phase?.window === 'open',
+        )
+        .flatMap((phase) => phase.fixtures)
+        .filter((fixture) => fixture.home !== null && fixture.away !== null)
+        .filter(
+            (fixture) =>
+                !isKnockoutPickDone(picks[fixture.fixture_id], isUpfront),
+        ).length;
+}
+
+/** The first editable step that still has unpredicted matches; falls back to the group step. */
+function computeInitialStep(
+    groups: PredictGroup[],
+    phasesByKey: Record<string, PredictBracketPhase>,
+    groupScores: GroupScores,
+    picks: KnockoutPicks,
+    isUpfront: boolean,
+    canEdit: boolean,
+): number {
+    for (let step = 0; step < STEP_TITLES.length; step++) {
+        if (
+            isStepEditable(step, canEdit, phasesByKey) &&
+            stepRemaining(
+                step,
+                groups,
+                phasesByKey,
+                groupScores,
+                picks,
+                isUpfront,
+                canEdit,
+            ) > 0
+        ) {
+            return step;
+        }
+    }
+
+    return 0;
+}
+
+/** Shown in place of a step's cards when the "needs prediction" filter leaves nothing to fill. */
+function StepClearNote() {
+    return (
+        <p className="card-elevated rounded-3xl px-5 py-10 text-center text-sm text-muted-foreground">
+            Nothing left to predict here — you&apos;re all set for this step.
+        </p>
     );
 }
 
@@ -264,6 +365,7 @@ function GroupCard({
     onChange,
     onCommit,
     orderingUrl,
+    fixtureFilter,
 }: {
     group: PredictGroup;
     scores: GroupScores;
@@ -271,7 +373,12 @@ function GroupCard({
     onChange: (fixtureId: number, side: 'home' | 'away', value: string) => void;
     onCommit: () => void;
     orderingUrl: string;
+    /** When set, only fixtures it keeps are shown (the "needs my prediction" filter). */
+    fixtureFilter?: (fixture: PredictGroupFixture) => boolean;
 }) {
+    const fixtures = fixtureFilter
+        ? group.fixtures.filter(fixtureFilter)
+        : group.fixtures;
     const tiedClusters = group.tied_clusters
         .map((cluster) => ({
             teams: cluster.team_ids
@@ -291,7 +398,7 @@ function GroupCard({
                     </h3>
                 </div>
                 <span className="text-[11px] font-bold tracking-wide text-muted-foreground uppercase">
-                    {group.fixtures.length} matches
+                    {fixtures.length} matches
                 </span>
             </div>
 
@@ -302,7 +409,7 @@ function GroupCard({
             </div>
 
             <div className="mt-3 flex flex-col gap-2.5">
-                {group.fixtures.map((fixture: PredictGroupFixture) => {
+                {fixtures.map((fixture: PredictGroupFixture) => {
                     const score = scores[fixture.fixture_id] ?? {
                         home: '',
                         away: '',
@@ -623,7 +730,7 @@ export default function Predict({
     completion,
 }: PredictPageProps) {
     const canEdit = pool.can_edit;
-    const [step, setStep] = useState(0);
+    const isUpfront = pool.scoring_strategy === 'upfront-bracket';
     const [saveStatus, setSaveStatus] = useState<SaveStatusValue>('idle');
     const [importOpen, setImportOpen] = useState(false);
     // Celebrate the moment the last open-window prediction lands. A ref of the previous value tells
@@ -651,6 +758,22 @@ export default function Predict({
 
         return map;
     }, [bracket]);
+
+    // Open the wizard where the work is: the first editable step with unpredicted matches (a
+    // half-filled group, or a freshly-opened phased round). Computed once on mount; auto-saves keep
+    // the component mounted (preserveState) so it isn't recomputed, and a fresh visit re-lands here.
+    const [step, setStep] = useState(() =>
+        computeInitialStep(
+            groups,
+            phasesByKey,
+            groupScores,
+            picks,
+            isUpfront,
+            canEdit,
+        ),
+    );
+    // "Needs my prediction": hide matches already filled in, so only outstanding work shows.
+    const [onlyRemaining, setOnlyRemaining] = useState(false);
 
     // Refs mirror the latest editable state and context so the debounced/queued auto-save
     // always reads current values, even from a timer scheduled in an earlier render.
@@ -707,6 +830,55 @@ export default function Predict({
     // results to open — phased pools shouldn't show the "all locked" banner while rounds are pending.
     const anyOpen = canEdit || bracket.some((phase) => phase.window === 'open');
     const anyPending = bracket.some((phase) => phase.window === 'pending');
+
+    // Outstanding matches per step (drives the nav badges) and the next step worth visiting.
+    const stepRemainingCounts = useMemo(
+        () =>
+            STEP_TITLES.map((_, index) =>
+                stepRemaining(
+                    index,
+                    groups,
+                    phasesByKey,
+                    groupScores,
+                    picks,
+                    isUpfront,
+                    canEdit,
+                ),
+            ),
+        [groups, phasesByKey, groupScores, picks, isUpfront, canEdit],
+    );
+    const nextStep = useMemo(() => {
+        const total = STEP_TITLES.length;
+
+        // Search the other steps in wrap-around order; never points back at the current step.
+        for (let offset = 1; offset < total; offset++) {
+            const index = (step + offset) % total;
+
+            if (
+                isStepEditable(index, canEdit, phasesByKey) &&
+                stepRemainingCounts[index] > 0
+            ) {
+                return index;
+            }
+        }
+
+        return null;
+    }, [step, canEdit, phasesByKey, stepRemainingCounts]);
+
+    // Predicates for the "needs my prediction" filter: keep only matches still awaiting a pick (and,
+    // for knockout, only ones the player can act on now — participants known).
+    const groupFixtureRemaining = (fixture: PredictGroupFixture): boolean =>
+        !isGroupScoreDone(groupScores[fixture.fixture_id]);
+    const knockoutFixtureRemaining = (
+        fixture: KnockoutPredictionFixture,
+    ): boolean =>
+        fixture.home !== null &&
+        fixture.away !== null &&
+        !isKnockoutPickDone(picks[fixture.fixture_id], isUpfront);
+    const visiblePredictGroups = onlyRemaining
+        ? groups.filter((group) => group.fixtures.some(groupFixtureRemaining))
+        : groups;
+
     const canImport = importSources.length > 0;
     const showImportSuggestion =
         shouldSuggestImport && canImport && !suggestionDismissed;
@@ -1007,22 +1179,64 @@ export default function Predict({
                     </div>
                 )}
 
-                <ol className="flex flex-wrap gap-2">
-                    {STEP_TITLES.map((title, index) => (
-                        <li key={title}>
-                            <button
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <ol className="flex flex-wrap gap-2">
+                        {STEP_TITLES.map((title, index) => {
+                            const remaining = stepRemainingCounts[index];
+                            const showCount =
+                                isStepEditable(index, canEdit, phasesByKey) &&
+                                remaining > 0;
+
+                            return (
+                                <li key={title}>
+                                    <button
+                                        type="button"
+                                        onClick={() => goToStep(index)}
+                                        className={chipVariants({
+                                            variant:
+                                                index === step
+                                                    ? 'active'
+                                                    : 'default',
+                                        })}
+                                    >
+                                        {index + 1}. {title}
+                                        {showCount
+                                            ? ` · ${remaining} left`
+                                            : ''}
+                                    </button>
+                                </li>
+                            );
+                        })}
+                    </ol>
+
+                    {anyOpen && (
+                        <div className="flex items-center gap-2">
+                            <Button
                                 type="button"
-                                onClick={() => goToStep(index)}
-                                className={chipVariants({
-                                    variant:
-                                        index === step ? 'active' : 'default',
-                                })}
+                                variant={onlyRemaining ? 'default' : 'outline'}
+                                size="sm"
+                                aria-pressed={onlyRemaining}
+                                onClick={() =>
+                                    setOnlyRemaining((value) => !value)
+                                }
                             >
-                                {index + 1}. {title}
-                            </button>
-                        </li>
-                    ))}
-                </ol>
+                                <ListFilter className="size-4" />
+                                Needs prediction
+                            </Button>
+                            {nextStep !== null && (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => goToStep(nextStep)}
+                                >
+                                    Next to predict
+                                    <ChevronRight className="size-4" />
+                                </Button>
+                            )}
+                        </div>
+                    )}
+                </div>
 
                 <section className="flex flex-1 flex-col gap-4">
                     {step === 0 ? (
@@ -1038,20 +1252,29 @@ export default function Predict({
                                     </span>
                                 </div>
                             )}
-                            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                                {groups.map((group) => (
-                                    <GroupCard
-                                        key={group.name}
-                                        group={group}
-                                        scores={groupScores}
-                                        canEdit={canEdit}
-                                        onChange={updateGroupScore}
-                                        onCommit={flush}
-                                        orderingUrl={orderingUrl}
-                                    />
-                                ))}
-                            </div>
-                            {pool.scoring_strategy === 'upfront-bracket' &&
+                            {onlyRemaining && stepRemainingCounts[0] === 0 ? (
+                                <StepClearNote />
+                            ) : (
+                                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                                    {visiblePredictGroups.map((group) => (
+                                        <GroupCard
+                                            key={group.name}
+                                            group={group}
+                                            scores={groupScores}
+                                            canEdit={canEdit}
+                                            onChange={updateGroupScore}
+                                            onCommit={flush}
+                                            orderingUrl={orderingUrl}
+                                            fixtureFilter={
+                                                onlyRemaining
+                                                    ? groupFixtureRemaining
+                                                    : undefined
+                                            }
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                            {isUpfront &&
                                 thirdsTie &&
                                 thirdsTie.teams.length > 0 && (
                                     <TieResolutionPanel
@@ -1074,19 +1297,30 @@ export default function Predict({
                         </>
                     ) : (
                         <>
-                            {step === 1 &&
-                                pool.scoring_strategy === 'upfront-bracket' && (
-                                    <ThirdsPanel thirds={thirds} />
-                                )}
-                            <KnockoutStep
-                                phaseKeys={KNOCKOUT_STEPS[step - 1].phaseKeys}
-                                phasesByKey={phasesByKey}
-                                picks={picks}
-                                onChange={(fixtureId, patch, immediate) =>
-                                    updatePick(fixtureId, patch, immediate)
-                                }
-                                onCommit={flush}
-                            />
+                            {step === 1 && isUpfront && (
+                                <ThirdsPanel thirds={thirds} />
+                            )}
+                            {onlyRemaining &&
+                            stepRemainingCounts[step] === 0 ? (
+                                <StepClearNote />
+                            ) : (
+                                <KnockoutStep
+                                    phaseKeys={
+                                        KNOCKOUT_STEPS[step - 1].phaseKeys
+                                    }
+                                    phasesByKey={phasesByKey}
+                                    picks={picks}
+                                    fixtureFilter={
+                                        onlyRemaining
+                                            ? knockoutFixtureRemaining
+                                            : undefined
+                                    }
+                                    onChange={(fixtureId, patch, immediate) =>
+                                        updatePick(fixtureId, patch, immediate)
+                                    }
+                                    onCommit={flush}
+                                />
+                            )}
                         </>
                     )}
                 </section>
@@ -1189,12 +1423,15 @@ function KnockoutStep({
     phaseKeys,
     phasesByKey,
     picks,
+    fixtureFilter,
     onChange,
     onCommit,
 }: {
     phaseKeys: string[];
     phasesByKey: Record<string, PredictBracketPhase>;
     picks: KnockoutPicks;
+    /** When set, only fixtures it keeps are shown (the "needs my prediction" filter). */
+    fixtureFilter?: (fixture: KnockoutPredictionFixture) => boolean;
     onChange: (
         fixtureId: number,
         patch: Partial<KnockoutPick>,
@@ -1212,6 +1449,14 @@ function KnockoutStep({
                 }
 
                 const phaseEditable = phase.window === 'open';
+                const fixtures = fixtureFilter
+                    ? phase.fixtures.filter(fixtureFilter)
+                    : phase.fixtures;
+
+                // Under an active filter a round with nothing left drops out entirely.
+                if (fixtureFilter && fixtures.length === 0) {
+                    return null;
+                }
 
                 return (
                     <div key={key} className="flex flex-col gap-3">
@@ -1228,7 +1473,7 @@ function KnockoutStep({
                             </p>
                         ) : (
                             <div className="flex flex-wrap gap-3">
-                                {phase.fixtures.map((fixture) => (
+                                {fixtures.map((fixture) => (
                                     <KnockoutCard
                                         key={fixture.fixture_id}
                                         fixture={fixture}

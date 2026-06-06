@@ -95,6 +95,25 @@ class PredictionControllerTest extends TestCase
             );
     }
 
+    public function test_predict_wizard_exposes_resume_and_filter_inputs(): void
+    {
+        // The wizard's auto-open, per-step "N left" badges, and "needs prediction" filter are all
+        // client-side, keyed off the pool's strategy (upfront vs phased), each group fixture's goals,
+        // each knockout phase's window, and each pick's advancing team. Guard that contract.
+        Entry::factory()->for($this->pool)->for($this->user)->create();
+
+        $this->actingAs($this->user)
+            ->get(route('pools.predict.edit', 'world-cup-2026-ffa'))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('pool.scoring_strategy', 'upfront-bracket')
+                ->where('groups.0.fixtures.0.home_goals', null)
+                ->where('groups.0.fixtures.0.away_goals', null)
+                ->where('bracket.0.window', 'open')
+                ->where('bracket.0.fixtures.0.advancing_team_id', null)
+                ->etc()
+            );
+    }
+
     public function test_predict_page_prefills_existing_predictions(): void
     {
         $entry = Entry::factory()->for($this->pool)->for($this->user)->create();

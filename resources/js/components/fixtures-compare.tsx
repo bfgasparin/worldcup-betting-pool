@@ -128,6 +128,57 @@ function EmptyPick({
     );
 }
 
+/**
+ * A compact per-fixture strip of every compared player's pick — one lane chip each, showing the
+ * scoreline + points, or the lock/dash empty state. Used by the flat Matchdays/Schedule rows, where
+ * a player's pick reads as the scoreline (the fuller predicted-team matchup stays in the Groups
+ * cards). Reveal gating matches the cards: an opponent's pick is the lock icon until that fixture's
+ * window locks, then a dash when they predicted nothing.
+ */
+export function FixtureComparePicks({
+    players,
+    windowStatus,
+    kind,
+    fixtureId,
+}: {
+    players: ComparePlayer[];
+    windowStatus: PredictionWindowStatus | undefined;
+    kind: 'group' | 'knockout';
+    fixtureId: number;
+}) {
+    return (
+        <div className="mt-2 flex flex-wrap justify-center gap-1.5">
+            {players.map((player, index) => {
+                const pick =
+                    kind === 'group'
+                        ? player.group_predictions[fixtureId]
+                        : player.knockout_predictions[fixtureId];
+
+                if (pick) {
+                    return (
+                        <LaneChip key={index} index={index} player={player}>
+                            <b className="font-display text-foreground tabular-nums">
+                                {pick.home_goals ?? '–'}–
+                                {pick.away_goals ?? '–'}
+                            </b>
+                            <PointsTick points={pick.points_awarded} />
+                        </LaneChip>
+                    );
+                }
+
+                return (
+                    <EmptyPick
+                        key={index}
+                        index={index}
+                        player={player}
+                        hidden={!isRevealed(player, windowStatus)}
+                    />
+                );
+            })}
+        </div>
+    );
+}
+
 /* --------------------------------------------------------- group fixtures */
 
 function OfficialGroupMatchup({

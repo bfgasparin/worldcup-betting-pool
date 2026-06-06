@@ -135,6 +135,24 @@ class PoolControllerTest extends TestCase
             );
     }
 
+    public function test_show_exposes_the_inputs_the_time_filter_reads(): void
+    {
+        // The pool page's Today/Upcoming filter is client-side, keyed off each fixture's kickoff and
+        // whether it's settled (both goals in). Guard that those fields ship for groups and bracket.
+        $this->seed(WorldCup2026Seeder::class);
+        $this->actingAs(User::factory()->create());
+
+        $this->get(route('pools.show', 'world-cup-2026-ffa'))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->whereNot('groups.0.fixtures.0.kicks_off_at', null)
+                ->where('groups.0.fixtures.0.home_goals', null)
+                ->where('groups.0.fixtures.0.away_goals', null)
+                ->whereNot('bracket.0.fixtures.0.kicks_off_at', null)
+                ->where('bracket.0.fixtures.0.home_goals', null)
+                ->where('bracket.0.fixtures.0.away_goals', null)
+            );
+    }
+
     public function test_show_resolves_group_fixture_teams(): void
     {
         $this->seed(WorldCup2026Seeder::class);
