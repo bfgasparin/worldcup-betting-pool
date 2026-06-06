@@ -860,6 +860,13 @@ function FixturesView({
     ];
 
     const [active, setActive] = useState('gs');
+    // If the time filter empties the phase the user is on, show the first phase that still has
+    // matches instead of a bare empty state. `active` itself is untouched, so clearing the filter
+    // (every phase populated again) returns them to the tab they chose.
+    const activeCount = phases.find((p) => p.id === active)?.count ?? 0;
+    const firstNonEmpty = phases.find((p) => p.count > 0)?.id;
+    const effectiveActive =
+        activeCount > 0 ? active : (firstNonEmpty ?? active);
     const players = comparison?.players ?? [];
 
     return (
@@ -941,11 +948,11 @@ function FixturesView({
                 <>
                     <PhaseTabs
                         phases={phases}
-                        active={active}
+                        active={effectiveActive}
                         onSelect={setActive}
                     />
 
-                    {active === 'gs' && (
+                    {effectiveActive === 'gs' && (
                         <div>
                             <PhaseMeta
                                 title="Group Stage"
@@ -993,7 +1000,7 @@ function FixturesView({
                     )}
 
                     {koPhases.map((phase) => {
-                        if (active !== phase.phase_key) {
+                        if (effectiveActive !== phase.phase_key) {
                             return null;
                         }
 
@@ -1046,7 +1053,7 @@ function FixturesView({
                         );
                     })}
 
-                    {active === 'final' && (
+                    {effectiveActive === 'final' && (
                         <div>
                             <PhaseMeta
                                 title="Final & Third Place"

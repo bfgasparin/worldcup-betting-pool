@@ -959,14 +959,17 @@ export function PhaseTabs({
             <div className="flex [scrollbar-width:none] gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden">
                 {phases.map((phase) => {
                     const on = phase.id === active;
+                    // A filter can empty a phase; dim and disable it so it can't be selected.
+                    const empty = phase.count === 0;
 
                     return (
                         <button
                             key={phase.id}
                             type="button"
+                            disabled={empty}
                             onClick={() => onSelect(phase.id)}
                             className={cn(
-                                'flex shrink-0 items-center gap-2 rounded-full border-[1.5px] px-4 py-2 font-display text-sm font-semibold whitespace-nowrap transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                                'flex shrink-0 items-center gap-2 rounded-full border-[1.5px] px-4 py-2 font-display text-sm font-semibold whitespace-nowrap transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-transparent',
                                 on
                                     ? 'border-transparent bg-pitch-deep text-white'
                                     : 'border-transparent bg-secondary text-secondary-foreground hover:border-border',
