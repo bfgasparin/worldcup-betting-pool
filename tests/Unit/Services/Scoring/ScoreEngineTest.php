@@ -13,6 +13,8 @@ use App\Models\User;
 use App\Services\Predictions\BracketResolver;
 use App\Services\Predictions\OfficialBracketProjector;
 use App\Services\Scoring\ScoreEngine;
+use App\Services\Scoring\ScoringConfig;
+use App\Services\Scoring\ScoringRulesFactory;
 use Database\Seeders\WorldCup2026Seeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\InteractsWithOfficialResults;
@@ -201,6 +203,35 @@ class ScoreEngineTest extends TestCase
 
         $this->assertSame($value, $standing->value, "value for {$category->value}");
         $this->assertSame($tiebreaker, $standing->tiebreaker, "tiebreaker for {$category->value}");
+    }
+
+    public function test_breakdowns_by_fixture_keys_each_scored_fixture_to_its_breakdown(): void
+    {
+        $this->predictAllGroups($this->entry, $this->tournament, $this->seedOrderScores());
+        // Record results for group A only, so unscored fixtures are absent from the breakdowns.
+        $this->recordOfficialGroupResults($this->tournament, $this->seedOrderScores(), onlyGroups: ['A']);
+
+        $rules = (new ScoringRulesFactory)->make($this->pool->scoring_strategy);
+        $config = ScoringConfig::fromPool($this->pool);
+        $fixturesById = $this->tournament->fixtures()->with('phase')->get()->keyBy('id')->all();
+        $this->entry->load(['groupPredictions', 'knockoutPredictions']);
+
+        $breakdowns = $this->engine->breakdownsByFixture($this->entry, $fixturesById, $rules, $config);
+
+        // Exactly group A's six fixtures are scored; every breakdown's points match a recompute.
+        $this->engine->recompute($this->pool);
+        $scored = $this->entry->fresh()->groupPredictions()->whereNotNull('points_awarded')->get();
+        $this->assertCount(6, $scored);
+        $this->assertCount(6, $breakdowns);
+
+        foreach ($scored as $prediction) {
+            $this->assertArrayHasKey($prediction->fixture_id, $breakdowns);
+            $this->assertSame($prediction->points_awarded, $breakdowns[$prediction->fixture_id]->points);
+        }
+
+        // An unscored fixture (no official result) is omitted entirely.
+        $unscored = $this->tournament->groups()->where('name', 'B')->firstOrFail()->fixtures()->first();
+        $this->assertArrayNotHasKey($unscored->id, $breakdowns);
     }
 
     private function setPrediction(int $fixtureId, int $home, int $away): void

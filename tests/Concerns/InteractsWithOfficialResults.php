@@ -12,6 +12,7 @@ use App\Models\Tournament;
 use App\Services\Predictions\DefaultTieOrdering;
 use App\Services\Predictions\OfficialBracketProjector;
 use App\Services\Predictions\TieResolutionState;
+use App\Services\Scoring\MatchdayCatalog;
 
 /**
  * Test helpers for recording official (already-played) results against the seeded World Cup
@@ -74,6 +75,37 @@ trait InteractsWithOfficialResults
         if ($resolveTies) {
             // No human to break ties in a fixture: fall back to the deterministic default order.
             (new DefaultTieOrdering)->applyToTournament($tournament);
+        }
+    }
+
+    /**
+     * Record official results for just one matchday's fixtures (a group-stage round) by applying a
+     * position-based rule, so a test can settle the tournament round by round.
+     *
+     * @param  callable(int, int): array{int, int}  $rule
+     */
+    protected function recordMatchdayResults(Tournament $tournament, string $matchdayKey, callable $rule): void
+    {
+        $positions = [];
+        foreach ($tournament->groups()->with('teams')->get() as $group) {
+            foreach ($group->teams as $team) {
+                $positions[$team->id] = $team->pivot->position;
+            }
+        }
+
+        $fixtureIds = collect((new MatchdayCatalog)->forTournament($tournament))
+            ->firstWhere('key', $matchdayKey)
+            ->fixtureIds;
+
+        foreach (Fixture::whereIn('id', $fixtureIds)->get() as $fixture) {
+            [$home, $away] = $rule($positions[$fixture->home_team_id], $positions[$fixture->away_team_id]);
+
+            $fixture->update([
+                'home_goals' => $home,
+                'away_goals' => $away,
+                'winner_team_id' => $home === $away ? null : ($home > $away ? $fixture->home_team_id : $fixture->away_team_id),
+                'status' => FixtureStatus::Finished,
+            ]);
         }
     }
 

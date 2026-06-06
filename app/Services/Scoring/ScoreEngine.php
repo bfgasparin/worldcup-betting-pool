@@ -66,67 +66,55 @@ class ScoreEngine
      */
     private function scoreEntry(Entry $entry, array $fixturesById, ScoringRules $rules, ScoringConfig $config): void
     {
-        /** @var list<PredictionBreakdown> $breakdowns */
-        $breakdowns = [];
+        $breakdowns = $this->breakdownsByFixture($entry, $fixturesById, $rules, $config);
 
+        // Write each scored prediction's points; reset everything else to null (unscored).
         foreach ($entry->groupPredictions as $prediction) {
-            $fixture = $fixturesById[$prediction->fixture_id] ?? null;
-
-            if ($fixture === null || ! $this->hasOfficialResult($fixture)) {
-                $prediction->update(['points_awarded' => null]);
-
-                continue;
-            }
-
-            $breakdown = $rules->evaluateGroup($prediction, $fixture, $config);
-            $prediction->update(['points_awarded' => $breakdown->points]);
-            $breakdowns[] = $breakdown;
+            $prediction->update(['points_awarded' => $breakdowns[$prediction->fixture_id]->points ?? null]);
         }
 
         foreach ($entry->knockoutPredictions as $prediction) {
-            $fixture = $fixturesById[$prediction->fixture_id] ?? null;
-
-            if ($fixture === null || ! $this->hasOfficialResult($fixture)) {
-                $prediction->update(['points_awarded' => null]);
-
-                continue;
-            }
-
-            $breakdown = $rules->evaluateKnockout($prediction, $fixture, $config);
-            $prediction->update(['points_awarded' => $breakdown->points]);
-            $breakdowns[] = $breakdown;
+            $prediction->update(['points_awarded' => $breakdowns[$prediction->fixture_id]->points ?? null]);
         }
 
         // Group and knockout fold into the same tournament-wide metrics; an entry with no scored
         // prediction keeps a null total (so the boards hold their "warming up" state).
-        $metrics = $this->aggregate($breakdowns);
+        $metrics = LeaderboardMetrics::fromBreakdowns($breakdowns);
         $entry->update(['total_points' => $breakdowns === [] ? null : $metrics->points]);
 
         $this->upsertStandings($entry, $metrics);
     }
 
     /**
-     * Roll every scored prediction's breakdown into one entry's leaderboard metrics.
+     * The per-prediction breakdown for every one of an entry's predictions whose fixture has an
+     * official result, keyed by `fixture_id`. Predictions on a fixture that has no result yet (or
+     * no matching fixture) are omitted. This is the pure scoring pass — it writes nothing — shared
+     * by the live recompute and the per-matchday reconstruction ({@see MatchdayLeaderboard}).
      *
-     * @param  list<PredictionBreakdown>  $breakdowns
+     * @param  array<int, Fixture>  $fixturesById
+     * @return array<int, PredictionBreakdown>
      */
-    private function aggregate(array $breakdowns): LeaderboardMetrics
+    public function breakdownsByFixture(Entry $entry, array $fixturesById, ScoringRules $rules, ScoringConfig $config): array
     {
-        $points = 0;
-        $correctOutcomes = 0;
-        $teamGoalsHit = 0;
+        $breakdowns = [];
 
-        foreach ($breakdowns as $breakdown) {
-            $points += $breakdown->points;
-            $correctOutcomes += $breakdown->isCorrectOutcome ? 1 : 0;
-            $teamGoalsHit += $breakdown->teamGoalsHit;
+        foreach ($entry->groupPredictions as $prediction) {
+            $fixture = $fixturesById[$prediction->fixture_id] ?? null;
+
+            if ($fixture !== null && $this->hasOfficialResult($fixture)) {
+                $breakdowns[$prediction->fixture_id] = $rules->evaluateGroup($prediction, $fixture, $config);
+            }
         }
 
-        return new LeaderboardMetrics(
-            points: $points,
-            correctOutcomes: $correctOutcomes,
-            teamGoalsHit: $teamGoalsHit,
-        );
+        foreach ($entry->knockoutPredictions as $prediction) {
+            $fixture = $fixturesById[$prediction->fixture_id] ?? null;
+
+            if ($fixture !== null && $this->hasOfficialResult($fixture)) {
+                $breakdowns[$prediction->fixture_id] = $rules->evaluateKnockout($prediction, $fixture, $config);
+            }
+        }
+
+        return $breakdowns;
     }
 
     /**
