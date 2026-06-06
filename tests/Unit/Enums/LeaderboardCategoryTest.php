@@ -28,6 +28,17 @@ class LeaderboardCategoryTest extends TestCase
         }
     }
 
+    public function test_only_the_overall_board_awards_prizes(): void
+    {
+        $this->assertTrue(LeaderboardCategory::Overall->awardsPrizes());
+
+        foreach (LeaderboardCategory::cases() as $category) {
+            if ($category !== LeaderboardCategory::Overall) {
+                $this->assertFalse($category->awardsPrizes(), "{$category->value} must not award prizes");
+            }
+        }
+    }
+
     public function test_every_board_has_display_labels(): void
     {
         foreach (LeaderboardCategory::cases() as $category) {

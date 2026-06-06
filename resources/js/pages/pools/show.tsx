@@ -8,6 +8,7 @@ import {
     GitCompare,
     PencilLine,
     Plus,
+    Trophy,
     Users,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -43,17 +44,19 @@ import { useDisplayTimeZone } from '@/hooks/use-timezone';
 import { COMPARE_LIMIT } from '@/lib/compare';
 import { ordinal } from '@/lib/leaderboards';
 import { poolTitle } from '@/lib/pool-title';
+import { prizeForPlace } from '@/lib/prizes';
 import { cn } from '@/lib/utils';
 import pools from '@/routes/pools';
 import type {
     AttentionSummary,
     AttentionWindow,
+    BoardRow,
     BoardSummary,
     BracketPhase,
     Comparison,
     PoolDetail,
+    FeaturedBoard,
     GroupView,
-    LeaderboardEntryRow,
     PlayerDirectoryEntry,
     PoolStandings,
 } from '@/types/pools';
@@ -63,7 +66,10 @@ interface PoolShowProps {
     groups: GroupView[];
     bracket: BracketPhase[];
     standings: PoolStandings;
-    boardSummaries: BoardSummary[];
+    /** The first three boards as full tables (Overall leads). */
+    featuredBoards: FeaturedBoard[];
+    /** Boards beyond the first three, as condensed summary cards; empty today. */
+    moreBoards: BoardSummary[];
     /** Every entry in the pool, for the "Add player" comparison picker. */
     players: PlayerDirectoryEntry[];
     /** The head-to-head payload when the page is in compare mode (a ?compare= list); else null. */
@@ -339,14 +345,14 @@ function AddToggle({
     );
 }
 
-/** A selectable Overall row shown while choosing players to compare (the normal row's sibling). */
+/** A selectable board row shown while choosing players to compare (the normal row's sibling). */
 function SelectableRow({
     row,
     selected,
     disabled,
     onToggle,
 }: {
-    row: LeaderboardEntryRow;
+    row: BoardRow;
     selected: boolean;
     disabled: boolean;
     onToggle: (entryId: number) => void;
@@ -372,7 +378,7 @@ function SelectableRow({
                 {row.name}
             </span>
             <span className="font-display text-sm font-semibold text-muted-foreground tabular-nums">
-                {row.points ?? '—'}
+                {row.primary_value ?? '—'}
             </span>
             {row.is_me ? (
                 <span className="px-2 text-xs font-semibold text-muted-foreground">
@@ -391,54 +397,107 @@ function SelectableRow({
     );
 }
 
-function PoolPreview({
+/** Header tag marking the prize board apart from the bragging-rights side boards (paid pools). */
+function BoardTag({ awardsPrizes }: { awardsPrizes: boolean }) {
+    if (awardsPrizes) {
+        return (
+            <span className="bg-gold-gradient inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold tracking-[0.08em] text-[#3a2600] uppercase">
+                <Trophy className="size-3" />
+                Prize board
+            </span>
+        );
+    }
+
+    return (
+        <span className="inline-flex items-center rounded-full bg-secondary px-2.5 py-1 text-[10px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
+            Bragging rights
+        </span>
+    );
+}
+
+/**
+ * Overall-board rows shown below `lg`. The backend sends more (to fill the wide column against the
+ * two stacked side boards on large screens); the extras reveal only at `lg+`, so smaller single-
+ * column screens stay this short. Keep in step with `PoolController::HEADLINE_BOARD_ROWS`.
+ */
+const OVERALL_COMPACT_ROWS = 8;
+
+/**
+ * One featured board as a full table: its top rows plus the viewer's pinned row when they rank
+ * outside them. On the Overall (prize) board of a paid pool, each paying place shows its prize
+ * amount inline. While choosing players to compare, rows become selectable and the pinned row hides.
+ */
+function FeaturedBoardCard({
     pool,
-    standings,
+    board,
     selecting,
     selectedIds,
     onToggle,
+    compactRows,
 }: {
     pool: PoolDetail;
-    standings: PoolStandings;
+    board: FeaturedBoard;
     selecting: boolean;
     selectedIds: number[];
     onToggle: (entryId: number) => void;
+    /** Rows shown below `lg`; rows past this reveal only on large screens. Headline board only. */
+    compactRows?: number;
 }) {
-    if (standings.top.length === 0) {
-        return null;
-    }
-
-    // Pin the viewer's own row when they're ranked outside the shown top, so they always see where
-    // they stand on the Overall board.
-    const pinnedMe =
-        standings.me && !standings.top.some((row) => row.is_me)
-            ? standings.me
-            : null;
     const atLimit = selectedIds.length >= COMPARE_LIMIT;
+    const isPaid = pool.pricing.entry_price > 0;
+    // Inline prize amounts: only on the prize board, and only once the pot has money in it.
+    const showPrizes = board.awards_prizes && isPaid && pool.pricing.net > 0;
+    const pinnedMe = !selecting ? board.me : null;
+
+    // undefined hides the prize column entirely; null reserves it for a place that doesn't pay.
+    const prizeFor = (rank: number): string | null | undefined =>
+        showPrizes ? prizeForPlace(pool.pricing, rank) : undefined;
+
+    // Reveal rows past the compact count only on large screens (where the 2-column layout — and the
+    // empty space the extra rows fill — exist). The boundary row drops its divider below `lg` so the
+    // card bottom is clean there, unless a pinned "You" row follows it.
+    const rowClassName = (index: number): string | undefined => {
+        if (compactRows == null || board.top.length <= compactRows) {
+            return undefined;
+        }
+
+        if (index >= compactRows) {
+            return 'max-lg:hidden';
+        }
+
+        if (index === compactRows - 1 && !pinnedMe) {
+            return 'border-b-0 lg:border-b';
+        }
+
+        return undefined;
+    };
 
     return (
         <section className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-3">
-                <h2 className="font-display text-xl font-semibold tracking-tight">
-                    Overall
-                </h2>
-                {selecting ? (
-                    <span className="font-display text-sm font-semibold text-muted-foreground">
-                        Tap <Plus className="inline size-3.5" /> to add a player
-                    </span>
-                ) : (
+                <div className="flex min-w-0 items-center gap-2">
+                    <h3 className="truncate font-display text-lg font-semibold tracking-tight">
+                        {board.label}
+                    </h3>
+                    {isPaid && <BoardTag awardsPrizes={board.awards_prizes} />}
+                </div>
+                {!selecting && (
                     <Link
-                        href={pools.leaderboard(pool.slug)}
-                        className="inline-flex items-center gap-1 font-display text-sm font-semibold text-primary transition-all hover:gap-2"
+                        href={
+                            pools.leaderboard(pool.slug, {
+                                query: { board: board.key },
+                            }).url
+                        }
+                        className="inline-flex shrink-0 items-center gap-1 font-display text-sm font-semibold text-primary transition-all hover:gap-2"
                     >
-                        See all leaderboards
+                        Details
                         <ArrowRight className="size-4" />
                     </Link>
                 )}
             </div>
             <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--sh-sm)]">
                 {selecting
-                    ? standings.top.map((row) => (
+                    ? board.top.map((row) => (
                           <SelectableRow
                               key={row.rank}
                               row={row}
@@ -449,22 +508,24 @@ function PoolPreview({
                               onToggle={onToggle}
                           />
                       ))
-                    : standings.top.map((row) => (
+                    : board.top.map((row, index) => (
                           <LeaderboardRow
                               key={row.rank}
+                              className={rowClassName(index)}
                               entry={{
                                   rank: row.rank,
                                   name: row.name,
                                   initials: row.initials,
                                   avatar: row.avatar,
-                                  primary: row.points,
+                                  primary: row.primary_value,
                                   isMe: row.is_me,
                                   movement: row.movement,
                                   movementDelta: row.movement_delta,
+                                  prize: prizeFor(row.rank),
                               }}
                           />
                       ))}
-                {!selecting && pinnedMe && (
+                {pinnedMe && (
                     <>
                         <div className="border-t border-dashed border-border bg-muted/30 px-4 py-1 text-center text-[10px] font-bold tracking-[0.12em] text-muted-foreground uppercase">
                             You
@@ -475,13 +536,71 @@ function PoolPreview({
                                 name: pinnedMe.name,
                                 initials: pinnedMe.initials,
                                 avatar: pinnedMe.avatar,
-                                primary: pinnedMe.points,
+                                primary: pinnedMe.primary_value,
                                 isMe: true,
                                 movement: pinnedMe.movement,
                                 movementDelta: pinnedMe.movement_delta,
+                                prize: prizeFor(pinnedMe.rank),
                             }}
                         />
                     </>
+                )}
+            </div>
+        </section>
+    );
+}
+
+/**
+ * The first three boards as full tables: the headline (Overall) fills a wide left column with the
+ * remaining boards stacked in a narrower right column; below `lg` they stack into one column. Each
+ * board links to its own detail page via its "Details" header — there's no single global link.
+ */
+function FeaturedBoards({
+    pool,
+    boards,
+    selecting,
+    selectedIds,
+    onToggle,
+}: {
+    pool: PoolDetail;
+    boards: FeaturedBoard[];
+    selecting: boolean;
+    selectedIds: number[];
+    onToggle: (entryId: number) => void;
+}) {
+    const headline = boards[0];
+
+    // Nobody on the board yet — hide the whole region (the banner still offers Join).
+    if (!headline || headline.participants === 0) {
+        return null;
+    }
+
+    const cardProps = { pool, selecting, selectedIds, onToggle };
+
+    return (
+        <section className="flex flex-col gap-3">
+            {selecting && (
+                <span className="font-display text-sm font-semibold text-muted-foreground">
+                    Tap <Plus className="inline size-3.5" /> to add a player to
+                    the comparison
+                </span>
+            )}
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] lg:items-start">
+                <FeaturedBoardCard
+                    board={headline}
+                    compactRows={OVERALL_COMPACT_ROWS}
+                    {...cardProps}
+                />
+                {boards.length > 1 && (
+                    <div className="flex flex-col gap-4">
+                        {boards.slice(1).map((board) => (
+                            <FeaturedBoardCard
+                                key={board.key}
+                                board={board}
+                                {...cardProps}
+                            />
+                        ))}
+                    </div>
                 )}
             </div>
         </section>
@@ -815,7 +934,8 @@ export default function PoolShow({
     groups,
     bracket,
     standings,
-    boardSummaries,
+    featuredBoards,
+    moreBoards,
     players,
     comparison,
     attention,
@@ -926,19 +1046,19 @@ export default function PoolShow({
                         onRemove={removeLane}
                     />
                 ) : (
-                    <PoolPreview
+                    <FeaturedBoards
                         pool={pool}
-                        standings={standings}
+                        boards={featuredBoards}
                         selecting={selecting}
                         selectedIds={selectedIds}
                         onToggle={toggleSelect}
                     />
                 )}
 
-                {!compareActive && standings.has_scores && (
+                {!compareActive && moreBoards.length > 0 && (
                     <BoardSummaries
                         pool={pool}
-                        summaries={boardSummaries}
+                        summaries={moreBoards}
                         selecting={selecting}
                         selectedIds={selectedIds}
                         onToggle={toggleSelect}

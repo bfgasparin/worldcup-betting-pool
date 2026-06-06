@@ -214,8 +214,8 @@ class PoolControllerTest extends TestCase
         $this->actingAs($viewer)
             ->get(route('pools.show', 'world-cup-2026-ffa'))
             ->assertInertia(fn (AssertableInertia $page) => $page
-                ->where('standings.top.0.avatar', $expected)
-                ->where('standings.top.1.avatar', null)
+                ->where('featuredBoards.0.top.0.avatar', $expected)
+                ->where('featuredBoards.0.top.1.avatar', null)
                 ->where('players.0.avatar', $expected)
                 ->where('players.1.avatar', null)
             );
@@ -554,24 +554,30 @@ class PoolControllerTest extends TestCase
                 ->where('standings.participants', 1)
                 ->where('standings.has_scores', false)
                 ->where('standings.me.is_me', true)
-                ->where('standings.me.points', null)
-                ->has('standings.top', 1)
-                // A summary per non-Overall board; before any scores the leader and the viewer's
-                // position are both null.
-                ->has('boardSummaries', 2)
-                ->where('boardSummaries.0.key', 'match-winners')
-                ->where('boardSummaries.0.leader', null)
-                ->where('boardSummaries.0.you', null)
-                // Board descriptors for the dialog (each carrying its tie-break stat).
+                ->where('standings.me.primary_value', null)
+                // The first three boards as full tables; with one entry the viewer is in the top, so
+                // there's no separately-pinned "me" row. Overall is the prize board.
+                ->has('featuredBoards', 3)
+                ->where('featuredBoards.0.key', 'overall')
+                ->where('featuredBoards.0.awards_prizes', true)
+                ->has('featuredBoards.0.top', 1)
+                ->where('featuredBoards.0.me', null)
+                ->where('featuredBoards.1.key', 'match-winners')
+                ->where('featuredBoards.1.awards_prizes', false)
+                // No board beyond the first three today, so the "More leaderboards" section is empty.
+                ->has('moreBoards', 0)
+                // Board descriptors for the dialog (each carrying its tie-break stat + prize flag).
                 ->has('pool.leaderboards', 3)
                 ->where('pool.leaderboards.0.key', 'overall')
                 ->where('pool.leaderboards.0.secondary_stat_label', null)
+                ->where('pool.leaderboards.0.awards_prizes', true)
                 ->where('pool.leaderboards.1.key', 'match-winners')
                 ->where('pool.leaderboards.1.secondary_stat_label', 'Team goals')
+                ->where('pool.leaderboards.1.awards_prizes', false)
             );
     }
 
-    public function test_show_summarises_each_board_with_the_leader_and_your_position(): void
+    public function test_show_features_each_board_as_a_full_table(): void
     {
         $this->seed(WorldCup2026Seeder::class);
         $tournament = Tournament::firstOrFail();
@@ -592,15 +598,90 @@ class PoolControllerTest extends TestCase
         $this->get(route('pools.show', 'world-cup-2026-ffa'))
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
-                ->where('boardSummaries.0.key', 'match-winners')
-                ->where('boardSummaries.0.leader.name', 'Caller')
-                ->where('boardSummaries.0.leader.primary_value', 12)
-                // The leader carries its entry id + is_me so compare selection can add this board's
-                // winner straight from the card.
-                ->where('boardSummaries.0.leader.entry_id', $leader->id)
-                ->where('boardSummaries.0.leader.is_me', false)
-                ->where('boardSummaries.0.you.rank', 2)
-                ->where('boardSummaries.0.you.primary_value', 3)
+                // Match Winners is the second featured board, ranked by its standings.
+                ->where('featuredBoards.1.key', 'match-winners')
+                ->where('featuredBoards.1.top.0.name', 'Caller')
+                ->where('featuredBoards.1.top.0.primary_value', 12)
+                // Each row carries its entry id + is_me so compare selection can add a player straight
+                // from any featured table.
+                ->where('featuredBoards.1.top.0.entry_id', $leader->id)
+                ->where('featuredBoards.1.top.0.is_me', false)
+                ->where('featuredBoards.1.top.1.name', 'You')
+                ->where('featuredBoards.1.top.1.is_me', true)
+                ->where('featuredBoards.1.top.1.primary_value', 3)
+                // Both players fit in the top, so the viewer isn't separately pinned.
+                ->where('featuredBoards.1.me', null)
+                ->has('moreBoards', 0)
+            );
+    }
+
+    public function test_show_truncates_featured_boards_and_pins_the_viewer_when_outside_the_top(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+        $tournament = Tournament::firstOrFail();
+        $pool = $tournament->pools()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
+
+        // Eleven ranked-above players, then the viewer last (12th) on the Overall board.
+        foreach (range(1, 11) as $points) {
+            Entry::factory()->for($pool)->for(User::factory()->create())->create(['total_points' => $points * 10]);
+        }
+        $me = User::factory()->create(['name' => 'Me']);
+        Entry::factory()->for($pool)->for($me)->create(['total_points' => 5]);
+
+        $this->actingAs($me);
+
+        $this->get(route('pools.show', 'world-cup-2026-ffa'))
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                // The headline (Overall) board caps at 10 rows but reports the full pool size...
+                ->has('featuredBoards.0.top', 10)
+                ->where('featuredBoards.0.participants', 12)
+                // ...and pins the viewer's own row since they rank outside the shown top.
+                ->where('featuredBoards.0.me.rank', 12)
+                ->where('featuredBoards.0.me.is_me', true)
+            );
+    }
+
+    public function test_show_does_not_pin_the_viewer_when_inside_the_top(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+        $tournament = Tournament::firstOrFail();
+        $pool = $tournament->pools()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
+
+        $me = User::factory()->create(['name' => 'Me']);
+        Entry::factory()->for($pool)->for($me)->create(['total_points' => 100]);
+        Entry::factory()->for($pool)->for(User::factory()->create())->create(['total_points' => 50]);
+
+        $this->actingAs($me);
+
+        $this->get(route('pools.show', 'world-cup-2026-ffa'))
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->has('featuredBoards.0.top', 2)
+                ->where('featuredBoards.0.me', null)
+            );
+    }
+
+    public function test_show_caps_a_secondary_featured_board_at_four_rows(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+        $tournament = Tournament::firstOrFail();
+        $pool = $tournament->pools()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
+
+        // Six entries each with a Match Winners standing — the secondary board caps at four rows.
+        foreach (range(1, 6) as $value) {
+            $entry = Entry::factory()->for($pool)->for(User::factory()->create())->create(['total_points' => $value]);
+            LeaderboardStanding::factory()->for($entry)->create(['category' => LeaderboardCategory::MatchWinners, 'value' => $value]);
+        }
+
+        $this->actingAs(User::factory()->create());
+
+        $this->get(route('pools.show', 'world-cup-2026-ffa'))
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('featuredBoards.1.key', 'match-winners')
+                ->has('featuredBoards.1.top', 4)
+                ->where('featuredBoards.1.participants', 6)
             );
     }
 
@@ -625,8 +706,13 @@ class PoolControllerTest extends TestCase
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->component('pools/leaderboard')
                 ->where('pool.slug', 'world-cup-2026-ffa')
+                // Pricing is exposed so the Overall board can show inline prize amounts.
+                ->where('pool.pricing.players', 3)
+                ->has('pool.pricing.prizes')
                 ->has('boards', 3)
                 ->where('boards.0.key', 'overall')
+                ->where('boards.0.awards_prizes', true)
+                ->where('boards.1.awards_prizes', false)
                 ->where('boards.0.has_scores', false)
                 ->has('boards.0.rows', 3)
             );

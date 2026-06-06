@@ -38,6 +38,12 @@ export function PrizePanel({
                 </span>
             </div>
 
+            <p className="-mt-2 text-xs text-muted-foreground">
+                Awarded to the top of the{' '}
+                <span className="font-semibold text-foreground">Overall</span>{' '}
+                leaderboard.
+            </p>
+
             <div className="flex flex-col gap-2">
                 {pricing.prizes.map((prize) => (
                     <div

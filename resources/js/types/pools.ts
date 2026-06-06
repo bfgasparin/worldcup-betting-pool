@@ -218,26 +218,12 @@ export type LeaderboardCategoryKey =
     | 'match-winners'
     | 'goal-sniper';
 
-/** A ranked row on the Overall standings preview (pool page hero). */
-export interface LeaderboardEntryRow {
-    rank: number;
-    /** The entry behind this row, so it can be added to a player comparison. */
-    entry_id: number;
-    name: string;
-    initials: string;
-    avatar: string | null;
-    points: number | null;
-    is_me: boolean;
-    movement: RankMovement | null;
-    /** How many places this row moved since the last results, or null when not comparable. */
-    movement_delta: number | null;
-}
-
+/** The pool page banner scalars, derived from the Overall board. */
 export interface PoolStandings {
     participants: number;
     has_scores: boolean;
-    me: LeaderboardEntryRow | null;
-    top: LeaderboardEntryRow[];
+    /** The viewer's own row on the Overall board, or null when they haven't joined. */
+    me: BoardRow | null;
 }
 
 /** One open prediction window with unfinished work, for the pool page's reminder banner. */
@@ -309,8 +295,31 @@ export interface LeaderboardBoard {
     description: string;
     primary_stat_label: string;
     secondary_stat_label: string | null;
+    /** Whether finishing top of this board wins a share of the prize pot (Overall only). */
+    awards_prizes: boolean;
     has_scores: boolean;
     rows: BoardRow[];
+}
+
+/**
+ * One of the first three boards shown as a full table on the pool page: its top rows plus the
+ * viewer's own row pinned when they rank outside them.
+ */
+export interface FeaturedBoard {
+    key: LeaderboardCategoryKey;
+    label: string;
+    description: string;
+    primary_stat_label: string;
+    secondary_stat_label: string | null;
+    /** Whether finishing top of this board wins a share of the prize pot (Overall only). */
+    awards_prizes: boolean;
+    has_scores: boolean;
+    /** Total players on the board (the `top` rows may be a truncated view of these). */
+    participants: number;
+    /** The board's top rows (at most the per-board cap). */
+    top: BoardRow[];
+    /** The viewer's own row, pinned only when they rank outside `top`; null otherwise. */
+    me: BoardRow | null;
 }
 
 /** A board summary for the pool page: who leads it, and where the viewer stands on it. */
@@ -343,10 +352,13 @@ export interface BoardDescriptor {
     description: string;
     primary_stat_label: string;
     secondary_stat_label: string | null;
+    /** Whether finishing top of this board wins a share of the prize pot (Overall only). */
+    awards_prizes: boolean;
 }
 
 export interface LeaderboardPageProps {
-    pool: PoolSummary;
+    /** The pool header plus its pricing — gates the "Prize board" badge and the inline amounts. */
+    pool: PoolSummary & { pricing: PoolPricing };
     boards: LeaderboardBoard[];
     active_board: LeaderboardCategoryKey | null;
 }
