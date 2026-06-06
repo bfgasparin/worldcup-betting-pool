@@ -114,6 +114,32 @@ class PredictionControllerTest extends TestCase
             );
     }
 
+    public function test_a_complete_group_still_surfaces_its_unresolved_tie(): void
+    {
+        // A four-way 0–0 group is complete yet level on every tiebreaker, so it carries an
+        // unresolved tie cluster the player must order. The "needs prediction" filter keys off this
+        // contract to keep the tie panel reachable once every fixture is scored.
+        $entry = Entry::factory()->for($this->pool)->for($this->user)->create();
+        $this->predictAllGroups(
+            $entry,
+            $this->tournament,
+            fn (int $home, int $away): array => [0, 0],
+            resolveTies: false,
+        );
+
+        $this->actingAs($this->user)
+            ->get(route('pools.predict.edit', 'world-cup-2026-ffa'))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                // Every fixture is scored…
+                ->where('groups.0.fixtures.0.home_goals', 0)
+                ->where('groups.0.fixtures.0.away_goals', 0)
+                // …yet the group exposes an unresolved tie of more than one team.
+                ->has('groups.0.tied_clusters', 1)
+                ->where('groups.0.tied_clusters.0.resolved', false)
+                ->has('groups.0.tied_clusters.0.team_ids', 4)
+            );
+    }
+
     public function test_predict_page_prefills_existing_predictions(): void
     {
         $entry = Entry::factory()->for($this->pool)->for($this->user)->create();

@@ -92,27 +92,31 @@ function isGroupScoreDone(score: ScorePair | undefined): boolean {
 }
 
 /**
- * Whether a knockout pick is complete — mirrors the server: an upfront bracket needs the advancing
- * team chosen, a phased bracket needs a scoreline.
+ * Whether a knockout pick is complete: the advancing team must be set. It is derived from a decisive
+ * score, or chosen by the player on a draw (penalties), so a draw with a scoreline but no advancing
+ * pick is NOT done — the player still has to say who goes through. Holds for upfront and phased.
  */
-function isKnockoutPickDone(
-    pick: KnockoutPick | undefined,
-    isUpfront: boolean,
-): boolean {
-    if (pick === undefined) {
-        return false;
-    }
-
-    return isUpfront
-        ? pick.advancing !== null
-        : pick.home !== '' && pick.away !== '';
+function isKnockoutPickDone(pick: KnockoutPick | undefined): boolean {
+    return pick !== undefined && pick.advancing !== null;
 }
 
 /**
- * How many matches in a step still need a prediction — counting only ones the player can actually
- * fill: the group step counts while it is editable; a knockout step counts only its OPEN rounds and
- * only fixtures whose participants are known (so an upfront bracket never points at an unresolved
- * slot). A step spanning two rounds (Third Place & Final) sums both.
+ * Whether a group still has an unresolved within-group tie to order — outstanding group-stage work
+ * even when every fixture is scored (ties only surface on a complete group; upfront pools only).
+ * Mirrors GroupCard's panel, which only renders clusters of more than one tied team.
+ */
+function groupTieUnresolved(group: PredictGroup): boolean {
+    return group.tied_clusters.some(
+        (cluster) => !cluster.resolved && cluster.team_ids.length > 1,
+    );
+}
+
+/**
+ * How many items in a step still need the player's attention — counting only ones they can actually
+ * act on: the group step counts unpredicted fixtures plus unresolved ties (each blocks the bracket)
+ * while it is editable; a knockout step counts only its OPEN rounds and only fixtures whose
+ * participants are known (so an upfront bracket never points at an unresolved slot). A step spanning
+ * two rounds (Third Place & Final) sums both.
  */
 function stepRemaining(
     step: number,
@@ -120,7 +124,6 @@ function stepRemaining(
     phasesByKey: Record<string, PredictBracketPhase>,
     groupScores: GroupScores,
     picks: KnockoutPicks,
-    isUpfront: boolean,
     canEdit: boolean,
 ): number {
     if (step === 0) {
@@ -128,11 +131,14 @@ function stepRemaining(
             return 0;
         }
 
-        return groups
+        const unpredicted = groups
             .flatMap((group) => group.fixtures)
             .filter(
                 (fixture) => !isGroupScoreDone(groupScores[fixture.fixture_id]),
             ).length;
+        const ties = groups.filter(groupTieUnresolved).length;
+
+        return unpredicted + ties;
     }
 
     return stepPhaseKeys(step)
@@ -142,10 +148,8 @@ function stepRemaining(
         )
         .flatMap((phase) => phase.fixtures)
         .filter((fixture) => fixture.home !== null && fixture.away !== null)
-        .filter(
-            (fixture) =>
-                !isKnockoutPickDone(picks[fixture.fixture_id], isUpfront),
-        ).length;
+        .filter((fixture) => !isKnockoutPickDone(picks[fixture.fixture_id]))
+        .length;
 }
 
 /** The first editable step that still has unpredicted matches; falls back to the group step. */
@@ -154,7 +158,6 @@ function computeInitialStep(
     phasesByKey: Record<string, PredictBracketPhase>,
     groupScores: GroupScores,
     picks: KnockoutPicks,
-    isUpfront: boolean,
     canEdit: boolean,
 ): number {
     for (let step = 0; step < STEP_TITLES.length; step++) {
@@ -166,7 +169,6 @@ function computeInitialStep(
                 phasesByKey,
                 groupScores,
                 picks,
-                isUpfront,
                 canEdit,
             ) > 0
         ) {
@@ -763,14 +765,7 @@ export default function Predict({
     // half-filled group, or a freshly-opened phased round). Computed once on mount; auto-saves keep
     // the component mounted (preserveState) so it isn't recomputed, and a fresh visit re-lands here.
     const [step, setStep] = useState(() =>
-        computeInitialStep(
-            groups,
-            phasesByKey,
-            groupScores,
-            picks,
-            isUpfront,
-            canEdit,
-        ),
+        computeInitialStep(groups, phasesByKey, groupScores, picks, canEdit),
     );
     // "Needs my prediction": hide matches already filled in, so only outstanding work shows.
     const [onlyRemaining, setOnlyRemaining] = useState(false);
@@ -841,11 +836,10 @@ export default function Predict({
                     phasesByKey,
                     groupScores,
                     picks,
-                    isUpfront,
                     canEdit,
                 ),
             ),
-        [groups, phasesByKey, groupScores, picks, isUpfront, canEdit],
+        [groups, phasesByKey, groupScores, picks, canEdit],
     );
     const nextStep = useMemo(() => {
         const total = STEP_TITLES.length;
@@ -874,10 +868,23 @@ export default function Predict({
     ): boolean =>
         fixture.home !== null &&
         fixture.away !== null &&
-        !isKnockoutPickDone(picks[fixture.fixture_id], isUpfront);
+        !isKnockoutPickDone(picks[fixture.fixture_id]);
+    // A group is outstanding while it has matches left to score OR an unresolved tie to order — the
+    // tie panel lives inside the card, so dropping a complete-but-tied group would strand it.
     const visiblePredictGroups = onlyRemaining
-        ? groups.filter((group) => group.fixtures.some(groupFixtureRemaining))
+        ? groups.filter(
+              (group) =>
+                  group.fixtures.some(groupFixtureRemaining) ||
+                  groupTieUnresolved(group),
+          )
         : groups;
+    // The straddling-thirds tie is its own panel below the grid; keep the "all set" note from
+    // claiming the group step is done while it's still unresolved.
+    const thirdsTieUnresolved =
+        isUpfront &&
+        thirdsTie !== null &&
+        thirdsTie.teams.length > 0 &&
+        !thirdsTie.resolved;
 
     const canImport = importSources.length > 0;
     const showImportSuggestion =
@@ -1252,7 +1259,9 @@ export default function Predict({
                                     </span>
                                 </div>
                             )}
-                            {onlyRemaining && stepRemainingCounts[0] === 0 ? (
+                            {onlyRemaining &&
+                            stepRemainingCounts[0] === 0 &&
+                            !thirdsTieUnresolved ? (
                                 <StepClearNote />
                             ) : (
                                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -1266,7 +1275,12 @@ export default function Predict({
                                             onCommit={flush}
                                             orderingUrl={orderingUrl}
                                             fixtureFilter={
-                                                onlyRemaining
+                                                // A group kept only for its tie shows all its
+                                                // (scored) fixtures for context, not an empty card.
+                                                onlyRemaining &&
+                                                group.fixtures.some(
+                                                    groupFixtureRemaining,
+                                                )
                                                     ? groupFixtureRemaining
                                                     : undefined
                                             }
