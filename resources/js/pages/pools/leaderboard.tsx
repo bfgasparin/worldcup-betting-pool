@@ -360,25 +360,28 @@ export default function Leaderboard({
                 )}
 
                 {board && (
+                    <div className="flex flex-col gap-1.5">
+                        <p className="text-sm text-muted-foreground">
+                            {board.description}
+                        </p>
+                        <p className="inline-flex items-start gap-1.5 text-xs font-medium text-muted-foreground">
+                            <Scale className="mt-px size-3.5 shrink-0 text-primary/70" />
+                            {tiebreakRule(board)}
+                        </p>
+                    </div>
+                )}
+
+                {board && (
                     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
                         <div className="min-w-0 flex-1 lg:order-1">
-                            <div className="flex flex-col gap-1.5">
-                                <p className="text-sm font-semibold text-foreground">
-                                    {isCurrent
-                                        ? 'Live standings'
-                                        : `Standings at the end of ${selected?.label ?? 'this matchday'}`}
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                    {board.description}
-                                </p>
-                                <p className="inline-flex items-start gap-1.5 text-xs font-medium text-muted-foreground">
-                                    <Scale className="mt-px size-3.5 shrink-0 text-primary/70" />
-                                    {tiebreakRule(board)}
-                                </p>
-                            </div>
+                            <p className="truncate text-sm font-semibold whitespace-nowrap text-foreground">
+                                {isCurrent
+                                    ? 'Live standings'
+                                    : `Standings · end of ${selected?.label ?? 'this matchday'}`}
+                            </p>
 
                             {!board.has_scores && participants > 0 && (
-                                <div className="mt-4 flex items-start gap-4 rounded-3xl border border-accent/30 bg-accent/[0.08] p-5">
+                                <div className="mt-3 flex items-start gap-4 rounded-3xl border border-accent/30 bg-accent/[0.08] p-5">
                                     <div className="app-icon app-icon--gold grid size-11 shrink-0 place-items-center rounded-2xl">
                                         <Trophy className="size-5 text-[#3a2600]" />
                                     </div>
@@ -396,7 +399,7 @@ export default function Leaderboard({
                             )}
 
                             {participants > 0 ? (
-                                <div className="mt-4 overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--sh-sm)]">
+                                <div className="mt-3 overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--sh-sm)]">
                                     {board.rows.map((row) => (
                                         <LeaderboardRow
                                             key={row.rank}
@@ -425,7 +428,7 @@ export default function Leaderboard({
                                     ))}
                                 </div>
                             ) : (
-                                <div className="mt-4 flex min-h-44 flex-col items-center justify-center gap-2 rounded-3xl border border-dashed border-border p-8 text-center">
+                                <div className="mt-3 flex min-h-44 flex-col items-center justify-center gap-2 rounded-3xl border border-dashed border-border p-8 text-center">
                                     <Users className="size-6 text-muted-foreground" />
                                     <p className="font-display font-semibold">
                                         No players yet
@@ -440,16 +443,14 @@ export default function Leaderboard({
 
                         {cards && (
                             <aside className="flex flex-col gap-3 lg:order-2 lg:w-80 lg:shrink-0">
-                                <div className="flex items-baseline justify-between gap-2 px-1">
-                                    <p className="font-display text-sm font-semibold text-foreground">
-                                        {selected?.label ?? 'This matchday'}
-                                    </p>
+                                <p className="truncate px-1 font-display text-sm font-semibold whitespace-nowrap text-foreground">
+                                    {selected?.label ?? 'This matchday'}
                                     {dateRange && (
-                                        <p className="text-xs text-muted-foreground">
-                                            {dateRange}
-                                        </p>
+                                        <span className="ml-1.5 font-sans font-normal text-muted-foreground">
+                                            · {dateRange}
+                                        </span>
                                     )}
-                                </div>
+                                </p>
                                 <MatchdayStatCard
                                     title="You earned"
                                     icon={Sparkles}
