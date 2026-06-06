@@ -7,28 +7,29 @@ import {
     Crown,
     ListOrdered,
     Scale,
-    Sparkles,
     TrendingDown,
     Trophy,
     Users,
 } from 'lucide-react';
 import { useState } from 'react';
 import { formatMatchDate } from '@/components/fixtures';
-import { LeaderboardRow } from '@/components/leaderboard-row';
+import { LeaderboardStandings } from '@/components/leaderboard-standings';
+import PlayerAvatar from '@/components/player-avatar';
 import { PoolIdentity } from '@/components/pool-identity';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
 import { tiebreakRule } from '@/lib/leaderboards';
 import { poolTitle } from '@/lib/pool-title';
-import { prizeForPlace } from '@/lib/prizes';
 import { cn } from '@/lib/utils';
 import pools from '@/routes/pools';
 import type { BreadcrumbItem } from '@/types/navigation';
 import type {
+    BoardRow,
     LeaderboardBoard,
     LeaderboardCategoryKey,
     LeaderboardMatchday,
     LeaderboardPageProps,
     MatchdayStat,
+    RankMovement,
 } from '@/types/pools';
 
 /** Pill tabs for switching boards — mirrors the in-house PhaseTabs idiom. */
@@ -308,16 +309,95 @@ function matchdayDateRange(
     return start === end ? start : `${start} – ${end}`;
 }
 
-/** The board's secondary stat, formatted with its label (e.g. "27 team goals"). */
-function secondaryStat(
-    board: LeaderboardBoard,
-    value: number | null,
-): string | null {
-    if (board.secondary_stat_label === null || value === null) {
+/** A white movement indicator that stays legible on the branded personal card. */
+function PersonalMovement({
+    movement,
+    delta,
+}: {
+    movement: RankMovement | null;
+    delta: number | null;
+}) {
+    if (movement === null || movement === 'same') {
         return null;
     }
 
-    return `${value} ${board.secondary_stat_label.toLowerCase()}`;
+    if (movement === 'new') {
+        return (
+            <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase">
+                New
+            </span>
+        );
+    }
+
+    const up = movement === 'up';
+    const Icon = up ? ArrowUp : ArrowDown;
+
+    return (
+        <span className="inline-flex items-center gap-0.5 rounded-full bg-white/15 px-2 py-0.5 font-display text-xs font-semibold tabular-nums">
+            <Icon className="size-3.5" />
+            {delta}
+        </span>
+    );
+}
+
+/**
+ * The viewer's own standing — a prominent, branded card that reads as "about you", set apart from
+ * the pool-wide cards. Shows the viewer's rank and movement, their board total, and what they earned
+ * this matchday.
+ */
+function PersonalCard({
+    row,
+    matchdayValue,
+    statLabel,
+}: {
+    row: BoardRow;
+    matchdayValue: number | null;
+    statLabel: string;
+}) {
+    const label = statLabel.toLowerCase();
+
+    return (
+        <div className="bg-brand-gradient shadow-glow relative overflow-hidden rounded-2xl p-4 text-white lg:w-72 lg:shrink-0">
+            <div className="text-xs font-bold tracking-[0.12em] text-white/80 uppercase">
+                Your standing
+            </div>
+            <div className="mt-3 flex items-center gap-3">
+                <PlayerAvatar
+                    name={row.name}
+                    initials={row.initials}
+                    src={row.avatar}
+                    fallbackClassName="bg-white/15 text-white"
+                    ringClassName="ring-2 ring-white/40"
+                    className="size-11"
+                />
+                <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                        <span className="font-display text-3xl leading-none font-semibold tabular-nums">
+                            #{row.rank}
+                        </span>
+                        <PersonalMovement
+                            movement={row.movement}
+                            delta={row.movement_delta}
+                        />
+                    </div>
+                    <div className="mt-1 truncate text-xs text-white/85">
+                        {row.primary_value === null
+                            ? '—'
+                            : row.primary_value.toLocaleString()}{' '}
+                        {label} total
+                    </div>
+                </div>
+            </div>
+            <div className="mt-3 border-t border-white/15 pt-3">
+                <span className="font-display text-lg font-semibold tabular-nums">
+                    {matchdayValue === null ? '—' : `+${matchdayValue}`}
+                </span>{' '}
+                <span className="text-sm text-white/85">
+                    {label} this matchday
+                </span>
+            </div>
+        </div>
+    );
 }
 
 export default function Leaderboard({
@@ -364,6 +444,7 @@ export default function Leaderboard({
     };
 
     const cards = board?.matchday_stats;
+    const myRow = board?.rows.find((row) => row.is_me) ?? null;
 
     return (
         <>
@@ -417,134 +498,112 @@ export default function Leaderboard({
                 )}
 
                 {board && (
-                    <div className="flex flex-col gap-1.5">
-                        <p className="text-sm text-muted-foreground">
-                            {board.description}
-                        </p>
-                        <p className="inline-flex items-start gap-1.5 text-xs font-medium text-muted-foreground">
-                            <Scale className="mt-px size-3.5 shrink-0 text-primary/70" />
-                            {tiebreakRule(board)}
+                    <div className="flex flex-col items-baseline justify-between gap-1 sm:flex-row sm:gap-3">
+                        <p className="font-display text-sm font-semibold text-foreground">
+                            {selected?.label ?? 'This matchday'}
+                            {dateRange && (
+                                <span className="ml-1.5 font-sans font-normal text-muted-foreground">
+                                    · {dateRange}
+                                </span>
+                            )}
                         </p>
                     </div>
                 )}
 
+                {board && cards && (
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
+                        {myRow && (
+                            <PersonalCard
+                                row={myRow}
+                                matchdayValue={cards.you?.value ?? null}
+                                statLabel={board.primary_stat_label}
+                            />
+                        )}
+                        <div className="grid flex-1 grid-cols-2 gap-3">
+                            <MatchdayStatCard
+                                title="Top of the matchday"
+                                icon={Crown}
+                                tone="gold"
+                                stat={cards.top}
+                                statLabel={board.primary_stat_label}
+                                showName
+                            />
+                            <MatchdayStatCard
+                                title="Quietest matchday"
+                                icon={TrendingDown}
+                                tone="muted"
+                                stat={cards.lowest}
+                                statLabel={board.primary_stat_label}
+                                showName
+                            />
+                            <MoverCard
+                                title="Climber"
+                                direction="up"
+                                stat={cards.biggest_climber}
+                            />
+                            <MoverCard
+                                title="Faller"
+                                direction="down"
+                                stat={cards.biggest_faller}
+                            />
+                        </div>
+                    </div>
+                )}
+
                 {board && (
-                    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-                        <div className="min-w-0 flex-1 lg:order-1">
-                            <p className="truncate text-sm font-semibold whitespace-nowrap text-foreground">
+                    <div className="flex flex-col gap-3">
+                        <div className="flex flex-col gap-1.5">
+                            <p className="text-sm font-semibold text-foreground">
                                 {isCurrent
                                     ? 'Live standings'
-                                    : `Standings · end of ${selected?.label ?? 'this matchday'}`}
+                                    : `Standings at the end of ${selected?.label ?? 'this matchday'}`}
                             </p>
-
-                            {!board.has_scores && participants > 0 && (
-                                <div className="mt-3 flex items-start gap-4 rounded-3xl border border-accent/30 bg-accent/[0.08] p-5">
-                                    <div className="app-icon app-icon--gold grid size-11 shrink-0 place-items-center rounded-2xl">
-                                        <Trophy className="size-5 text-[#3a2600]" />
-                                    </div>
-                                    <div>
-                                        <p className="font-display text-base font-semibold">
-                                            The table is warming up
-                                        </p>
-                                        <p className="mt-1 text-sm text-muted-foreground">
-                                            Standings land as match results come
-                                            in — predictions lock at kick-off.
-                                            Here's everyone playing so far.
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {participants > 0 ? (
-                                <div className="mt-3 overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--sh-sm)]">
-                                    {board.rows.map((row) => (
-                                        <LeaderboardRow
-                                            key={row.rank}
-                                            entry={{
-                                                rank: row.rank,
-                                                name: row.name,
-                                                initials: row.initials,
-                                                avatar: row.avatar,
-                                                primary: row.primary_value,
-                                                secondary: secondaryStat(
-                                                    board,
-                                                    row.secondary_value,
-                                                ),
-                                                isMe: row.is_me,
-                                                movement: row.movement,
-                                                movementDelta:
-                                                    row.movement_delta,
-                                                prize: showPrizes
-                                                    ? prizeForPlace(
-                                                          pool.pricing,
-                                                          row.rank,
-                                                      )
-                                                    : undefined,
-                                            }}
-                                        />
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="mt-3 flex min-h-44 flex-col items-center justify-center gap-2 rounded-3xl border border-dashed border-border p-8 text-center">
-                                    <Users className="size-6 text-muted-foreground" />
-                                    <p className="font-display font-semibold">
-                                        No players yet
-                                    </p>
-                                    <p className="max-w-sm text-sm text-muted-foreground">
-                                        Predictions put you on the board — be
-                                        the first to lock in your scorelines.
-                                    </p>
-                                </div>
-                            )}
+                            <p className="text-sm text-muted-foreground">
+                                {board.description}
+                            </p>
+                            <p className="inline-flex items-start gap-1.5 text-xs font-medium text-muted-foreground">
+                                <Scale className="mt-px size-3.5 shrink-0 text-primary/70" />
+                                {tiebreakRule(board)}
+                            </p>
                         </div>
 
-                        {cards && (
-                            <aside className="flex flex-col gap-3 lg:order-2 lg:w-80 lg:shrink-0">
-                                <p className="truncate px-1 font-display text-sm font-semibold whitespace-nowrap text-foreground">
-                                    {selected?.label ?? 'This matchday'}
-                                    {dateRange && (
-                                        <span className="ml-1.5 font-sans font-normal text-muted-foreground">
-                                            · {dateRange}
-                                        </span>
-                                    )}
-                                </p>
-                                <MatchdayStatCard
-                                    title="You earned"
-                                    icon={Sparkles}
-                                    tone="green"
-                                    stat={cards.you}
-                                    statLabel={board.primary_stat_label}
-                                    showName={false}
-                                />
-                                <MatchdayStatCard
-                                    title="Top of the matchday"
-                                    icon={Crown}
-                                    tone="gold"
-                                    stat={cards.top}
-                                    statLabel={board.primary_stat_label}
-                                    showName
-                                />
-                                <MatchdayStatCard
-                                    title="Quietest matchday"
-                                    icon={TrendingDown}
-                                    tone="muted"
-                                    stat={cards.lowest}
-                                    statLabel={board.primary_stat_label}
-                                    showName
-                                />
-                                <div className="grid grid-cols-2 gap-3">
-                                    <MoverCard
-                                        title="Climber"
-                                        direction="up"
-                                        stat={cards.biggest_climber}
-                                    />
-                                    <MoverCard
-                                        title="Faller"
-                                        direction="down"
-                                        stat={cards.biggest_faller}
-                                    />
+                        {!board.has_scores && participants > 0 && (
+                            <div className="flex items-start gap-4 rounded-3xl border border-accent/30 bg-accent/[0.08] p-5">
+                                <div className="app-icon app-icon--gold grid size-11 shrink-0 place-items-center rounded-2xl">
+                                    <Trophy className="size-5 text-[#3a2600]" />
                                 </div>
-                            </aside>
+                                <div>
+                                    <p className="font-display text-base font-semibold">
+                                        The table is warming up
+                                    </p>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        Standings land as match results come in
+                                        — predictions lock at kick-off. Here's
+                                        everyone playing so far.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
+                        {participants > 0 ? (
+                            <LeaderboardStandings
+                                key={`${active}|${selected_matchday}`}
+                                rows={board.rows}
+                                board={board}
+                                showPrizes={showPrizes}
+                                pricing={pool.pricing}
+                            />
+                        ) : (
+                            <div className="flex min-h-44 flex-col items-center justify-center gap-2 rounded-3xl border border-dashed border-border p-8 text-center">
+                                <Users className="size-6 text-muted-foreground" />
+                                <p className="font-display font-semibold">
+                                    No players yet
+                                </p>
+                                <p className="max-w-sm text-sm text-muted-foreground">
+                                    Predictions put you on the board — be the
+                                    first to lock in your scorelines.
+                                </p>
+                            </div>
                         )}
                     </div>
                 )}

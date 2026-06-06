@@ -1,3 +1,4 @@
+import type { Ref } from 'react';
 import { MovementArrow } from '@/components/movement-arrow';
 import PlayerAvatar from '@/components/player-avatar';
 import { cn } from '@/lib/utils';
@@ -63,15 +64,19 @@ function formatValue(value: number | null): string {
 export function LeaderboardRow({
     entry,
     className,
+    rootRef,
 }: {
     entry: LeaderboardEntry;
     className?: string;
+    /** Attached to the row's root element — used to scroll/observe the viewer's own row. */
+    rootRef?: Ref<HTMLDivElement>;
 }) {
     const scored = entry.primary !== null;
     const medal = scored ? MEDALS[entry.rank] : undefined;
 
     return (
         <div
+            ref={rootRef}
             className={cn(
                 'grid items-center gap-3 border-b border-border px-4 py-3 last:border-0 sm:px-5',
                 entry.secondary
