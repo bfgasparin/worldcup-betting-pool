@@ -14,6 +14,7 @@ import { useState } from 'react';
 import { AddPlayerDialog } from '@/components/add-player-dialog';
 import { CompareDock } from '@/components/compare-dock';
 import { CompareStrip } from '@/components/compare-strip';
+import { CountdownBand } from '@/components/countdown-band';
 import {
     FinalCard,
     GroupFixtureCard,
@@ -36,7 +37,6 @@ import { MovementArrow } from '@/components/movement-arrow';
 import PlayerAvatar from '@/components/player-avatar';
 import { PoolIdentity } from '@/components/pool-identity';
 import { PoolInfoDialog } from '@/components/pool-info-dialog';
-import { PredictionCountdown } from '@/components/prediction-countdown';
 import { PrizePanel } from '@/components/prize-panel';
 import { Button } from '@/components/ui/button';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
@@ -72,29 +72,6 @@ interface PoolShowProps {
     attention: AttentionSummary;
 }
 
-/**
- * The hero's one-line context for the text states: not joined (open or closed), or joined but not
- * yet scored. The "joined + predictions still open" state is a live <PredictionCountdown /> in the
- * banner, not a string. Null once results are landing — the standings carry it from there.
- */
-function heroContextLine(
-    hasEntry: boolean,
-    hasScores: boolean,
-    canJoin: boolean,
-): string | null {
-    if (!hasEntry) {
-        return canJoin
-            ? "You're not in yet — join to play."
-            : 'Joining has closed — predictions are locked.';
-    }
-
-    if (!hasScores) {
-        return 'Locked in — points unlock as results land.';
-    }
-
-    return null;
-}
-
 function DashboardBanner({
     pool,
     standings,
@@ -116,115 +93,125 @@ function DashboardBanner({
 
     const tz = useDisplayTimeZone();
     const hasEntry = standings.me !== null;
-    // The countdown owns the "entered + predictions still relevant" window (future lock counting
-    // down, then flipping to locked in place). heroContextLine covers only the not-entered CTA and
-    // the locked-but-unscored note (incl. pools with no derivable lock).
-    const showCountdown =
-        hasEntry && !standings.has_scores && pool.predictions_lock_at !== null;
-    const contextLine = heroContextLine(
-        hasEntry,
-        standings.has_scores,
-        pool.can_join,
-    );
+    // The actions row holds the primary CTA (edit when joined, join when not) plus the compare and
+    // admin tools, sitting directly under the countdown strip.
+    const hasActions =
+        hasEntry ||
+        pool.can_join ||
+        canCompare ||
+        pool.can_review_scores ||
+        isAdmin;
 
     return (
         <header className="hero relative overflow-hidden rounded-3xl border border-border p-6 sm:p-8">
             <div className="hero-lines" />
-            <div className="relative flex flex-col gap-6">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <PoolIdentity
-                            variant="banner"
-                            source={pool.source}
-                            scoringLabel={pool.scoring_label}
-                            accent={pool.accent}
-                            className="mb-3"
-                        />
-                        <h1 className="text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-4xl">
-                            {pool.name}
-                        </h1>
-                        <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                            <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold capitalize">
-                                {pool.status.replace('_', ' ')}
-                            </span>
-                            <span className="capitalize">{pool.sport}</span>
-                            {dates && (
-                                <span className="inline-flex items-center gap-1.5">
-                                    <CalendarDays className="size-4" />
-                                    {dates}
-                                </span>
-                            )}
-                            <span className="inline-flex items-center gap-1.5">
-                                <Users className="size-4" />
-                                {standings.participants}{' '}
-                                {standings.participants === 1
-                                    ? 'player'
-                                    : 'players'}
-                            </span>
-                        </div>
-                        {showCountdown ? (
-                            <PredictionCountdown
-                                lockAt={pool.predictions_lock_at}
-                                tz={tz}
+            {/*
+              Two-column hero: identity/title/meta, then the compact lock countdown sitting directly
+              above the player's actions, share the left column; the prize breakdown takes the right
+              column on its own. Pairing the deadline with the CTA it gates keeps the two columns a
+              similar height and the card short, and collapses to one column (deadline high) below lg.
+            */}
+            <div className="relative grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:items-start">
+                <div className="flex min-w-0 flex-col gap-5">
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                            <PoolIdentity
+                                variant="banner"
+                                source={pool.source}
+                                scoringLabel={pool.scoring_label}
+                                accent={pool.accent}
+                                className="mb-3"
                             />
-                        ) : (
-                            contextLine && (
-                                <p className="mt-2 text-sm font-medium text-foreground">
-                                    {contextLine}
-                                </p>
-                            )
+                            <h1 className="text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-4xl">
+                                {pool.name}
+                            </h1>
+                            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                                <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold capitalize">
+                                    {pool.status.replace('_', ' ')}
+                                </span>
+                                <span className="capitalize">{pool.sport}</span>
+                                {dates && (
+                                    <span className="inline-flex items-center gap-1.5">
+                                        <CalendarDays className="size-4" />
+                                        {dates}
+                                    </span>
+                                )}
+                                <span className="inline-flex items-center gap-1.5">
+                                    <Users className="size-4" />
+                                    {standings.participants}{' '}
+                                    {standings.participants === 1
+                                        ? 'player'
+                                        : 'players'}
+                                </span>
+                            </div>
+                        </div>
+                        <div className="shrink-0">
+                            <PoolInfoDialog pool={pool} />
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-3">
+                        <CountdownBand
+                            lockAt={pool.predictions_lock_at}
+                            tz={tz}
+                            joined={hasEntry}
+                            canJoin={pool.can_join}
+                            hasScores={standings.has_scores}
+                        />
+                        {hasActions && (
+                            <div className="flex flex-wrap items-center gap-3">
+                                {hasEntry ? (
+                                    <Button asChild>
+                                        <Link
+                                            href={pools.predict.edit(pool.slug)}
+                                        >
+                                            <PencilLine className="size-4" />
+                                            Edit predictions
+                                        </Link>
+                                    </Button>
+                                ) : pool.can_join ? (
+                                    <JoinPoolDialog pool={pool} />
+                                ) : null}
+                                {canCompare && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={onCompare}
+                                    >
+                                        <GitCompare className="size-4" />
+                                        Compare players
+                                    </Button>
+                                )}
+                                {pool.can_review_scores && (
+                                    <Button asChild variant="outline">
+                                        <Link
+                                            href={pools.scores.review(
+                                                pool.slug,
+                                            )}
+                                        >
+                                            <ClipboardCheck className="size-4" />
+                                            Review scores
+                                        </Link>
+                                    </Button>
+                                )}
+                                {isAdmin && (
+                                    <Button asChild variant="outline">
+                                        <Link
+                                            href={pools.schedule.index(
+                                                pool.slug,
+                                            )}
+                                        >
+                                            <CalendarClock className="size-4" />
+                                            Manage schedule
+                                        </Link>
+                                    </Button>
+                                )}
+                            </div>
                         )}
                     </div>
-                    <PoolInfoDialog pool={pool} />
                 </div>
 
-                <PrizePanel
-                    pricing={pool.pricing}
-                    className="bg-card/80 sm:max-w-md"
-                />
-
-                <div className="flex flex-wrap items-center gap-3">
-                    {hasEntry ? (
-                        <Button asChild>
-                            <Link href={pools.predict.edit(pool.slug)}>
-                                <PencilLine className="size-4" />
-                                Edit predictions
-                            </Link>
-                        </Button>
-                    ) : pool.can_join ? (
-                        <JoinPoolDialog pool={pool} />
-                    ) : (
-                        <span className="inline-flex items-center rounded-full border border-border bg-muted px-4 py-2 text-sm font-semibold text-muted-foreground">
-                            Joining closed
-                        </span>
-                    )}
-                    {canCompare && (
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={onCompare}
-                        >
-                            <GitCompare className="size-4" />
-                            Compare players
-                        </Button>
-                    )}
-                    {pool.can_review_scores && (
-                        <Button asChild variant="outline">
-                            <Link href={pools.scores.review(pool.slug)}>
-                                <ClipboardCheck className="size-4" />
-                                Review scores
-                            </Link>
-                        </Button>
-                    )}
-                    {isAdmin && (
-                        <Button asChild variant="outline">
-                            <Link href={pools.schedule.index(pool.slug)}>
-                                <CalendarClock className="size-4" />
-                                Manage schedule
-                            </Link>
-                        </Button>
-                    )}
-                </div>
+                <PrizePanel pricing={pool.pricing} />
             </div>
         </header>
     );
