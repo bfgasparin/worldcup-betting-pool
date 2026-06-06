@@ -348,25 +348,35 @@ class PoolControllerTest extends TestCase
             );
     }
 
-    public function test_leaderboard_exposes_rank_movement(): void
+    public function test_leaderboard_exposes_rank_movement_and_places_moved(): void
     {
         $this->seed(WorldCup2026Seeder::class);
-        $tournament = Tournament::firstOrFail();
+        $pool = Tournament::firstOrFail()->pools()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
 
-        // A climbed from 2nd to 1st; B slipped from 1st to 2nd.
-        Entry::factory()->for($tournament->pools()->where('slug', 'world-cup-2026-ffa')->firstOrFail())
-            ->for(User::factory()->create(['name' => 'Climber']))
+        // Rows order by points: a one-place climb, a one-place slip, a four-place jump, and a
+        // first-ever appearance (no prior rank to compare against).
+        Entry::factory()->for($pool)->for(User::factory()->create(['name' => 'Climber']))
             ->create(['total_points' => 120, 'rank' => 1, 'previous_rank' => 2]);
         $me = User::factory()->create(['name' => 'Slider']);
-        Entry::factory()->for($tournament->pools()->where('slug', 'world-cup-2026-ffa')->firstOrFail())->for($me)
-            ->create(['total_points' => 40, 'rank' => 2, 'previous_rank' => 1]);
+        Entry::factory()->for($pool)->for($me)
+            ->create(['total_points' => 90, 'rank' => 2, 'previous_rank' => 1]);
+        Entry::factory()->for($pool)->for(User::factory()->create(['name' => 'Riser']))
+            ->create(['total_points' => 60, 'rank' => 3, 'previous_rank' => 7]);
+        Entry::factory()->for($pool)->for(User::factory()->create(['name' => 'Newcomer']))
+            ->create(['total_points' => 40, 'rank' => 4, 'previous_rank' => null]);
 
         $this->actingAs($me)
             ->get(route('pools.leaderboard', 'world-cup-2026-ffa'))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('boards.0.key', 'overall')
                 ->where('boards.0.rows.0.movement', 'up')
+                ->where('boards.0.rows.0.movement_delta', 1)
                 ->where('boards.0.rows.1.movement', 'down')
+                ->where('boards.0.rows.1.movement_delta', 1)
+                ->where('boards.0.rows.2.movement', 'up')
+                ->where('boards.0.rows.2.movement_delta', 4)
+                ->where('boards.0.rows.3.movement', 'new')
+                ->where('boards.0.rows.3.movement_delta', null)
             );
     }
 

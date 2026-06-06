@@ -325,6 +325,7 @@ class PoolController extends Controller
                     'secondary_value' => null,
                     'is_me' => $entry->user_id === $userId,
                     'movement' => $this->movement($entry->rank, $entry->previous_rank),
+                    'movement_delta' => $this->movementDelta($entry->rank, $entry->previous_rank),
                 ])
                 ->all();
         } else {
@@ -345,6 +346,7 @@ class PoolController extends Controller
                     'secondary_value' => $pair['standing']?->tiebreaker ?? 0,
                     'is_me' => $pair['entry']->user_id === $userId,
                     'movement' => $this->movement($pair['standing']?->rank, $pair['standing']?->previous_rank),
+                    'movement_delta' => $this->movementDelta($pair['standing']?->rank, $pair['standing']?->previous_rank),
                 ])
                 ->all();
         }
@@ -409,6 +411,7 @@ class PoolController extends Controller
                         'rank' => $mine['rank'],
                         'primary_value' => $mine['primary_value'],
                         'movement' => $mine['movement'],
+                        'movement_delta' => $mine['movement_delta'],
                     ],
                 ];
             })
@@ -435,7 +438,7 @@ class PoolController extends Controller
     /**
      * Rank a pool's entries by total points, marking the current user's row.
      *
-     * @return Collection<int, array{rank: int, entry_id: int, name: string, initials: string, avatar: ?string, points: ?int, is_me: bool, movement: ?string}>
+     * @return Collection<int, array{rank: int, entry_id: int, name: string, initials: string, avatar: ?string, points: ?int, is_me: bool, movement: ?string, movement_delta: ?int}>
      */
     private function rankedEntries(Pool $pool, int $userId): Collection
     {
@@ -455,6 +458,7 @@ class PoolController extends Controller
                 'points' => $entry->total_points,
                 'is_me' => $entry->user_id === $userId,
                 'movement' => $this->movement($entry->rank, $entry->previous_rank),
+                'movement_delta' => $this->movementDelta($entry->rank, $entry->previous_rank),
             ]);
     }
 
@@ -477,6 +481,19 @@ class PoolController extends Controller
             $rank > $previousRank => 'down',
             default => 'same',
         };
+    }
+
+    /**
+     * How many places a rank moved since the last snapshot — always positive, or null when
+     * there is no comparable previous rank (first appearance / before any snapshot).
+     */
+    private function movementDelta(?int $rank, ?int $previousRank): ?int
+    {
+        if ($rank === null || $previousRank === null) {
+            return null;
+        }
+
+        return abs($rank - $previousRank) ?: null;
     }
 
     /**

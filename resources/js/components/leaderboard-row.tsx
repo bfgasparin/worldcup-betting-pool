@@ -16,6 +16,8 @@ export interface LeaderboardEntry {
     subtitle?: string | null;
     isMe?: boolean;
     movement?: RankMovement | null;
+    /** How many places the entry moved since the last results, shown in the movement pill. */
+    movementDelta?: number | null;
 }
 
 const MEDALS: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
@@ -115,7 +117,11 @@ export function LeaderboardRow({
 
             <div className="flex items-center justify-end gap-2">
                 {entry.movement != null && (
-                    <MovementArrow movement={entry.movement} />
+                    <MovementArrow
+                        movement={entry.movement}
+                        delta={entry.movementDelta}
+                        size="md"
+                    />
                 )}
                 <span className="text-right font-display text-lg font-semibold tabular-nums">
                     {formatValue(entry.primary)}
