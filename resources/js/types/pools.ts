@@ -262,6 +262,27 @@ export interface AttentionSummary {
     open_windows: AttentionWindow[];
 }
 
+/** One currently-open window the viewer has finished, for the "all set" celebration. */
+export interface CompletionWindow {
+    phase_key: string;
+    /** Human label, e.g. "Group stage", "Round of 16", or "Your bracket" (upfront pools). */
+    label: string;
+    /** ISO 8601 instant the window locks, or null when no deadline is scheduled yet. */
+    deadline: string | null;
+}
+
+/**
+ * Whether the viewer has completed every prediction in a currently-open window — the inverse of
+ * {@link AttentionSummary}. Drives the predict page's celebration modal (on the session
+ * incomplete→complete transition) and its calm "all set" banner. `is_complete` is false when work
+ * remains OR when no window is currently open (nothing to celebrate), in which case `open_windows`
+ * is empty; when true it lists the finished window(s) so the message can name them and their lock.
+ */
+export interface CompletionSummary {
+    is_complete: boolean;
+    open_windows: CompletionWindow[];
+}
+
 /** A ranked row on any of the full leaderboards (Leaderboards page). */
 export interface BoardRow {
     rank: number;
@@ -531,4 +552,6 @@ export interface PredictPageProps {
     should_suggest_import: boolean;
     /** Whether this (phased) pool's standings hold a tie that has no effect, so we explain it. */
     show_tie_note: boolean;
+    /** Whether every prediction in a currently-open window is done — drives the celebration. */
+    completion: CompletionSummary;
 }

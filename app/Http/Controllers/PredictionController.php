@@ -17,6 +17,7 @@ use App\Models\KnockoutPrediction;
 use App\Models\Pool;
 use App\Models\Team;
 use App\Models\Tournament;
+use App\Services\Pools\PredictionAttention;
 use App\Services\Predictions\BracketResolver;
 use App\Services\Predictions\GroupStandings;
 use App\Services\Predictions\GroupStandingsPresenter;
@@ -40,6 +41,7 @@ class PredictionController extends Controller
         private readonly BracketResolver $resolver,
         private readonly PredictionWindowResolver $windowResolver,
         private readonly PredictionImporter $importer,
+        private readonly PredictionAttention $attention,
     ) {}
 
     /**
@@ -104,6 +106,10 @@ class PredictionController extends Controller
             // Phased pools can't resolve standings ties (the bracket is official); flag when one
             // exists so the wizard can explain instead of leaving the user looking for a control.
             'show_tie_note' => $this->phasedStandingsHaveTies($pool, $bracket, $tournament),
+            // Whether every prediction in a currently-open window is in — drives the wizard's
+            // "you're all set" celebration. Computed after the upfront cascade above so a wipe is
+            // reflected before we decide the player is done.
+            'completion' => $this->attention->completion($pool, $entry)->toArray(),
         ]);
     }
 

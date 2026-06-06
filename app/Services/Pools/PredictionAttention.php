@@ -55,6 +55,29 @@ class PredictionAttention
         return $this->cache[$key] ??= $this->compute($pool, $entry);
     }
 
+    /**
+     * Whether the player has finished every prediction in a currently-open window — the signal that
+     * drives the predict page's celebration modal and its calm "all set" banner, and the inverse of
+     * {@see needsAttention()}. That boolean is false BOTH when everything is done AND when nothing is
+     * open, so completion pairs "no outstanding work" with "at least one window is actually open" (a
+     * window the player could still be filling). When complete, {@see summary()} lists no windows, so
+     * the open windows' labels and deadlines are resolved separately by {@see openWindows()}.
+     */
+    public function completion(Pool $pool, ?Entry $entry): CompletionSummary
+    {
+        if ($entry === null) {
+            return new CompletionSummary(false);
+        }
+
+        $openWindows = $this->openWindows($pool);
+
+        if ($openWindows === [] || $this->summary($pool, $entry)->needsAttention) {
+            return new CompletionSummary(false);
+        }
+
+        return new CompletionSummary(true, $openWindows);
+    }
+
     private function compute(Pool $pool, ?Entry $entry): AttentionSummary
     {
         if ($entry === null) {
@@ -64,6 +87,58 @@ class PredictionAttention
         return $pool->usesPhasedPredictionWindows()
             ? $this->phasedSummary($pool, $entry)
             : $this->upfrontSummary($pool, $entry);
+    }
+
+    /**
+     * The pool's currently-open prediction windows with their display label and lock deadline,
+     * independent of whether they are finished — the same open-window set the attention summaries
+     * walk, but without the "missing" detail (which is empty once complete). Upfront pools collapse
+     * to a single window (the whole bracket locks with the group stage); phased pools list the group
+     * stage plus each open knockout round.
+     *
+     * @return list<array{phase_key: string, label: string, deadline: ?string}>
+     */
+    private function openWindows(Pool $pool): array
+    {
+        if (! $pool->usesPhasedPredictionWindows()) {
+            if (! $pool->acceptsPredictions()) {
+                return [];
+            }
+
+            return [[
+                'phase_key' => PhaseKey::Group->value,
+                'label' => 'Your bracket',
+                'deadline' => $pool->predictionsLockAt()?->toIso8601String(),
+            ]];
+        }
+
+        $windows = [];
+
+        if ($pool->acceptsPredictions()) {
+            $windows[] = [
+                'phase_key' => PhaseKey::Group->value,
+                'label' => 'Group stage',
+                'deadline' => $pool->predictionsLockAt()?->toIso8601String(),
+            ];
+        }
+
+        // Knockout rounds can only be open once the group stage has produced official results.
+        if ($pool->tournament->status !== TournamentStatus::Upcoming) {
+            $statuses = $this->windowResolver->windows($pool);
+
+            foreach ($pool->tournament->phases as $phase) {
+                if ($phase->type === PhaseType::Knockout
+                    && ($statuses[$phase->key->value] ?? null) === PredictionWindowStatus::Open) {
+                    $windows[] = [
+                        'phase_key' => $phase->key->value,
+                        'label' => $phase->name,
+                        'deadline' => $this->windowResolver->lockAtFor($pool, $phase)?->toIso8601String(),
+                    ];
+                }
+            }
+        }
+
+        return $windows;
     }
 
     /**
