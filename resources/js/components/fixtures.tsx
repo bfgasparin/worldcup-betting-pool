@@ -2,6 +2,7 @@ import { ChevronDown } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Flag } from '@/components/flag';
+import { MatchdayChip, MatchdayStripe } from '@/components/matchday-marker';
 import { StandingsTable } from '@/components/standings-table';
 import {
     Collapsible,
@@ -48,6 +49,15 @@ export function formatLongDate(iso: string, tz: string): string {
         { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' },
         tz,
     );
+}
+
+/** A date header for the chronological schedule, e.g. "Thu · Jun 11", in the viewer's zone. */
+export function formatScheduleDateHeader(iso: string, tz: string): string {
+    return fmt(
+        iso,
+        { weekday: 'short', month: 'short', day: 'numeric' },
+        tz,
+    ).replace(',', ' ·');
 }
 
 /** A compact range across a phase's kick-offs in the viewer's zone, e.g. "Jun 11 – 27". */
@@ -116,7 +126,7 @@ export function TeamChip({ team }: { team: GroupTeam | TeamRef }) {
 }
 
 /** A short glanceable token for an unresolved knockout slot ("Winner Group E" -> "WE"). */
-function slotAbbrev(label: string | null): string {
+export function slotAbbrev(label: string | null): string {
     if (!label) {
         return '?';
     }
@@ -224,19 +234,23 @@ function MatchRow({ fixture }: { fixture: GroupFixture }) {
           : 'font-semibold text-muted-foreground';
 
     return (
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-t border-border py-2.5 first:border-t-0">
+        <div className="relative grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-t border-border py-2.5 pl-3 first:border-t-0">
+            <MatchdayStripe matchdayKey={fixture.matchday_key} />
             <div className="min-w-0">
-                {fixture.kicks_off_at && (
-                    <div
-                        className={cn(
-                            'font-display text-[11px] font-semibold whitespace-nowrap',
-                            settled && 'text-muted-foreground',
-                        )}
-                    >
-                        {formatMatchDate(fixture.kicks_off_at, tz)} ·{' '}
-                        {formatMatchTime(fixture.kicks_off_at, tz)}
-                    </div>
-                )}
+                <div className="flex items-center gap-1.5">
+                    <MatchdayChip matchdayKey={fixture.matchday_key} />
+                    {fixture.kicks_off_at && (
+                        <span
+                            className={cn(
+                                'font-display text-[11px] font-semibold whitespace-nowrap',
+                                settled && 'text-muted-foreground',
+                            )}
+                        >
+                            {formatMatchDate(fixture.kicks_off_at, tz)} ·{' '}
+                            {formatMatchTime(fixture.kicks_off_at, tz)}
+                        </span>
+                    )}
+                </div>
                 {fixture.venue && (
                     <div className="truncate text-[11px] text-muted-foreground">
                         {venueLabel(fixture.venue)}

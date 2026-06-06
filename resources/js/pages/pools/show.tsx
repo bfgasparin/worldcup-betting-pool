@@ -32,6 +32,7 @@ import {
     CompareGroupCard,
     CompareKnockoutCard,
 } from '@/components/fixtures-compare';
+import { MatchdayView, ScheduleView } from '@/components/fixtures-schedule';
 import { JoinPoolDialog } from '@/components/join-pool-dialog';
 import { LeaderboardRow } from '@/components/leaderboard-row';
 import { MovementArrow } from '@/components/movement-arrow';
@@ -40,6 +41,7 @@ import { PoolIdentity } from '@/components/pool-identity';
 import { PoolInfoDialog } from '@/components/pool-info-dialog';
 import { PrizePanel } from '@/components/prize-panel';
 import { Button } from '@/components/ui/button';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
 import { COMPARE_LIMIT } from '@/lib/compare';
 import { ordinal } from '@/lib/leaderboards';
@@ -57,6 +59,7 @@ import type {
     PoolDetail,
     FeaturedBoard,
     GroupView,
+    MatchdayDescriptor,
     PlayerDirectoryEntry,
     PoolStandings,
 } from '@/types/pools';
@@ -65,6 +68,8 @@ interface PoolShowProps {
     pool: PoolDetail;
     groups: GroupView[];
     bracket: BracketPhase[];
+    /** The ordered matchday timeline (group rounds, then knockout phases) for the Matchdays view. */
+    matchdays: MatchdayDescriptor[];
     standings: PoolStandings;
     /** The first three boards as full tables (Overall leads). */
     featuredBoards: FeaturedBoard[];
@@ -753,18 +758,30 @@ function metaLine(count: number, prefix: string, range: string | null): string {
     return [prefix, label, range].filter(Boolean).join(' · ');
 }
 
-/** The phase-tabbed Fixtures view: group cards, knockout slot cards, and the Final card. */
+type FixturesViewMode = 'groups' | 'matchdays' | 'schedule';
+
+/**
+ * The Fixtures section, viewable three ways: Groups (phase-tabbed group/bracket cards, with
+ * standings), Matchdays (sections that mirror the leaderboard's rounds), and Schedule (every match
+ * in kickoff order). Comparison mode is only meaningful per-card, so it pins the Groups view.
+ */
 function FixturesView({
     groups,
     bracket,
+    matchdays,
     comparison,
 }: {
     groups: GroupView[];
     bracket: BracketPhase[];
+    matchdays: MatchdayDescriptor[];
     /** When set, each fixture renders a per-player comparison instead of the viewer's own card. */
     comparison: Comparison | null;
 }) {
     const tz = useDisplayTimeZone();
+    const [view, setView] = useState<FixturesViewMode>('groups');
+    // The Matchdays/Schedule views show the viewer's own rows, not the per-player compare lanes, so
+    // they have no meaning in compare mode — pin Groups (and hide the switcher) while comparing.
+    const effectiveView: FixturesViewMode = comparison ? 'groups' : view;
     const groupMatches = groups.reduce((n, g) => n + g.fixtures.length, 0);
     const groupFixtures = groups.flatMap((g) => g.fixtures);
 
@@ -795,135 +812,187 @@ function FixturesView({
 
     return (
         <section className="flex flex-col gap-6">
-            <PhaseTabs phases={phases} active={active} onSelect={setActive} />
-
-            {active === 'gs' && (
-                <div>
-                    <PhaseMeta
-                        title="Group Stage"
-                        meta={metaLine(
-                            groupMatches,
-                            `${groups.length} groups`,
-                            phaseDateRange(groupFixtures, tz),
-                        )}
-                    />
-                    <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
-                        {groups.map((group) =>
-                            comparison ? (
-                                <CompareGroupCard
-                                    key={group.name}
-                                    group={group}
-                                    players={players}
-                                    windowStatus={
-                                        comparison.windows.group ?? 'pending'
-                                    }
-                                />
-                            ) : (
-                                <GroupFixtureCard
-                                    key={group.name}
-                                    name={group.name}
-                                    teams={group.teams}
-                                    fixtures={group.fixtures}
-                                    standings={group.standings}
-                                    predictedStandings={
-                                        group.predicted_standings
-                                    }
-                                />
-                            ),
-                        )}
-                    </div>
-                </div>
+            {!comparison && (
+                <ToggleGroup
+                    type="single"
+                    variant="outline"
+                    size="sm"
+                    value={view}
+                    onValueChange={(next) => {
+                        if (
+                            next === 'groups' ||
+                            next === 'matchdays' ||
+                            next === 'schedule'
+                        ) {
+                            setView(next);
+                        }
+                    }}
+                    className="self-start"
+                >
+                    <ToggleGroupItem value="groups" className="px-4 text-xs">
+                        Groups
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="matchdays" className="px-4 text-xs">
+                        Matchdays
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="schedule" className="px-4 text-xs">
+                        Schedule
+                    </ToggleGroupItem>
+                </ToggleGroup>
             )}
 
-            {koPhases.map(
-                (phase) =>
-                    active === phase.phase_key && (
-                        <div key={phase.phase_key}>
+            {effectiveView === 'matchdays' && (
+                <MatchdayView
+                    groups={groups}
+                    bracket={bracket}
+                    matchdays={matchdays}
+                />
+            )}
+
+            {effectiveView === 'schedule' && (
+                <ScheduleView groups={groups} bracket={bracket} />
+            )}
+
+            {effectiveView === 'groups' && (
+                <>
+                    <PhaseTabs
+                        phases={phases}
+                        active={active}
+                        onSelect={setActive}
+                    />
+
+                    {active === 'gs' && (
+                        <div>
                             <PhaseMeta
-                                title={phase.phase_name}
+                                title="Group Stage"
                                 meta={metaLine(
-                                    phase.fixtures.length,
-                                    '',
-                                    phaseDateRange(phase.fixtures, tz),
+                                    groupMatches,
+                                    `${groups.length} groups`,
+                                    phaseDateRange(groupFixtures, tz),
                                 )}
                             />
-                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                                {phase.fixtures.map((fixture) =>
+                            <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+                                {groups.map((group) =>
                                     comparison ? (
-                                        <CompareKnockoutCard
-                                            key={fixture.match_number}
-                                            fixture={fixture}
+                                        <CompareGroupCard
+                                            key={group.name}
+                                            group={group}
                                             players={players}
                                             windowStatus={
-                                                comparison.windows[
-                                                    phase.phase_key
-                                                ] ?? 'pending'
+                                                comparison.windows.group ??
+                                                'pending'
                                             }
                                         />
                                     ) : (
-                                        <KnockoutSlotCard
-                                            key={fixture.match_number}
-                                            fixture={fixture}
+                                        <GroupFixtureCard
+                                            key={group.name}
+                                            name={group.name}
+                                            teams={group.teams}
+                                            fixtures={group.fixtures}
+                                            standings={group.standings}
+                                            predictedStandings={
+                                                group.predicted_standings
+                                            }
                                         />
                                     ),
                                 )}
                             </div>
                         </div>
-                    ),
-            )}
+                    )}
 
-            {active === 'final' && (
-                <div>
-                    <PhaseMeta
-                        title="Final & Third Place"
-                        meta={metaLine(
-                            finalFixtures.length,
-                            '',
-                            phaseDateRange(finalFixtures, tz),
-                        )}
-                    />
-                    <div className="flex flex-col gap-4">
-                        {finalPhase?.fixtures.map((fixture) =>
-                            comparison ? (
-                                <CompareFinalCard
-                                    key={fixture.match_number}
-                                    fixture={fixture}
-                                    players={players}
-                                    windowStatus={
-                                        comparison.windows[
-                                            finalPhase.phase_key
-                                        ] ?? 'pending'
-                                    }
-                                />
-                            ) : (
-                                <FinalCard
-                                    key={fixture.match_number}
-                                    fixture={fixture}
-                                />
-                            ),
-                        )}
-                        {thirdPhase?.fixtures.map((fixture) => (
-                            <div
-                                key={fixture.match_number}
-                                className="mx-auto w-full max-w-xl"
-                            >
-                                {comparison ? (
-                                    <CompareKnockoutCard
-                                        fixture={fixture}
-                                        players={players}
-                                        windowStatus={
-                                            comparison.windows[
-                                                thirdPhase.phase_key
-                                            ] ?? 'pending'
-                                        }
+                    {koPhases.map(
+                        (phase) =>
+                            active === phase.phase_key && (
+                                <div key={phase.phase_key}>
+                                    <PhaseMeta
+                                        title={phase.phase_name}
+                                        meta={metaLine(
+                                            phase.fixtures.length,
+                                            '',
+                                            phaseDateRange(phase.fixtures, tz),
+                                        )}
                                     />
-                                ) : (
-                                    <KnockoutSlotCard fixture={fixture} />
+                                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                                        {phase.fixtures.map((fixture) =>
+                                            comparison ? (
+                                                <CompareKnockoutCard
+                                                    key={fixture.match_number}
+                                                    fixture={fixture}
+                                                    players={players}
+                                                    windowStatus={
+                                                        comparison.windows[
+                                                            phase.phase_key
+                                                        ] ?? 'pending'
+                                                    }
+                                                />
+                                            ) : (
+                                                <KnockoutSlotCard
+                                                    key={fixture.match_number}
+                                                    fixture={fixture}
+                                                />
+                                            ),
+                                        )}
+                                    </div>
+                                </div>
+                            ),
+                    )}
+
+                    {active === 'final' && (
+                        <div>
+                            <PhaseMeta
+                                title="Final & Third Place"
+                                meta={metaLine(
+                                    finalFixtures.length,
+                                    '',
+                                    phaseDateRange(finalFixtures, tz),
                                 )}
+                            />
+                            <div className="flex flex-col gap-4">
+                                {finalPhase?.fixtures.map((fixture) =>
+                                    comparison ? (
+                                        <CompareFinalCard
+                                            key={fixture.match_number}
+                                            fixture={fixture}
+                                            players={players}
+                                            windowStatus={
+                                                comparison.windows[
+                                                    finalPhase.phase_key
+                                                ] ?? 'pending'
+                                            }
+                                        />
+                                    ) : (
+                                        <FinalCard
+                                            key={fixture.match_number}
+                                            fixture={fixture}
+                                        />
+                                    ),
+                                )}
+                                {thirdPhase?.fixtures.map((fixture) => (
+                                    <div
+                                        key={fixture.match_number}
+                                        className="mx-auto w-full max-w-xl"
+                                    >
+                                        {comparison ? (
+                                            <CompareKnockoutCard
+                                                fixture={fixture}
+                                                players={players}
+                                                windowStatus={
+                                                    comparison.windows[
+                                                        thirdPhase.phase_key
+                                                    ] ?? 'pending'
+                                                }
+                                            />
+                                        ) : (
+                                            <KnockoutSlotCard
+                                                fixture={fixture}
+                                            />
+                                        )}
+                                    </div>
+                                ))}
                             </div>
-                        ))}
-                    </div>
-                </div>
+                        </div>
+                    )}
+                </>
             )}
         </section>
     );
@@ -933,6 +1002,7 @@ export default function PoolShow({
     pool,
     groups,
     bracket,
+    matchdays,
     standings,
     featuredBoards,
     moreBoards,
@@ -1068,6 +1138,7 @@ export default function PoolShow({
                 <FixturesView
                     groups={groups}
                     bracket={bracket}
+                    matchdays={matchdays}
                     comparison={compareActive ? comparison : null}
                 />
             </div>

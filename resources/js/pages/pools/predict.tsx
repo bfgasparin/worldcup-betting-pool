@@ -15,6 +15,7 @@ import { AllSetBanner } from '@/components/all-set-banner';
 import { GroupBadge, TeamChip } from '@/components/fixtures';
 import { Flag } from '@/components/flag';
 import { ImportPredictionsDialog } from '@/components/import-predictions-dialog';
+import { MatchdayChip, MatchdayStripe } from '@/components/matchday-marker';
 import { PoolIdentity } from '@/components/pool-identity';
 import { PredictionCompleteDialog } from '@/components/prediction-complete-dialog';
 import { ScoreStepper } from '@/components/score-stepper';
@@ -310,51 +311,63 @@ function GroupCard({
                     return (
                         <div
                             key={fixture.fixture_id}
-                            className="grid grid-cols-[1fr_auto_1fr] items-center gap-2"
+                            className="relative flex items-center gap-2 pl-3"
                         >
-                            <span className="flex min-w-0 items-center justify-end gap-1.5 text-sm font-bold">
-                                <span className="truncate">
-                                    {teamShort(fixture.home)}
+                            <MatchdayStripe
+                                matchdayKey={fixture.matchday_key}
+                            />
+                            <MatchdayChip matchdayKey={fixture.matchday_key} />
+                            <div className="grid flex-1 grid-cols-[1fr_auto_1fr] items-center gap-2">
+                                <span className="flex min-w-0 items-center justify-end gap-1.5 text-sm font-bold">
+                                    <span className="truncate">
+                                        {teamShort(fixture.home)}
+                                    </span>
+                                    <Flag
+                                        team={fixture.home}
+                                        className="h-4 w-6"
+                                    />
                                 </span>
-                                <Flag team={fixture.home} className="h-4 w-6" />
-                            </span>
-                            <div className="flex items-center gap-1.5">
-                                <ScoreStepper
-                                    value={score.home}
-                                    disabled={!canEdit}
-                                    label={`${teamName(fixture.home)} goals`}
-                                    onChange={(value) =>
-                                        onChange(
-                                            fixture.fixture_id,
-                                            'home',
-                                            value,
-                                        )
-                                    }
-                                    onCommit={onCommit}
-                                />
-                                <span className="font-display text-muted-foreground">
-                                    –
+                                <div className="flex items-center gap-1.5">
+                                    <ScoreStepper
+                                        value={score.home}
+                                        disabled={!canEdit}
+                                        label={`${teamName(fixture.home)} goals`}
+                                        onChange={(value) =>
+                                            onChange(
+                                                fixture.fixture_id,
+                                                'home',
+                                                value,
+                                            )
+                                        }
+                                        onCommit={onCommit}
+                                    />
+                                    <span className="font-display text-muted-foreground">
+                                        –
+                                    </span>
+                                    <ScoreStepper
+                                        value={score.away}
+                                        disabled={!canEdit}
+                                        label={`${teamName(fixture.away)} goals`}
+                                        onChange={(value) =>
+                                            onChange(
+                                                fixture.fixture_id,
+                                                'away',
+                                                value,
+                                            )
+                                        }
+                                        onCommit={onCommit}
+                                    />
+                                </div>
+                                <span className="flex min-w-0 items-center gap-1.5 text-sm font-bold">
+                                    <Flag
+                                        team={fixture.away}
+                                        className="h-4 w-6"
+                                    />
+                                    <span className="truncate">
+                                        {teamShort(fixture.away)}
+                                    </span>
                                 </span>
-                                <ScoreStepper
-                                    value={score.away}
-                                    disabled={!canEdit}
-                                    label={`${teamName(fixture.away)} goals`}
-                                    onChange={(value) =>
-                                        onChange(
-                                            fixture.fixture_id,
-                                            'away',
-                                            value,
-                                        )
-                                    }
-                                    onCommit={onCommit}
-                                />
                             </div>
-                            <span className="flex min-w-0 items-center gap-1.5 text-sm font-bold">
-                                <Flag team={fixture.away} className="h-4 w-6" />
-                                <span className="truncate">
-                                    {teamShort(fixture.away)}
-                                </span>
-                            </span>
                         </div>
                     );
                 })}

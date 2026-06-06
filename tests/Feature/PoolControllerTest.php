@@ -114,6 +114,27 @@ class PoolControllerTest extends TestCase
             );
     }
 
+    public function test_show_stamps_each_fixture_with_its_matchday_and_lists_the_timeline(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+        $this->actingAs(User::factory()->create());
+
+        $this->get(route('pools.show', 'world-cup-2026-ffa'))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                // Each match carries the matchday it belongs to, so the page can mark and group it.
+                ->where('groups.0.fixtures.0.matchday_key', 'group-1')
+                ->where('bracket.0.fixtures.0.matchday_key', 'round_of_32')
+                // The ordered matchday timeline (shared with the leaderboard) drives the view switcher.
+                ->has('matchdays', 9)
+                ->where('matchdays.0.key', 'group-1')
+                ->where('matchdays.0.short_label', 'MD1')
+                ->where('matchdays.3.key', 'round_of_32')
+                ->where('matchdays.8.key', 'final')
+                // A pool-page descriptor is display-only — never the leaderboard's travel status.
+                ->missing('matchdays.0.status')
+            );
+    }
+
     public function test_show_resolves_group_fixture_teams(): void
     {
         $this->seed(WorldCup2026Seeder::class);

@@ -81,6 +81,20 @@ class PredictionControllerTest extends TestCase
         $this->assertSame(32, $entry->knockoutPredictions()->count());
     }
 
+    public function test_predict_group_fixtures_carry_their_matchday_key(): void
+    {
+        Entry::factory()->for($this->pool)->for($this->user)->create();
+
+        $this->actingAs($this->user)
+            ->get(route('pools.predict.edit', 'world-cup-2026-ffa'))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                // The wizard marks each group-stage row with its matchday, like the pool page.
+                ->where('groups.0.fixtures.0.matchday_key', 'group-1')
+                // But the wizard has no view switcher, so it ships no matchday timeline.
+                ->missing('matchdays')
+            );
+    }
+
     public function test_predict_page_prefills_existing_predictions(): void
     {
         $entry = Entry::factory()->for($this->pool)->for($this->user)->create();

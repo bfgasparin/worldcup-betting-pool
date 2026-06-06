@@ -101,6 +101,59 @@ class MatchdayCatalogTest extends TestCase
         $this->assertSame('MD1', $matchdays['group-1']->shortLabel);
     }
 
+    public function test_fixture_index_maps_every_fixture_to_its_matchday(): void
+    {
+        $index = $this->catalog->fixtureIndex($this->tournament);
+
+        // Every group + knockout fixture is covered exactly once (72 + 32).
+        $this->assertCount(104, $index);
+
+        // Each id resolves to the descriptor of the matchday that owns it.
+        foreach ($this->catalog->forTournament($this->tournament) as $matchday) {
+            foreach ($matchday->fixtureIds as $fixtureId) {
+                $this->assertSame([
+                    'key' => $matchday->key,
+                    'label' => $matchday->label,
+                    'short_label' => $matchday->shortLabel,
+                    'kind' => $matchday->kind,
+                ], $index[$fixtureId]);
+            }
+        }
+
+        // Spot-check the two ends of the timeline.
+        $firstGroupFixture = Fixture::whereNotNull('group_id')->orderBy('match_number')->firstOrFail();
+        $this->assertSame('group-1', $index[$firstGroupFixture->id]['key']);
+
+        $finalFixture = Fixture::orderByDesc('match_number')->firstOrFail();
+        $this->assertSame('final', $index[$finalFixture->id]['key']);
+        $this->assertSame('knockout', $index[$finalFixture->id]['kind']);
+    }
+
+    public function test_descriptors_list_the_matchdays_without_fixture_ids(): void
+    {
+        $descriptors = $this->catalog->descriptors($this->tournament);
+
+        // Same nine matchdays, in the same competition order as forTournament().
+        $this->assertSame([
+            'group-1',
+            'group-2',
+            'group-3',
+            'round_of_32',
+            'round_of_16',
+            'quarter_finals',
+            'semi_finals',
+            'third_place',
+            'final',
+        ], array_column($descriptors, 'key'));
+
+        // A descriptor carries only the display fields — never fixture ids or leaderboard status.
+        $this->assertSame(['key', 'label', 'short_label', 'kind'], array_keys($descriptors[0]));
+        $this->assertSame('Matchday 1', $descriptors[0]['label']);
+        $this->assertSame('MD1', $descriptors[0]['short_label']);
+        $this->assertSame('group', $descriptors[0]['kind']);
+        $this->assertSame('knockout', $descriptors[3]['kind']);
+    }
+
     /**
      * @return array<string, Matchday>
      */
