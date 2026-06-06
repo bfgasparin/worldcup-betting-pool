@@ -357,44 +357,50 @@ function PersonalCard({
     const label = statLabel.toLowerCase();
 
     return (
-        <div className="bg-brand-gradient shadow-glow relative overflow-hidden rounded-2xl p-4 text-white lg:w-72 lg:shrink-0">
+        <div className="bg-brand-gradient shadow-glow relative flex flex-col overflow-hidden rounded-2xl p-5 text-white lg:w-72 lg:shrink-0">
             <div className="text-xs font-bold tracking-[0.12em] text-white/80 uppercase">
                 Your standing
             </div>
-            <div className="mt-3 flex items-center gap-3">
+
+            <div className="flex flex-1 items-center gap-4 py-4">
                 <PlayerAvatar
                     name={row.name}
                     initials={row.initials}
                     src={row.avatar}
                     fallbackClassName="bg-white/15 text-white"
                     ringClassName="ring-2 ring-white/40"
-                    className="size-11"
+                    className="size-14"
                 />
-                <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                        <span className="font-display text-3xl leading-none font-semibold tabular-nums">
-                            #{row.rank}
-                        </span>
-                        <PersonalMovement
-                            movement={row.movement}
-                            delta={row.movement_delta}
-                        />
-                    </div>
-                    <div className="mt-1 truncate text-xs text-white/85">
-                        {row.primary_value === null
-                            ? '—'
-                            : row.primary_value.toLocaleString()}{' '}
-                        {label} total
-                    </div>
+                <div className="flex items-baseline gap-2">
+                    <span className="font-display text-5xl leading-none font-semibold tabular-nums">
+                        #{row.rank}
+                    </span>
+                    <PersonalMovement
+                        movement={row.movement}
+                        delta={row.movement_delta}
+                    />
                 </div>
             </div>
-            <div className="mt-3 border-t border-white/15 pt-3">
-                <span className="font-display text-lg font-semibold tabular-nums">
-                    {matchdayValue === null ? '—' : `+${matchdayValue}`}
-                </span>{' '}
-                <span className="text-sm text-white/85">
-                    {label} this matchday
-                </span>
+
+            <div className="grid grid-cols-2 gap-3 border-t border-white/15 pt-3">
+                <div>
+                    <div className="text-[11px] font-bold tracking-[0.1em] text-white/70 uppercase">
+                        This matchday
+                    </div>
+                    <div className="font-display text-lg font-semibold tabular-nums">
+                        {matchdayValue === null ? '—' : `+${matchdayValue}`}
+                    </div>
+                </div>
+                <div>
+                    <div className="truncate text-[11px] font-bold tracking-[0.1em] text-white/70 uppercase">
+                        Total {label}
+                    </div>
+                    <div className="font-display text-lg font-semibold tabular-nums">
+                        {row.primary_value === null
+                            ? '—'
+                            : row.primary_value.toLocaleString()}
+                    </div>
+                </div>
             </div>
         </div>
     );
