@@ -10,6 +10,7 @@ use App\Models\LeaderboardStanding;
 use App\Models\Tournament;
 use App\Services\Predictions\BracketResolver;
 use App\Services\Predictions\DefaultTieOrdering;
+use App\Services\Scoring\MatchdayCatalog;
 
 /**
  * Test helpers for building predicted scores against the seeded World Cup structure.
@@ -71,6 +72,35 @@ trait InteractsWithPredictions
         if ($resolveTies) {
             // No human to break ties in a fixture: fall back to the deterministic default order.
             (new DefaultTieOrdering)->applyToEntry($entry);
+        }
+    }
+
+    /**
+     * Predict just one matchday's fixtures (a group-stage round) by applying a position-based rule,
+     * so a test can give an entry a different accuracy round by round.
+     *
+     * @param  callable(int, int): array{int, int}  $rule
+     */
+    protected function predictMatchday(Entry $entry, Tournament $tournament, string $matchdayKey, callable $rule): void
+    {
+        $positions = [];
+        foreach ($tournament->groups()->with('teams')->get() as $group) {
+            foreach ($group->teams as $team) {
+                $positions[$team->id] = $team->pivot->position;
+            }
+        }
+
+        $fixtureIds = collect((new MatchdayCatalog)->forTournament($tournament))
+            ->firstWhere('key', $matchdayKey)
+            ->fixtureIds;
+
+        foreach (Fixture::whereIn('id', $fixtureIds)->get() as $fixture) {
+            [$home, $away] = $rule($positions[$fixture->home_team_id], $positions[$fixture->away_team_id]);
+
+            GroupPrediction::updateOrCreate(
+                ['entry_id' => $entry->id, 'fixture_id' => $fixture->id],
+                ['home_goals' => $home, 'away_goals' => $away],
+            );
         }
     }
 

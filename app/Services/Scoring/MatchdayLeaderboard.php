@@ -206,7 +206,14 @@ class MatchdayLeaderboard
         int $selectedIndex,
     ): array {
         if ($selectedIsCurrent) {
-            $rows = $this->liveRows($category, $entries, $userId);
+            // Movement on the live board is round-over-round: the displayed (stored) rank versus the
+            // rank at the end of the previous matchday, so an arrow always means "since last round".
+            $previousRanks = $this->rankByMetrics(
+                $category,
+                $entries,
+                $this->metricsFor($entries, $breakdownsByEntry, $previousIds),
+            );
+            $rows = $this->liveRows($category, $entries, $userId, $previousRanks, $selectedIndex);
             $hasScores = $entries->contains(fn (Entry $entry): bool => $entry->total_points !== null);
         } else {
             [$rows, $hasScores] = $this->reconstructedRows(
@@ -281,20 +288,25 @@ class MatchdayLeaderboard
     }
 
     /**
-     * The live board straight off the stored standings — the current matchday's table is exactly
-     * today's leaderboard.
+     * The live board: rank and value come straight off the stored standings (the current matchday's
+     * table is exactly today's leaderboard), while movement is round-over-round — the displayed rank
+     * versus `$previousRanks` (the rank at the end of the previous matchday), or "new" on the first
+     * matchday.
      *
      * @param  Collection<int, Entry>  $entries
+     * @param  array<int, int>  $previousRanks
      * @return list<array<string, mixed>>
      */
-    private function liveRows(LeaderboardCategory $category, Collection $entries, int $userId): array
+    private function liveRows(LeaderboardCategory $category, Collection $entries, int $userId, array $previousRanks, int $selectedIndex): array
     {
+        $previousRank = fn (Entry $entry): ?int => $selectedIndex > 0 ? ($previousRanks[$entry->id] ?? null) : null;
+
         if ($category === LeaderboardCategory::Overall) {
             return $entries
                 ->sortByDesc(fn (Entry $entry): int => $entry->total_points ?? PHP_INT_MIN)
                 ->values()
                 ->map(fn (Entry $entry, int $index): array => $this->row(
-                    $index + 1, $entry, $userId, $entry->total_points, null, $entry->rank, $entry->previous_rank,
+                    $index + 1, $entry, $userId, $entry->total_points, null, $index + 1, $previousRank($entry),
                 ))
                 ->all();
         }
@@ -314,8 +326,8 @@ class MatchdayLeaderboard
                 $userId,
                 $pair['standing']?->value ?? 0,
                 $pair['standing']?->tiebreaker ?? 0,
-                $pair['standing']?->rank,
-                $pair['standing']?->previous_rank,
+                $index + 1,
+                $previousRank($pair['entry']),
             ))
             ->all();
     }
@@ -340,12 +352,8 @@ class MatchdayLeaderboard
         array $previousIds,
         int $selectedIndex,
     ): array {
-        $cumulative = [];
-        $previous = [];
-        foreach ($entries as $entry) {
-            $cumulative[$entry->id] = LeaderboardMetrics::fromBreakdowns($this->subset($breakdownsByEntry[$entry->id], $cumulativeIds));
-            $previous[$entry->id] = LeaderboardMetrics::fromBreakdowns($this->subset($breakdownsByEntry[$entry->id], $previousIds));
-        }
+        $cumulative = $this->metricsFor($entries, $breakdownsByEntry, $cumulativeIds);
+        $previous = $this->metricsFor($entries, $breakdownsByEntry, $previousIds);
 
         $rankNow = $this->rankByMetrics($category, $entries, $cumulative);
         $rankPrevious = $this->rankByMetrics($category, $entries, $previous);
@@ -374,6 +382,26 @@ class MatchdayLeaderboard
         );
 
         return [$rows, $hasScores];
+    }
+
+    /**
+     * Roll each entry's breakdowns over a set of fixtures into its metrics, keyed by entry id.
+     *
+     * @param  Collection<int, Entry>  $entries
+     * @param  array<int, array<int, PredictionBreakdown>>  $breakdownsByEntry
+     * @param  list<int>  $fixtureIds
+     * @return array<int, LeaderboardMetrics>
+     */
+    private function metricsFor(Collection $entries, array $breakdownsByEntry, array $fixtureIds): array
+    {
+        $metrics = [];
+        foreach ($entries as $entry) {
+            $metrics[$entry->id] = LeaderboardMetrics::fromBreakdowns(
+                $this->subset($breakdownsByEntry[$entry->id], $fixtureIds),
+            );
+        }
+
+        return $metrics;
     }
 
     /**

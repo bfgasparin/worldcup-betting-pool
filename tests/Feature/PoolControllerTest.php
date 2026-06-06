@@ -353,35 +353,49 @@ class PoolControllerTest extends TestCase
             );
     }
 
-    public function test_leaderboard_exposes_rank_movement_and_places_moved(): void
+    public function test_leaderboard_movement_is_measured_against_the_previous_matchday(): void
     {
         $this->seed(WorldCup2026Seeder::class);
-        $pool = Tournament::firstOrFail()->pools()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
+        $tournament = Tournament::firstOrFail();
+        $pool = $tournament->pools()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
 
-        // Rows order by points: a one-place climb, a one-place slip, a four-place jump, and a
-        // first-ever appearance (no prior rank to compare against).
-        Entry::factory()->for($pool)->for(User::factory()->create(['name' => 'Climber']))
-            ->create(['total_points' => 120, 'rank' => 1, 'previous_rank' => 2]);
-        $me = User::factory()->create(['name' => 'Slider']);
-        Entry::factory()->for($pool)->for($me)
-            ->create(['total_points' => 90, 'rank' => 2, 'previous_rank' => 1]);
-        Entry::factory()->for($pool)->for(User::factory()->create(['name' => 'Riser']))
-            ->create(['total_points' => 60, 'rank' => 3, 'previous_rank' => 7]);
-        Entry::factory()->for($pool)->for(User::factory()->create(['name' => 'Newcomer']))
-            ->create(['total_points' => 40, 'rank' => 4, 'previous_rank' => null]);
+        $riser = User::factory()->create(['name' => 'Riser']);
+        $riserEntry = Entry::factory()->for($pool)->for($riser)->create();
+        $sinkerEntry = Entry::factory()->for($pool)->for(User::factory()->create(['name' => 'Sinker']))->create();
 
-        $this->actingAs($me)
+        $weakPartial = fn (int $home, int $away): array => $home < $away ? [2, 1] : [1, 2];
+        $reverse = fn (int $home, int $away): array => $home < $away ? [0, 1] : [1, 0];
+
+        // The riser trails after MD1 then overtakes in MD2; the sinker leads MD1 then stalls.
+        $this->predictMatchday($riserEntry, $tournament, 'group-1', $weakPartial);
+        $this->predictMatchday($riserEntry, $tournament, 'group-2', $this->seedOrderScores());
+        $this->predictMatchday($sinkerEntry, $tournament, 'group-1', $this->seedOrderScores());
+        $this->predictMatchday($sinkerEntry, $tournament, 'group-2', $reverse);
+
+        $this->recordMatchdayResults($tournament, 'group-1', $this->seedOrderScores());
+        $this->recordMatchdayResults($tournament, 'group-2', $this->seedOrderScores());
+        (new ScoreEngine)->recompute($pool);
+
+        // The current matchday (group-2) measures movement against the end of matchday 1.
+        $this->actingAs($riser)
             ->get(route('pools.leaderboard', 'world-cup-2026-ffa'))
             ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('selected_matchday', 'group-2')
                 ->where('boards.0.key', 'overall')
+                ->where('boards.0.rows.0.is_me', true)
                 ->where('boards.0.rows.0.movement', 'up')
                 ->where('boards.0.rows.0.movement_delta', 1)
                 ->where('boards.0.rows.1.movement', 'down')
                 ->where('boards.0.rows.1.movement_delta', 1)
-                ->where('boards.0.rows.2.movement', 'up')
-                ->where('boards.0.rows.2.movement_delta', 4)
-                ->where('boards.0.rows.3.movement', 'new')
-                ->where('boards.0.rows.3.movement_delta', null)
+            );
+
+        // Travelling back to the first matchday: no prior round, so everyone shows as "new".
+        $this->actingAs($riser)
+            ->get(route('pools.leaderboard', ['pool' => 'world-cup-2026-ffa', 'matchday' => 'group-1']))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('selected_matchday', 'group-1')
+                ->where('boards.0.rows.0.movement', 'new')
+                ->where('boards.0.rows.0.movement_delta', null)
             );
     }
 

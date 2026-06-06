@@ -2,10 +2,7 @@
 
 namespace Tests\Unit\Services\Scoring;
 
-use App\Enums\FixtureStatus;
 use App\Models\Entry;
-use App\Models\Fixture;
-use App\Models\GroupPrediction;
 use App\Models\Pool;
 use App\Models\Tournament;
 use App\Models\User;
@@ -15,11 +12,13 @@ use App\Services\Scoring\MatchdayLeaderboardView;
 use App\Services\Scoring\ScoreEngine;
 use Database\Seeders\WorldCup2026Seeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\InteractsWithOfficialResults;
 use Tests\Concerns\InteractsWithPredictions;
 use Tests\TestCase;
 
 class MatchdayLeaderboardTest extends TestCase
 {
+    use InteractsWithOfficialResults;
     use InteractsWithPredictions;
     use RefreshDatabase;
 
@@ -54,7 +53,7 @@ class MatchdayLeaderboardTest extends TestCase
 
     public function test_current_matchday_reports_live_standings_and_per_matchday_cards(): void
     {
-        $this->recordResultsFor('group-1', $this->seedOrderScores());
+        $this->recordMatchdayResults($this->tournament, 'group-1', $this->seedOrderScores());
         (new ScoreEngine)->recompute($this->pool);
 
         $view = $this->builder->build($this->pool, $this->me->user_id, null);
@@ -79,8 +78,8 @@ class MatchdayLeaderboardTest extends TestCase
     public function test_a_past_matchday_is_frozen_at_its_own_end(): void
     {
         // Settle matchday 1, then matchday 2; both played out in seed order.
-        $this->recordResultsFor('group-1', $this->seedOrderScores());
-        $this->recordResultsFor('group-2', $this->seedOrderScores());
+        $this->recordMatchdayResults($this->tournament, 'group-1', $this->seedOrderScores());
+        $this->recordMatchdayResults($this->tournament, 'group-2', $this->seedOrderScores());
         (new ScoreEngine)->recompute($this->pool);
 
         $afterMd1 = $this->builder->build($this->pool, $this->me->user_id, 'group-1');
@@ -100,7 +99,7 @@ class MatchdayLeaderboardTest extends TestCase
 
     public function test_matchday_descriptors_report_status_and_the_current_marker(): void
     {
-        $this->recordResultsFor('group-1', $this->seedOrderScores());
+        $this->recordMatchdayResults($this->tournament, 'group-1', $this->seedOrderScores());
         (new ScoreEngine)->recompute($this->pool);
 
         $view = $this->builder->build($this->pool, $this->me->user_id, null);
@@ -115,7 +114,7 @@ class MatchdayLeaderboardTest extends TestCase
 
     public function test_requesting_an_unplayed_future_matchday_falls_back_to_current(): void
     {
-        $this->recordResultsFor('group-1', $this->seedOrderScores());
+        $this->recordMatchdayResults($this->tournament, 'group-1', $this->seedOrderScores());
         (new ScoreEngine)->recompute($this->pool);
 
         $view = $this->builder->build($this->pool, $this->me->user_id, 'final');
@@ -125,24 +124,10 @@ class MatchdayLeaderboardTest extends TestCase
 
     public function test_it_names_the_biggest_climber_and_faller_for_a_past_matchday(): void
     {
-        $climber = Entry::factory()->for($this->pool)->for(User::factory()->create(['name' => 'Climber']))->create();
-        $faller = Entry::factory()->for($this->pool)->for(User::factory()->create(['name' => 'Faller']))->create();
+        [$climber, $faller] = $this->seedAMatchdayTwoSwap();
 
-        // Tiers: correct outcome + one exact team goal = 15; correct outcome wrong goals = 10.
-        $strongPartial = fn (int $home, int $away): array => $home < $away ? [3, 0] : [0, 3];
-        $weakPartial = fn (int $home, int $away): array => $home < $away ? [2, 1] : [1, 2];
-
-        // Faller leads after MD1 (15/match) then scores nothing in MD2; the climber trails after
-        // MD1 (10/match) but keeps scoring in MD2, overtaking the faller by the end of MD2.
-        $this->predictMatchdayFor($faller, 'group-1', $strongPartial);
-        $this->predictMatchdayFor($faller, 'group-2', $this->reverseSeedScores());
-        $this->predictMatchdayFor($climber, 'group-1', $weakPartial);
-        $this->predictMatchdayFor($climber, 'group-2', $weakPartial);
-
-        // Settle three matchdays so group-2 is a *past* matchday (group-3 is current).
-        $this->recordResultsFor('group-1', $this->seedOrderScores());
-        $this->recordResultsFor('group-2', $this->seedOrderScores());
-        $this->recordResultsFor('group-3', $this->seedOrderScores());
+        // Settle a third matchday so group-2 is a *past* matchday (group-3 is current).
+        $this->recordMatchdayResults($this->tournament, 'group-3', $this->seedOrderScores());
         (new ScoreEngine)->recompute($this->pool);
 
         $stats = $this->board(
@@ -156,19 +141,65 @@ class MatchdayLeaderboardTest extends TestCase
         $this->assertSame(1, $stats['biggest_faller']['value']);
     }
 
-    public function test_a_first_matchday_has_no_climber_or_faller(): void
+    public function test_current_matchday_movement_is_measured_against_the_previous_matchday(): void
     {
-        $this->recordResultsFor('group-1', $this->seedOrderScores());
+        [$climber, $faller] = $this->seedAMatchdayTwoSwap();
         (new ScoreEngine)->recompute($this->pool);
 
-        // Matchday 1 has no prior standings to move against — everyone is new.
-        $stats = $this->board(
-            $this->builder->build($this->pool, $this->me->user_id, 'group-1'),
-            'overall',
-        )['matchday_stats'];
+        // group-2 is the current matchday; movement compares its standings to the end of group-1.
+        $view = $this->builder->build($this->pool, $this->me->user_id, null);
+        $this->assertSame('group-2', $view->selectedKey);
 
-        $this->assertNull($stats['biggest_climber']);
-        $this->assertNull($stats['biggest_faller']);
+        $this->assertSame('up', $this->rowFor($view, 'overall', $climber->id)['movement']);
+        $this->assertSame(1, $this->rowFor($view, 'overall', $climber->id)['movement_delta']);
+        $this->assertSame('down', $this->rowFor($view, 'overall', $faller->id)['movement']);
+        $this->assertSame(1, $this->rowFor($view, 'overall', $faller->id)['movement_delta']);
+    }
+
+    public function test_the_first_matchday_shows_everyone_as_new_with_no_movers(): void
+    {
+        $this->recordMatchdayResults($this->tournament, 'group-1', $this->seedOrderScores());
+        (new ScoreEngine)->recompute($this->pool);
+
+        // Matchday 1 has no prior standings to move against — everyone is "new", no climber/faller.
+        $overall = $this->board(
+            $this->builder->build($this->pool, $this->me->user_id, null),
+            'overall',
+        );
+
+        foreach ($overall['rows'] as $row) {
+            $this->assertSame('new', $row['movement']);
+        }
+
+        $this->assertNull($overall['matchday_stats']['biggest_climber']);
+        $this->assertNull($overall['matchday_stats']['biggest_faller']);
+    }
+
+    /**
+     * Settle matchdays 1 and 2 so a climber and a faller swap places between them: the faller leads
+     * after MD1 (15/match) then scores nothing in MD2; the climber trails after MD1 (10/match) but
+     * keeps scoring in MD2, overtaking the faller by the end of MD2.
+     *
+     * @return array{0: Entry, 1: Entry} [climber, faller]
+     */
+    private function seedAMatchdayTwoSwap(): array
+    {
+        $climber = Entry::factory()->for($this->pool)->for(User::factory()->create(['name' => 'Climber']))->create();
+        $faller = Entry::factory()->for($this->pool)->for(User::factory()->create(['name' => 'Faller']))->create();
+
+        // Tiers: correct outcome + one exact team goal = 15; correct outcome wrong goals = 10.
+        $strongPartial = fn (int $home, int $away): array => $home < $away ? [3, 0] : [0, 3];
+        $weakPartial = fn (int $home, int $away): array => $home < $away ? [2, 1] : [1, 2];
+
+        $this->predictMatchday($faller, $this->tournament, 'group-1', $strongPartial);
+        $this->predictMatchday($faller, $this->tournament, 'group-2', $this->reverseSeedScores());
+        $this->predictMatchday($climber, $this->tournament, 'group-1', $weakPartial);
+        $this->predictMatchday($climber, $this->tournament, 'group-2', $weakPartial);
+
+        $this->recordMatchdayResults($this->tournament, 'group-1', $this->seedOrderScores());
+        $this->recordMatchdayResults($this->tournament, 'group-2', $this->seedOrderScores());
+
+        return [$climber, $faller];
     }
 
     /**
@@ -185,73 +216,6 @@ class MatchdayLeaderboardTest extends TestCase
     }
 
     /**
-     * Record official results for one matchday's fixtures using a position-based rule.
-     *
-     * @param  callable(int, int): array{int, int}  $rule
-     */
-    private function recordResultsFor(string $matchdayKey, callable $rule): void
-    {
-        $positions = $this->positionMap();
-
-        foreach (Fixture::whereIn('id', $this->matchdayFixtureIds($matchdayKey))->get() as $fixture) {
-            [$home, $away] = $rule($positions[$fixture->home_team_id], $positions[$fixture->away_team_id]);
-
-            $fixture->update([
-                'home_goals' => $home,
-                'away_goals' => $away,
-                'winner_team_id' => $home === $away ? null : ($home > $away ? $fixture->home_team_id : $fixture->away_team_id),
-                'status' => FixtureStatus::Finished,
-            ]);
-        }
-    }
-
-    /**
-     * Predict one matchday's fixtures for an entry using a position-based rule.
-     *
-     * @param  callable(int, int): array{int, int}  $rule
-     */
-    private function predictMatchdayFor(Entry $entry, string $matchdayKey, callable $rule): void
-    {
-        $positions = $this->positionMap();
-
-        foreach (Fixture::whereIn('id', $this->matchdayFixtureIds($matchdayKey))->get() as $fixture) {
-            [$home, $away] = $rule($positions[$fixture->home_team_id], $positions[$fixture->away_team_id]);
-
-            GroupPrediction::updateOrCreate(
-                ['entry_id' => $entry->id, 'fixture_id' => $fixture->id],
-                ['home_goals' => $home, 'away_goals' => $away],
-            );
-        }
-    }
-
-    /**
-     * Team id => group position, across every group.
-     *
-     * @return array<int, int>
-     */
-    private function positionMap(): array
-    {
-        $positions = [];
-        foreach ($this->tournament->groups()->with('teams')->get() as $group) {
-            foreach ($group->teams as $team) {
-                $positions[$team->id] = $team->pivot->position;
-            }
-        }
-
-        return $positions;
-    }
-
-    /**
-     * @return list<int>
-     */
-    private function matchdayFixtureIds(string $matchdayKey): array
-    {
-        return collect($this->catalog->forTournament($this->tournament))
-            ->firstWhere('key', $matchdayKey)
-            ->fixtureIds;
-    }
-
-    /**
      * @return array<string, mixed>
      */
     private function board(MatchdayLeaderboardView $view, string $key): array
@@ -265,5 +229,13 @@ class MatchdayLeaderboardTest extends TestCase
     private function myRow(MatchdayLeaderboardView $view, string $boardKey): array
     {
         return collect($this->board($view, $boardKey)['rows'])->firstWhere('is_me', true);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function rowFor(MatchdayLeaderboardView $view, string $boardKey, int $entryId): array
+    {
+        return collect($this->board($view, $boardKey)['rows'])->firstWhere('entry_id', $entryId);
     }
 }
