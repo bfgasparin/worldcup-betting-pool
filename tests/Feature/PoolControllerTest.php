@@ -168,6 +168,22 @@ class PoolControllerTest extends TestCase
             );
     }
 
+    public function test_show_exposes_the_open_join_window_to_a_non_member(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+        $this->actingAs(User::factory()->create());
+
+        // A viewer who hasn't joined still gets the lock deadline + open join window, so the hero's
+        // countdown band can invite them to join before predictions lock.
+        $this->get(route('pools.show', 'world-cup-2026-ffa'))
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('pool.can_join', true)
+                ->whereNot('pool.predictions_lock_at', null)
+                ->where('standings.me', null)
+            );
+    }
+
     public function test_show_attention_is_empty_without_an_entry(): void
     {
         $this->seed(WorldCup2026Seeder::class);
