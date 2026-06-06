@@ -112,6 +112,7 @@ export function PoolInfoDialog({ pool }: { pool: PoolDetail }) {
     const lock = lockLine(pool, tz);
     const groupRules = scoringRules(pool.scoring_config, 'group');
     const knockoutRules = scoringRules(pool.scoring_config, 'knockout');
+    const isPaid = pool.pricing.entry_price > 0;
 
     return (
         <>
@@ -189,6 +190,17 @@ export function PoolInfoDialog({ pool }: { pool: PoolDetail }) {
                                 <p className="text-sm text-muted-foreground">
                                     Compete on every board at once — your
                                     position updates as results land.
+                                    {isPaid && (
+                                        <>
+                                            {' '}
+                                            Only the{' '}
+                                            <span className="font-semibold text-foreground">
+                                                Overall
+                                            </span>{' '}
+                                            board pays out the prize pot; the
+                                            rest are for bragging rights.
+                                        </>
+                                    )}
                                 </p>
                                 <div className="mt-1 flex flex-col gap-2.5">
                                     {pool.leaderboards.map((board) => (
@@ -196,8 +208,15 @@ export function PoolInfoDialog({ pool }: { pool: PoolDetail }) {
                                             key={board.key}
                                             className="flex flex-col gap-0.5"
                                         >
-                                            <span className="font-display text-sm font-semibold">
+                                            <span className="flex items-center gap-2 font-display text-sm font-semibold">
                                                 {board.label}
+                                                {isPaid &&
+                                                    board.awards_prizes && (
+                                                        <span className="bg-gold-gradient inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide text-[#3a2600] uppercase">
+                                                            <Trophy className="size-2.5" />
+                                                            Prize board
+                                                        </span>
+                                                    )}
                                             </span>
                                             <span className="text-sm text-muted-foreground">
                                                 {board.description}

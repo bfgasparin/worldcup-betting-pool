@@ -5,6 +5,7 @@ import { LeaderboardRow } from '@/components/leaderboard-row';
 import { PoolIdentity } from '@/components/pool-identity';
 import { tiebreakRule } from '@/lib/leaderboards';
 import { poolTitle } from '@/lib/pool-title';
+import { prizeForPlace } from '@/lib/prizes';
 import { cn } from '@/lib/utils';
 import pools from '@/routes/pools';
 import type { BreadcrumbItem } from '@/types/navigation';
@@ -72,6 +73,10 @@ export default function Leaderboard({
     );
     const board = boards.find((b) => b.key === active) ?? boards[0];
     const participants = board?.rows.length ?? 0;
+    const isPaid = pool.pricing.entry_price > 0;
+    // Inline prize amounts: only on the prize (Overall) board of a paid pool with a funded pot.
+    const showPrizes =
+        (board?.awards_prizes ?? false) && isPaid && pool.pricing.net > 0;
 
     return (
         <>
@@ -84,9 +89,17 @@ export default function Leaderboard({
                             <ListOrdered className="size-4 text-primary" />
                             Leaderboards
                         </span>
-                        <h1 className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
-                            {board?.label ?? 'Leaderboards'}
-                        </h1>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <h1 className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+                                {board?.label ?? 'Leaderboards'}
+                            </h1>
+                            {isPaid && board?.awards_prizes && (
+                                <span className="bg-gold-gradient inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold tracking-wide text-[#3a2600] uppercase shadow-[var(--sh-sm)]">
+                                    <Trophy className="size-3.5" />
+                                    Prize board
+                                </span>
+                            )}
+                        </div>
                         <p className="inline-flex items-center gap-2 text-sm text-muted-foreground">
                             <Users className="size-4" />
                             {participants}{' '}
@@ -156,6 +169,12 @@ export default function Leaderboard({
                                             isMe: row.is_me,
                                             movement: row.movement,
                                             movementDelta: row.movement_delta,
+                                            prize: showPrizes
+                                                ? prizeForPlace(
+                                                      pool.pricing,
+                                                      row.rank,
+                                                  )
+                                                : undefined,
                                         }}
                                     />
                                 ))}

@@ -33,6 +33,20 @@ class PoolController extends Controller
     use BuildsPoolIdentity;
 
     /**
+     * Rows shown for the headline (Overall) board on the pool page. Sized to fill the wide left
+     * column against the two stacked side boards in the right column (2 × {@see self::SECONDARY_BOARD_ROWS})
+     * plus ~2 rows for that column's extra card header + inter-card gap. The frontend reveals the
+     * rows past the eighth only on large screens, where the 2-column layout (and the empty space)
+     * exist; smaller screens stay at the compact count.
+     */
+    private const HEADLINE_BOARD_ROWS = 10;
+
+    /**
+     * Rows shown for each non-headline featured board on the pool page (the narrower stacked column).
+     */
+    private const SECONDARY_BOARD_ROWS = 4;
+
+    /**
      * List the available pools (tournaments).
      */
     public function index(Request $request): Response
@@ -130,8 +144,10 @@ class PoolController extends Controller
         // always-present directory the picker filters; `comparison` is null in normal mode.
         $compareIds = $this->parseCompareIds($request, $pool, $request->user()->id);
 
-        // Built once so the pricing's player count and the banner's standings snapshot stay consistent.
-        $standings = $this->poolStandings($pool, $request->user()->id);
+        // Every board, built once: the banner scalars, the featured full-table boards, and any
+        // overflow boards (beyond the first three) all derive from this single load.
+        $boards = $this->boards($pool, $request->user()->id);
+        $standings = $this->poolScalars($boards);
 
         return Inertia::render('pools/show', [
             'pool' => [
@@ -157,7 +173,9 @@ class PoolController extends Controller
             ),
             'bracket' => $this->mapBracket($tournament->knockoutFixtures, $knockoutPredictions, $pool->predictsKnockoutBracket()),
             'standings' => $standings,
-            'boardSummaries' => $this->boardSummaries($pool, $request->user()->id),
+            // The first three boards as full tables; any beyond that stay as condensed summaries.
+            'featuredBoards' => $this->featuredBoards($boards),
+            'moreBoards' => $this->moreBoards($boards),
             'players' => $this->playerDirectory($pool, $request->user()->id),
             'comparison' => (new PlayerComparison)->build($pool, $request->user()->id, $compareIds),
             // What prediction work the viewer still has in an open window, for the reminder banner.
@@ -275,7 +293,11 @@ class PoolController extends Controller
             : null;
 
         return Inertia::render('pools/leaderboard', [
-            'pool' => $this->poolHeader($pool),
+            // pricing gates the "Prize board" badge and feeds the inline prize amounts on Overall.
+            'pool' => [
+                ...$this->poolHeader($pool),
+                'pricing' => PrizePot::forPool($pool, count($boards[0]['rows']))->toArray(),
+            ],
             'boards' => $boards,
             'active_board' => $active,
         ]);
@@ -357,6 +379,7 @@ class PoolController extends Controller
             'description' => $category->description(),
             'primary_stat_label' => $category->primaryStatLabel(),
             'secondary_stat_label' => $category->secondaryStatLabel(),
+            'awards_prizes' => $category->awardsPrizes(),
             'has_scores' => $hasScores,
             'rows' => $rows,
         ];
@@ -377,46 +400,122 @@ class PoolController extends Controller
     }
 
     /**
-     * A summary of each non-Overall board for the pool page: who leads it, and where the viewer
-     * stands on it. Both are null until scoring has begun (or the viewer has no entry).
+     * The pool page's banner scalars, derived from the (already-built) Overall board: how many
+     * players, whether scoring has begun, and the viewer's own row (null when they haven't joined).
      *
+     * @param  list<array<string, mixed>>  $boards
+     * @return array{participants: int, has_scores: bool, me: ?array<string, mixed>}
+     */
+    private function poolScalars(array $boards): array
+    {
+        $overall = $boards[0];
+
+        return [
+            'participants' => count($overall['rows']),
+            'has_scores' => $overall['has_scores'],
+            'me' => collect($overall['rows'])->firstWhere('is_me', true),
+        ];
+    }
+
+    /**
+     * The first three boards as full tables for the pool page: the headline (Overall) shows more
+     * rows than the stacked side boards. Each is truncated to its top rows plus the viewer's pinned
+     * row when they rank outside them.
+     *
+     * @param  list<array<string, mixed>>  $boards
      * @return list<array<string, mixed>>
      */
-    private function boardSummaries(Pool $pool, int $userId): array
+    private function featuredBoards(array $boards): array
     {
-        return collect($this->boards($pool, $userId))
-            ->reject(fn (array $board): bool => $board['key'] === LeaderboardCategory::Overall->value)
-            ->map(function (array $board): array {
-                $mine = $board['has_scores']
-                    ? collect($board['rows'])->firstWhere('is_me', true)
-                    : null;
-
-                return [
-                    'key' => $board['key'],
-                    'label' => $board['label'],
-                    'primary_stat_label' => $board['primary_stat_label'],
-                    // The leader carries its entry id + is_me so compare selection can add this
-                    // board's winner straight from the card.
-                    'leader' => $board['has_scores'] && $board['rows'] !== []
-                        ? [
-                            'entry_id' => $board['rows'][0]['entry_id'],
-                            'name' => $board['rows'][0]['name'],
-                            'initials' => $board['rows'][0]['initials'],
-                            'avatar' => $board['rows'][0]['avatar'],
-                            'primary_value' => $board['rows'][0]['primary_value'],
-                            'is_me' => $board['rows'][0]['is_me'],
-                        ]
-                        : null,
-                    'you' => $mine === null ? null : [
-                        'rank' => $mine['rank'],
-                        'primary_value' => $mine['primary_value'],
-                        'movement' => $mine['movement'],
-                        'movement_delta' => $mine['movement_delta'],
-                    ],
-                ];
-            })
+        return collect($boards)
+            ->take(3)
+            ->map(fn (array $board, int $index): array => $this->truncateBoard(
+                $board,
+                $index === 0 ? self::HEADLINE_BOARD_ROWS : self::SECONDARY_BOARD_ROWS,
+            ))
             ->values()
             ->all();
+    }
+
+    /**
+     * Reduce a full board to a featured card: its top `$rows` plus the viewer's own row pinned only
+     * when they rank outside the shown top (else null, since they're already visible).
+     *
+     * @param  array<string, mixed>  $board
+     * @return array<string, mixed>
+     */
+    private function truncateBoard(array $board, int $rows): array
+    {
+        $top = array_slice($board['rows'], 0, $rows);
+        $mine = collect($board['rows'])->firstWhere('is_me', true);
+        $pinnedMe = $mine !== null && ! collect($top)->contains('is_me', true) ? $mine : null;
+
+        return [
+            'key' => $board['key'],
+            'label' => $board['label'],
+            'description' => $board['description'],
+            'primary_stat_label' => $board['primary_stat_label'],
+            'secondary_stat_label' => $board['secondary_stat_label'],
+            'awards_prizes' => $board['awards_prizes'],
+            'has_scores' => $board['has_scores'],
+            'participants' => count($board['rows']),
+            'top' => $top,
+            'me' => $pinnedMe,
+        ];
+    }
+
+    /**
+     * Boards beyond the first three, as condensed summaries for the "More leaderboards" section.
+     * Empty while a pool runs three or fewer boards (the case today).
+     *
+     * @param  list<array<string, mixed>>  $boards
+     * @return list<array<string, mixed>>
+     */
+    private function moreBoards(array $boards): array
+    {
+        return collect($boards)
+            ->slice(3)
+            ->map($this->boardSummary(...))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * A condensed summary of one board: who leads it, and where the viewer stands on it. Both are
+     * null until scoring has begun (or the viewer has no entry).
+     *
+     * @param  array<string, mixed>  $board
+     * @return array<string, mixed>
+     */
+    private function boardSummary(array $board): array
+    {
+        $mine = $board['has_scores']
+            ? collect($board['rows'])->firstWhere('is_me', true)
+            : null;
+
+        return [
+            'key' => $board['key'],
+            'label' => $board['label'],
+            'primary_stat_label' => $board['primary_stat_label'],
+            // The leader carries its entry id + is_me so compare selection can add this
+            // board's winner straight from the card.
+            'leader' => $board['has_scores'] && $board['rows'] !== []
+                ? [
+                    'entry_id' => $board['rows'][0]['entry_id'],
+                    'name' => $board['rows'][0]['name'],
+                    'initials' => $board['rows'][0]['initials'],
+                    'avatar' => $board['rows'][0]['avatar'],
+                    'primary_value' => $board['rows'][0]['primary_value'],
+                    'is_me' => $board['rows'][0]['is_me'],
+                ]
+                : null,
+            'you' => $mine === null ? null : [
+                'rank' => $mine['rank'],
+                'primary_value' => $mine['primary_value'],
+                'movement' => $mine['movement'],
+                'movement_delta' => $mine['movement_delta'],
+            ],
+        ];
     }
 
     /**
@@ -432,34 +531,8 @@ class PoolController extends Controller
             'description' => $category->description(),
             'primary_stat_label' => $category->primaryStatLabel(),
             'secondary_stat_label' => $category->secondaryStatLabel(),
+            'awards_prizes' => $category->awardsPrizes(),
         ], LeaderboardCategory::ordered());
-    }
-
-    /**
-     * Rank a pool's entries by total points, marking the current user's row.
-     *
-     * @return Collection<int, array{rank: int, entry_id: int, name: string, initials: string, avatar: ?string, points: ?int, is_me: bool, movement: ?string, movement_delta: ?int}>
-     */
-    private function rankedEntries(Pool $pool, int $userId): Collection
-    {
-        return $pool->entries()
-            ->with('user')
-            ->orderBy('id')
-            ->get()
-            // Stable sort keeps the id order above for entries tied on points (nulls last).
-            ->sortByDesc(fn (Entry $entry): int => $entry->total_points ?? PHP_INT_MIN)
-            ->values()
-            ->map(fn (Entry $entry, int $index): array => [
-                'rank' => $index + 1,
-                'entry_id' => $entry->id,
-                'name' => $entry->user_id === $userId ? 'You' : ($entry->user->name ?? 'Player'),
-                'initials' => $this->initials($entry->user->name ?? ''),
-                'avatar' => $entry->user->avatar,
-                'points' => $entry->total_points,
-                'is_me' => $entry->user_id === $userId,
-                'movement' => $this->movement($entry->rank, $entry->previous_rank),
-                'movement_delta' => $this->movementDelta($entry->rank, $entry->previous_rank),
-            ]);
     }
 
     /**
@@ -494,24 +567,6 @@ class PoolController extends Controller
         }
 
         return abs($rank - $previousRank) ?: null;
-    }
-
-    /**
-     * A compact standings snapshot for the pool dashboard: the viewer's standing plus the
-     * top of the table.
-     *
-     * @return array{participants: int, has_scores: bool, me: ?array<string, mixed>, top: list<array<string, mixed>>}
-     */
-    private function poolStandings(Pool $pool, int $userId): array
-    {
-        $rows = $this->rankedEntries($pool, $userId);
-
-        return [
-            'participants' => $rows->count(),
-            'has_scores' => $rows->contains(fn (array $row): bool => $row['points'] !== null),
-            'me' => $rows->firstWhere('is_me', true),
-            'top' => $rows->take(4)->values()->all(),
-        ];
     }
 
     /**

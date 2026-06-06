@@ -18,6 +18,12 @@ export interface LeaderboardEntry {
     movement?: RankMovement | null;
     /** How many places the entry moved since the last results, shown in the movement pill. */
     movementDelta?: number | null;
+    /**
+     * The prize this place wins, already formatted (e.g. "R$ 400,00"), shown as a gold pill just
+     * left of the points on the prize board. Null/undefined hides it — so non-paying places and
+     * every board except the Overall prize board show nothing.
+     */
+    prize?: string | null;
 }
 
 const MEDALS: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
@@ -116,6 +122,11 @@ export function LeaderboardRow({
             )}
 
             <div className="flex items-center justify-end gap-2">
+                {entry.prize && (
+                    <span className="rounded-full bg-accent/15 px-2 py-0.5 font-display text-xs font-semibold whitespace-nowrap text-[#8a5a00] tabular-nums dark:text-amber-300">
+                        {entry.prize}
+                    </span>
+                )}
                 {entry.movement != null && (
                     <MovementArrow
                         movement={entry.movement}

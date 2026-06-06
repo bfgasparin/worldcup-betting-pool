@@ -92,6 +92,15 @@ enum LeaderboardCategory: string
     }
 
     /**
+     * Whether finishing top of this board wins a share of the prize pot. Only the Overall board
+     * pays out; the others are bragging-rights side boards. Drives the "Prize board" UI signal.
+     */
+    public function awardsPrizes(): bool
+    {
+        return $this === self::Overall;
+    }
+
+    /**
      * The value this board ranks by, pulled from a recompute's aggregates.
      */
     public function valueFor(LeaderboardMetrics $metrics): int
