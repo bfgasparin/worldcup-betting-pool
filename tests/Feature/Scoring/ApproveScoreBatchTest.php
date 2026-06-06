@@ -5,8 +5,11 @@ namespace Tests\Feature\Scoring;
 use App\Enums\BatchStatus;
 use App\Enums\FixtureStatus;
 use App\Enums\LeaderboardCategory;
+use App\Enums\PhaseKey;
 use App\Enums\PhaseType;
+use App\Enums\PoolAccent;
 use App\Enums\ProposalStatus;
+use App\Enums\ScoringStrategy;
 use App\Enums\TournamentStatus;
 use App\Models\Entry;
 use App\Models\Pool;
@@ -14,6 +17,7 @@ use App\Models\ScoreBatch;
 use App\Models\ScoreProposal;
 use App\Models\Tournament;
 use App\Models\User;
+use App\Notifications\PredictionWindowOpenedNotification;
 use App\Notifications\TopOfLeaderboardNotification;
 use Database\Seeders\WorldCup2026Seeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -112,6 +116,107 @@ class ApproveScoreBatchTest extends TestCase
         Notification::assertSentTo($this->entry->user, TopOfLeaderboardNotification::class);
     }
 
+    public function test_opening_a_phased_knockout_window_emails_every_entrant(): void
+    {
+        Notification::fake();
+
+        [$phased, $entrants] = $this->phasedPoolWithEntrants();
+        $this->openRoundOf32After();
+
+        $batch = $this->openBatch();
+        $this->proposeAllGroupResults($batch);
+        $this->resolveProjectedTies($this->tournament, $batch);
+
+        $this->actingAs($this->admin())->post(route('pools.scores.approve', $this->pool));
+
+        $roundName = $this->tournament->phases()->where('key', PhaseKey::RoundOf32->value)->value('name');
+
+        foreach ($entrants as $user) {
+            Notification::assertSentTo(
+                $user,
+                PredictionWindowOpenedNotification::class,
+                fn (PredictionWindowOpenedNotification $notification): bool => $notification->roundName === $roundName
+                    && $notification->poolSlug === $phased->slug
+                    && $notification->deadline !== null,
+            );
+        }
+
+        // The upfront pool has a single window that never re-opens, so its player is never emailed.
+        Notification::assertNotSentTo($this->entry->user, PredictionWindowOpenedNotification::class);
+    }
+
+    public function test_a_phased_window_email_is_not_resent_when_a_correction_is_approved(): void
+    {
+        Notification::fake();
+
+        [, $entrants] = $this->phasedPoolWithEntrants();
+        $this->openRoundOf32After();
+
+        $batch = $this->openBatch();
+        $this->proposeAllGroupResults($batch);
+        $this->resolveProjectedTies($this->tournament, $batch);
+        $this->actingAs($this->admin())->post(route('pools.scores.approve', $this->pool));
+
+        // Re-approve a correction while the Round of 32 is still open: it must not email again.
+        $fixture = $this->tournament->groupFixtures()->orderBy('match_number')->first();
+        $newBatch = $this->openBatch();
+        ScoreProposal::create([
+            'score_batch_id' => $newBatch->id,
+            'fixture_id' => $fixture->id,
+            'home_goals' => 3,
+            'away_goals' => 0,
+            'winner_team_id' => $fixture->home_team_id,
+            'status' => ProposalStatus::Pending,
+        ]);
+        $this->resolveProjectedTies($this->tournament, $newBatch);
+        $this->actingAs($this->admin())->post(route('pools.scores.approve', $this->pool));
+
+        foreach ($entrants as $user) {
+            Notification::assertSentToTimes($user, PredictionWindowOpenedNotification::class, 1);
+        }
+    }
+
+    public function test_the_window_opened_email_renders_both_views(): void
+    {
+        $phased = $this->tournament->pools()->where('slug', 'world-cup-2026-brothers')->firstOrFail();
+        $notification = new PredictionWindowOpenedNotification(
+            $phased->name,
+            $phased->slug,
+            $phased->source,
+            $phased->accent ?? PoolAccent::Pitch,
+            'Round of 32',
+            now()->addDays(3),
+        );
+
+        $mail = $notification->toMail(User::factory()->create(['name' => 'Sam']));
+
+        $html = view($mail->view[0], $mail->viewData)->render();
+        $text = view($mail->view[1], $mail->viewData)->render();
+
+        $this->assertStringContainsString('Round of 32', $html);
+        $this->assertStringContainsString('Make your picks', $html);
+        $this->assertStringContainsString('Round of 32', $text);
+    }
+
+    public function test_a_knockout_round_already_past_its_deadline_locks_without_emailing(): void
+    {
+        Notification::fake();
+
+        [, $entrants] = $this->phasedPoolWithEntrants();
+        // The Round of 32 kicks off in the past, so once projected it is already locked, not open.
+        $this->tournament->phases()->where('key', PhaseKey::RoundOf32->value)->firstOrFail()
+            ->fixtures()->update(['kicks_off_at' => now()->subHour()]);
+
+        $batch = $this->openBatch();
+        $this->proposeAllGroupResults($batch);
+        $this->resolveProjectedTies($this->tournament, $batch);
+        $this->actingAs($this->admin())->post(route('pools.scores.approve', $this->pool));
+
+        foreach ($entrants as $user) {
+            Notification::assertNotSentTo($user, PredictionWindowOpenedNotification::class);
+        }
+    }
+
     public function test_re_approving_after_a_correction_recomputes_cleanly(): void
     {
         $batch = $this->openBatch();
@@ -192,6 +297,36 @@ class ApproveScoreBatchTest extends TestCase
     private function openBatch(): ScoreBatch
     {
         return $this->tournament->scoreBatches()->firstOrCreate(['status' => BatchStatus::Open]);
+    }
+
+    /**
+     * The seeded phased-bracket pool plus a couple of entrants to receive window emails.
+     *
+     * @return array{0: Pool, 1: list<User>}
+     */
+    private function phasedPoolWithEntrants(): array
+    {
+        $phased = $this->tournament->pools()->where('slug', 'world-cup-2026-brothers')->firstOrFail();
+        $this->assertSame(ScoringStrategy::PhasedBracket, $phased->scoring_strategy);
+
+        $entrants = [];
+        foreach (range(1, 2) as $ignored) {
+            $user = User::factory()->create();
+            Entry::factory()->for($phased)->for($user)->create();
+            $entrants[] = $user;
+        }
+
+        return [$phased, $entrants];
+    }
+
+    /**
+     * Schedule the Round of 32 in the future so it opens (rather than locks) once its participants
+     * are projected by an approval.
+     */
+    private function openRoundOf32After(): void
+    {
+        $this->tournament->phases()->where('key', PhaseKey::RoundOf32->value)->firstOrFail()
+            ->fixtures()->update(['kicks_off_at' => now()->addDays(10)]);
     }
 
     private function proposeAllGroupResults(ScoreBatch $batch): void

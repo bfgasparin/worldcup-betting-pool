@@ -9,6 +9,7 @@ use App\Models\ScoreBatch;
 use App\Models\ScoreProposal;
 use App\Models\User;
 use App\Services\Predictions\OfficialBracketProjector;
+use App\Services\Predictions\PredictionWindowResolver;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -26,12 +27,24 @@ class ApproveScoreBatch
         private readonly ScoreEngine $engine = new ScoreEngine,
         private readonly RankSnapshotter $snapshotter = new RankSnapshotter,
         private readonly LeaderboardNotifier $notifier = new LeaderboardNotifier,
+        private readonly PredictionWindowResolver $windowResolver = new PredictionWindowResolver,
+        private readonly WindowOpeningNotifier $windowOpeningNotifier = new WindowOpeningNotifier,
     ) {}
 
     public function approve(ScoreBatch $batch, User $approver): void
     {
         $tournament = $batch->tournament;
         $pools = $tournament->pools()->get();
+
+        // Snapshot each phased pool's prediction windows before the bracket is re-projected, so we
+        // can tell which knockout rounds this approval opens. Captured as plain enum values — the
+        // projection below reloads and mutates the underlying phase/fixture relations.
+        $windowsBefore = [];
+        foreach ($pools as $pool) {
+            if ($pool->usesPhasedPredictionWindows()) {
+                $windowsBefore[$pool->id] = $this->windowResolver->windows($pool);
+            }
+        }
 
         DB::transaction(function () use ($batch, $tournament, $pools, $approver): void {
             $proposals = $batch->proposals()
@@ -65,10 +78,15 @@ class ApproveScoreBatch
         // transaction so the status-changed event can't fire and then roll back.
         $tournament->syncStatus();
 
-        // Ranks are committed; email each pool's players about milestones and significant moves.
-        // Kept outside the transaction so a later pool's failure can't fire and then roll back.
+        // Ranks are committed; email each pool's players about milestones and significant moves, and
+        // about any phased knockout round whose prediction window this approval just opened. Kept
+        // outside the transaction so a later pool's failure can't fire an email and then roll back.
         foreach ($pools as $pool) {
             $this->notifier->notify($pool);
+
+            if (isset($windowsBefore[$pool->id])) {
+                $this->windowOpeningNotifier->notifyOpenedRounds($pool, $windowsBefore[$pool->id]);
+            }
         }
     }
 

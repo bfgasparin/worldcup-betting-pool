@@ -2,18 +2,21 @@
 
 namespace App\Services\Pools;
 
-use App\Models\GroupPrediction;
 use App\Models\Pool;
 use App\Models\User;
 
 /**
  * Builds the "Your pools" list shared with the sidebar on every request: the pools a user has
- * joined, each flagged when it wants the player's attention — an open prediction window paired
- * with unfinished group-stage picks. Guests get an empty list without touching the database, so
- * the always-shared prop stays free on public pages.
+ * joined, each flagged when it wants the player's attention — an open prediction window with
+ * unfinished work, decided by {@see PredictionAttention}. Guests get an empty list without touching
+ * the database, so the always-shared prop stays free on public pages.
  */
 class JoinedPools
 {
+    public function __construct(
+        private readonly PredictionAttention $attention = new PredictionAttention,
+    ) {}
+
     /**
      * @return list<array{slug: string, name: string, source: string, accent: ?string, needs_attention: bool}>
      */
@@ -24,16 +27,12 @@ class JoinedPools
         }
 
         return Pool::query()
-            ->select('pools.*')
             ->whereHas('entries', fn ($query) => $query->where('user_id', $user->id))
-            ->with(['tournament' => fn ($query) => $query->withCount('groupFixtures')])
-            // The viewer's own group-prediction count per pool, folded into the one list query so
-            // attention can be derived without an N+1 over entries → predictions.
-            ->addSelect(['my_group_predictions' => GroupPrediction::query()
-                ->selectRaw('count(*)')
-                ->join('entries', 'group_predictions.entry_id', '=', 'entries.id')
-                ->whereColumn('entries.pool_id', 'pools.id')
-                ->where('entries.user_id', $user->id),
+            // The structure counts and the viewer's own entry (with its group-prediction count) are
+            // folded into the list load so attention can be derived without an N+1 over entries.
+            ->with([
+                'tournament' => fn ($query) => $query->withCount('groupFixtures'),
+                'entries' => fn ($query) => $query->where('user_id', $user->id)->withCount('groupPredictions'),
             ])
             ->orderBy('id')
             ->get()
@@ -42,10 +41,7 @@ class JoinedPools
                 'name' => $pool->name,
                 'source' => $pool->source,
                 'accent' => $pool->accent?->value,
-                'needs_attention' => $pool->needsAttention(
-                    (int) $pool->getAttribute('my_group_predictions'),
-                    (int) $pool->tournament->getAttribute('group_fixtures_count'),
-                ),
+                'needs_attention' => $this->attention->needsAttention($pool, $pool->entries->first()),
             ])
             ->all();
     }

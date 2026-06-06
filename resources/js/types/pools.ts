@@ -238,6 +238,51 @@ export interface PoolStandings {
     top: LeaderboardEntryRow[];
 }
 
+/** One open prediction window with unfinished work, for the pool page's reminder banner. */
+export interface AttentionWindow {
+    phase_key: string;
+    /** Human label for the window, e.g. "Group stage" or "Round of 16". */
+    label: string;
+    /** ISO 8601 instant the window closes, or null when no deadline is scheduled yet. */
+    deadline: string | null;
+    /** Predictions still to make in this window. */
+    missing_count: number;
+    total_count: number;
+    /** Upfront pools only: complete picks that still leave a tie the player must break. */
+    has_unresolved_ties: boolean;
+}
+
+/**
+ * What prediction work the viewer still has open in a pool — the same signal as the sidebar dot,
+ * with the per-window detail the reminder banner lists. `needs_attention` is false (and the list
+ * empty) when nothing is outstanding or the viewer hasn't joined.
+ */
+export interface AttentionSummary {
+    needs_attention: boolean;
+    open_windows: AttentionWindow[];
+}
+
+/** One currently-open window the viewer has finished, for the "all set" celebration. */
+export interface CompletionWindow {
+    phase_key: string;
+    /** Human label, e.g. "Group stage", "Round of 16", or "Your bracket" (upfront pools). */
+    label: string;
+    /** ISO 8601 instant the window locks, or null when no deadline is scheduled yet. */
+    deadline: string | null;
+}
+
+/**
+ * Whether the viewer has completed every prediction in a currently-open window — the inverse of
+ * {@link AttentionSummary}. Drives the predict page's celebration modal (on the session
+ * incomplete→complete transition) and its calm "all set" banner. `is_complete` is false when work
+ * remains OR when no window is currently open (nothing to celebrate), in which case `open_windows`
+ * is empty; when true it lists the finished window(s) so the message can name them and their lock.
+ */
+export interface CompletionSummary {
+    is_complete: boolean;
+    open_windows: CompletionWindow[];
+}
+
 /** A ranked row on any of the full leaderboards (Leaderboards page). */
 export interface BoardRow {
     rank: number;
@@ -507,4 +552,6 @@ export interface PredictPageProps {
     should_suggest_import: boolean;
     /** Whether this (phased) pool's standings hold a tie that has no effect, so we explain it. */
     show_tie_note: boolean;
+    /** Whether every prediction in a currently-open window is done — drives the celebration. */
+    completion: CompletionSummary;
 }

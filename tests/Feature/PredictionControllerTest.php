@@ -361,6 +361,60 @@ class PredictionControllerTest extends TestCase
         $this->assertNotSame($otherEntry->id, $this->entry()->id);
     }
 
+    public function test_predict_page_reports_completion_false_when_incomplete(): void
+    {
+        Entry::factory()->for($this->pool)->for($this->user)->create();
+
+        $this->actingAs($this->user)
+            ->get(route('pools.predict.edit', 'world-cup-2026-ffa'))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->component('pools/predict')
+                ->where('completion.is_complete', false));
+    }
+
+    public function test_predict_page_reports_completion_true_when_upfront_fully_predicted(): void
+    {
+        $entry = Entry::factory()->for($this->pool)->for($this->user)->create();
+        $this->predictAllGroups($entry, $this->tournament, $this->seedOrderScores());
+        $this->advanceAllHome($entry, new BracketResolver);
+
+        $this->actingAs($this->user)
+            ->get(route('pools.predict.edit', 'world-cup-2026-ffa'))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('completion.is_complete', true)
+                ->has('completion.open_windows', 1)
+                ->where('completion.open_windows.0.phase_key', 'group')
+                ->where('completion.open_windows.0.label', 'Your bracket'));
+    }
+
+    public function test_predict_page_reports_completion_false_once_locked(): void
+    {
+        $entry = Entry::factory()->for($this->pool)->for($this->user)->create();
+        $this->predictAllGroups($entry, $this->tournament, $this->seedOrderScores());
+        $this->advanceAllHome($entry, new BracketResolver);
+        $this->pool->update(['predictions_lock_at' => now()->subDay()]);
+
+        $this->actingAs($this->user)
+            ->get(route('pools.predict.edit', 'world-cup-2026-ffa'))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('completion.is_complete', false)
+                ->has('completion.open_windows', 0));
+    }
+
+    public function test_predict_page_reports_completion_true_for_a_complete_phased_group_window(): void
+    {
+        $phased = $this->tournament->pools()->where('slug', 'world-cup-2026-brothers')->firstOrFail();
+        $entry = Entry::factory()->for($phased)->for($this->user)->create();
+        $this->predictAllGroups($entry, $this->tournament, $this->seedOrderScores());
+
+        $this->actingAs($this->user)
+            ->get(route('pools.predict.edit', 'world-cup-2026-brothers'))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('completion.is_complete', true)
+                ->where('completion.open_windows.0.phase_key', 'group')
+                ->where('completion.open_windows.0.label', 'Group stage'));
+    }
+
     private function entry(): ?Entry
     {
         return Entry::where('pool_id', $this->pool->id)

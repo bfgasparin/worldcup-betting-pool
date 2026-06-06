@@ -20,6 +20,8 @@ import {
     KnockoutSlotCard,
     PhaseMeta,
     PhaseTabs,
+    formatMatchDate,
+    formatMatchTime,
     phaseDateRange,
 } from '@/components/fixtures';
 import type { Phase } from '@/components/fixtures';
@@ -44,6 +46,8 @@ import { poolTitle } from '@/lib/pool-title';
 import { cn } from '@/lib/utils';
 import pools from '@/routes/pools';
 import type {
+    AttentionSummary,
+    AttentionWindow,
     BoardSummary,
     BracketPhase,
     Comparison,
@@ -64,6 +68,8 @@ interface PoolShowProps {
     players: PlayerDirectoryEntry[];
     /** The head-to-head payload when the page is in compare mode (a ?compare= list); else null. */
     comparison: Comparison | null;
+    /** The viewer's outstanding prediction work, surfaced as a reminder banner. */
+    attention: AttentionSummary;
 }
 
 /**
@@ -221,6 +227,86 @@ function DashboardBanner({
                 </div>
             </div>
         </header>
+    );
+}
+
+/** The outstanding work in one open window, e.g. "4 picks left", "ties to break", or both. */
+function windowSummary(window: AttentionWindow): string {
+    const parts: string[] = [];
+
+    if (window.missing_count > 0) {
+        parts.push(
+            `${window.missing_count} ${window.missing_count === 1 ? 'pick' : 'picks'} left`,
+        );
+    }
+
+    if (window.has_unresolved_ties) {
+        parts.push('ties to break');
+    }
+
+    return parts.join(' and ');
+}
+
+/**
+ * A reminder banner under the hero when the viewer has unfinished prediction work in an open window:
+ * what's left in each window plus its deadline, with a CTA straight into the wizard. Renders nothing
+ * once everything is done (or the viewer hasn't joined), so it quietly disappears when settled.
+ */
+function PredictionReminder({
+    pool,
+    attention,
+}: {
+    pool: PoolDetail;
+    attention: AttentionSummary;
+}) {
+    const tz = useDisplayTimeZone();
+
+    if (!attention.needs_attention) {
+        return null;
+    }
+
+    return (
+        <section
+            role="status"
+            className="card-elevated flex flex-col gap-4 rounded-3xl border border-border bg-card p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6"
+        >
+            <div className="flex items-start gap-3">
+                <span className="bg-gold-gradient mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full text-[#3a2600] shadow-[var(--sh-sm)]">
+                    <PencilLine className="size-4" />
+                </span>
+                <div className="space-y-1.5">
+                    <p className="font-semibold text-foreground">
+                        Your predictions need attention
+                    </p>
+                    <ul className="space-y-1 text-sm text-muted-foreground">
+                        {attention.open_windows.map((window) => (
+                            <li
+                                key={window.phase_key}
+                                className="flex flex-wrap items-center gap-x-1.5"
+                            >
+                                <span className="font-medium text-foreground">
+                                    {window.label}
+                                </span>
+                                <span>— {windowSummary(window)}</span>
+                                {window.deadline && (
+                                    <span className="text-xs">
+                                        · closes{' '}
+                                        {formatMatchDate(window.deadline, tz)},{' '}
+                                        {formatMatchTime(window.deadline, tz)}
+                                    </span>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            </div>
+            <Button asChild className="shrink-0">
+                <Link href={pools.predict.edit(pool.slug)}>
+                    <PencilLine className="size-4" />
+                    Complete predictions
+                </Link>
+            </Button>
+        </section>
     );
 }
 
@@ -741,6 +827,7 @@ export default function PoolShow({
     boardSummaries,
     players,
     comparison,
+    attention,
 }: PoolShowProps) {
     const { auth } = usePage().props;
 
@@ -837,6 +924,8 @@ export default function PoolShow({
                     }
                     onCompare={startSelecting}
                 />
+
+                <PredictionReminder pool={pool} attention={attention} />
 
                 {compareActive ? (
                     <CompareStrip

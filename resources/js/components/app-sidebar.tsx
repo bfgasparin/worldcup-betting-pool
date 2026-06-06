@@ -161,6 +161,20 @@ function PoolNavItem({ row, active }: { row: PoolRow; active: boolean }) {
                                     <span>{item.title}</span>
                                 </Link>
                             </SidebarMenuSubButton>
+
+                            {/* The same gold dot the pool name carries, pinned to its source: the
+                                prediction work all lives behind the Predict screen. */}
+                            {row.needs_attention && item.predict && (
+                                <SidebarMenuBadge className="top-1">
+                                    <span
+                                        className="bg-gold-gradient size-2 rounded-full shadow-[var(--sh-sm)]"
+                                        aria-hidden
+                                    />
+                                    <span className="sr-only">
+                                        Predictions need your attention
+                                    </span>
+                                </SidebarMenuBadge>
+                            )}
                         </SidebarMenuSubItem>
                     ))}
                 </SidebarMenuSub>

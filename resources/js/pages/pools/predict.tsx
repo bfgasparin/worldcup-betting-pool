@@ -11,10 +11,12 @@ import {
     Lock,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { AllSetBanner } from '@/components/all-set-banner';
 import { GroupBadge, TeamChip } from '@/components/fixtures';
 import { Flag } from '@/components/flag';
 import { ImportPredictionsDialog } from '@/components/import-predictions-dialog';
 import { PoolIdentity } from '@/components/pool-identity';
+import { PredictionCompleteDialog } from '@/components/prediction-complete-dialog';
 import { ScoreStepper } from '@/components/score-stepper';
 import { StandingsTable } from '@/components/standings-table';
 import { TieResolutionPanel } from '@/components/tie-resolution-panel';
@@ -605,11 +607,18 @@ export default function Predict({
     import_sources: importSources,
     should_suggest_import: shouldSuggestImport,
     show_tie_note: showTieNote,
+    completion,
 }: PredictPageProps) {
     const canEdit = pool.can_edit;
     const [step, setStep] = useState(0);
     const [saveStatus, setSaveStatus] = useState<SaveStatusValue>('idle');
     const [importOpen, setImportOpen] = useState(false);
+    // Celebrate the moment the last open-window prediction lands. A ref of the previous value tells
+    // "just completed now" apart from "arrived already complete": arriving complete (a later visit)
+    // shows only the calm banner, never the modal. Re-fires on false→true→false→true (an upfront
+    // cascade can wipe downstream picks, a phased round can reopen) since the ref tracks each render.
+    const [celebrateOpen, setCelebrateOpen] = useState(false);
+    const wasCompleteRef = useRef(completion.is_complete);
     // A session-only dismissal of the nudge. The server prop drives whether it returns next visit,
     // so skipping just hides it now and it reappears until the user has a prediction (or imports).
     const [suggestionDismissed, setSuggestionDismissed] = useState(false);
@@ -668,6 +677,16 @@ export default function Predict({
     useEffect(() => {
         phasesByKeyRef.current = phasesByKey;
     }, [phasesByKey]);
+
+    // Pop the celebration only on the incomplete→complete edge (after an auto-save returns fresh
+    // props), so it fires when the work is finished but not on a revisit that arrives complete.
+    useEffect(() => {
+        if (completion.is_complete && !wasCompleteRef.current) {
+            setCelebrateOpen(true);
+        }
+
+        wasCompleteRef.current = completion.is_complete;
+    }, [completion.is_complete]);
 
     const isLastStep = step === STEP_TITLES.length - 1;
     const currentStepEditable = isStepEditable(step, canEdit, phasesByKey);
@@ -940,6 +959,10 @@ export default function Predict({
                     </div>
                 )}
 
+                {completion.is_complete && (
+                    <AllSetBanner windows={completion.open_windows} />
+                )}
+
                 {showImportSuggestion && (
                     <div className="flex flex-col gap-3 rounded-2xl border border-gold/40 bg-gold/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-start gap-3 text-sm text-foreground">
@@ -1092,6 +1115,13 @@ export default function Predict({
                     onBeforeImport={cancelPendingSave}
                 />
             )}
+
+            <PredictionCompleteDialog
+                open={celebrateOpen}
+                onOpenChange={setCelebrateOpen}
+                poolSlug={pool.slug}
+                windows={completion.open_windows}
+            />
         </>
     );
 }

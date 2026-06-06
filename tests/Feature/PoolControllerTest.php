@@ -148,6 +148,39 @@ class PoolControllerTest extends TestCase
             );
     }
 
+    public function test_show_exposes_the_prediction_attention_summary(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+        $tournament = Tournament::firstOrFail();
+        $user = User::factory()->create();
+        Entry::factory()->for($tournament->pools()->where('slug', 'world-cup-2026-ffa')->firstOrFail())->for($user)->create();
+
+        $this->actingAs($user)
+            ->get(route('pools.show', 'world-cup-2026-ffa'))
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('attention.needs_attention', true)
+                ->has('attention.open_windows', 1)
+                ->where('attention.open_windows.0.phase_key', 'group')
+                ->where('attention.open_windows.0.missing_count', 72)
+                ->where('attention.open_windows.0.has_unresolved_ties', false)
+                ->whereNot('attention.open_windows.0.deadline', null)
+            );
+    }
+
+    public function test_show_attention_is_empty_without_an_entry(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+        $this->actingAs(User::factory()->create());
+
+        $this->get(route('pools.show', 'world-cup-2026-ffa'))
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('attention.needs_attention', false)
+                ->where('attention.open_windows', [])
+            );
+    }
+
     public function test_pool_preview_and_player_directory_expose_avatar_urls(): void
     {
         Storage::fake('public');
