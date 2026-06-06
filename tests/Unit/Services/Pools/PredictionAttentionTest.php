@@ -8,6 +8,7 @@ use App\Models\Pool;
 use App\Models\Tournament;
 use App\Models\User;
 use App\Services\Pools\PredictionAttention;
+use App\Services\Predictions\BracketResolver;
 use App\Services\Predictions\OfficialBracketProjector;
 use App\Services\Predictions\TieResolutionState;
 use Database\Seeders\WorldCup2026Seeder;
@@ -72,12 +73,58 @@ class PredictionAttentionTest extends TestCase
         $this->assertFalse($summary->openWindows[0]['has_unresolved_ties']);
     }
 
-    public function test_upfront_with_every_group_pick_and_no_ties_needs_no_attention(): void
+    public function test_upfront_with_group_complete_but_no_knockout_picks_needs_attention(): void
     {
+        // Every group score in (and ties resolved), but the self-derived knockout bracket — which an
+        // upfront pool predicts up front too — is untouched, so the player still has 32 picks to make.
         $entry = $this->entryIn($this->upfront);
         $this->predictAllGroups($entry, $this->tournament, $this->seedOrderScores());
 
-        $this->assertFalse($this->attention()->needsAttention($this->upfront, $entry));
+        $summary = $this->attention()->summary($this->upfront, $entry);
+
+        $this->assertTrue($summary->needsAttention);
+        $this->assertCount(1, $summary->openWindows);
+        $this->assertSame('knockout', $summary->openWindows[0]['phase_key']);
+        $this->assertSame('Knockout bracket', $summary->openWindows[0]['label']);
+        $this->assertSame(32, $summary->openWindows[0]['total_count']);
+        $this->assertSame(32, $summary->openWindows[0]['missing_count']);
+    }
+
+    public function test_upfront_fully_predicted_needs_no_attention(): void
+    {
+        $entry = $this->entryIn($this->upfront);
+        $this->predictAllGroups($entry, $this->tournament, $this->seedOrderScores());
+        // Fill the whole knockout bracket to the final by advancing the home team every round.
+        $this->advanceAllHome($entry, new BracketResolver);
+
+        $this->assertFalse($this->attention()->needsAttention($this->upfront, $entry->fresh()));
+    }
+
+    public function test_upfront_partially_predicted_knockout_still_needs_attention(): void
+    {
+        $entry = $this->entryIn($this->upfront);
+        $this->predictAllGroups($entry, $this->tournament, $this->seedOrderScores());
+        // Resolve the bracket, then pick advancers for the Round of 32 only — the rest is unfinished.
+        $resolver = new BracketResolver;
+        $resolver->persist($entry);
+        $entry->load('knockoutPredictions');
+        foreach ($entry->knockoutPredictions as $prediction) {
+            if ($prediction->predicted_home_team_id !== null && $prediction->advancing_team_id === null) {
+                $prediction->update([
+                    'advancing_team_id' => $prediction->predicted_home_team_id,
+                    'home_goals' => 1,
+                    'away_goals' => 0,
+                ]);
+            }
+        }
+        $resolver->persist($entry);
+
+        $summary = $this->attention()->summary($this->upfront, $entry->fresh());
+
+        $this->assertTrue($summary->needsAttention);
+        $this->assertSame('knockout', $summary->openWindows[0]['phase_key']);
+        // The 16 Round of 32 ties are decided; the remaining 16 knockout fixtures are still open.
+        $this->assertSame(16, $summary->openWindows[0]['missing_count']);
     }
 
     public function test_upfront_with_only_unresolved_ties_needs_attention(): void

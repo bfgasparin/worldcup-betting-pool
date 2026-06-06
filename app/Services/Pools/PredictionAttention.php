@@ -67,9 +67,11 @@ class PredictionAttention
     }
 
     /**
-     * Upfront pools have one window: the group-stage scores plus any ties the engine couldn't break.
-     * The (expensive) tie resolution only runs once every group score is in — the only state where a
-     * tie is the remaining work — so the sidebar stays cheap while the window fills up.
+     * Upfront pools predict the whole tournament up front in a single window, so completeness runs
+     * the bracket's own cascade: every group score, then any ties the engine couldn't break, then
+     * every knockout pick. Each stage gates the next (the bracket can't resolve until the group
+     * stage does), and they share the one group-stage lock as their deadline. The stages past the
+     * cheap group count only run once the group stage is complete, so the sidebar stays cheap.
      */
     private function upfrontSummary(Pool $pool, Entry $entry): AttentionSummary
     {
@@ -77,23 +79,52 @@ class PredictionAttention
             return new AttentionSummary(false);
         }
 
-        $total = $this->groupFixtureCount($pool);
-        $missing = max(0, $total - $this->groupPredictionCount($entry));
+        // 1) Group scores — nothing downstream resolves until every group fixture is predicted.
+        $groupTotal = $this->groupFixtureCount($pool);
+        $groupMissing = max(0, $groupTotal - $this->groupPredictionCount($entry));
 
-        $hasUnresolvedTies = $missing === 0 && $this->tieResolution->forEntry($entry)->blocked();
-
-        if ($missing === 0 && ! $hasUnresolvedTies) {
-            return new AttentionSummary(false);
+        if ($groupMissing > 0) {
+            return new AttentionSummary(true, [$this->groupWindow($pool, $groupMissing, $groupTotal, false)]);
         }
 
-        return new AttentionSummary(true, [[
+        // 2) Ties — an unresolved standings tie blocks the bracket from resolving at all.
+        if ($this->tieResolution->forEntry($entry)->blocked()) {
+            return new AttentionSummary(true, [$this->groupWindow($pool, 0, $groupTotal, true)]);
+        }
+
+        // 3) Knockout bracket — with the group stage resolved, every knockout fixture still needs a pick.
+        $knockoutTotal = $this->knockoutFixtureCount($pool);
+        $knockoutMissing = max(0, $knockoutTotal - $this->knockoutPredictionCount($entry));
+
+        if ($knockoutMissing > 0) {
+            return new AttentionSummary(true, [[
+                'phase_key' => 'knockout',
+                'label' => 'Knockout bracket',
+                'deadline' => $pool->predictionsLockAt()?->toIso8601String(),
+                'missing_count' => $knockoutMissing,
+                'total_count' => $knockoutTotal,
+                'has_unresolved_ties' => false,
+            ]]);
+        }
+
+        return new AttentionSummary(false);
+    }
+
+    /**
+     * The single "Group stage" window line shared by the incomplete-scores and unresolved-ties cases.
+     *
+     * @return array{phase_key: string, label: string, deadline: ?string, missing_count: int, total_count: int, has_unresolved_ties: bool}
+     */
+    private function groupWindow(Pool $pool, int $missing, int $total, bool $hasUnresolvedTies): array
+    {
+        return [
             'phase_key' => PhaseKey::Group->value,
             'label' => 'Group stage',
             'deadline' => $pool->predictionsLockAt()?->toIso8601String(),
             'missing_count' => $missing,
             'total_count' => $total,
             'has_unresolved_ties' => $hasUnresolvedTies,
-        ]]);
+        ];
     }
 
     /**
@@ -188,6 +219,29 @@ class PredictionAttention
         return $entry->relationLoaded('groupPredictions')
             ? $entry->groupPredictions->count()
             : $entry->groupPredictions()->count();
+    }
+
+    private function knockoutFixtureCount(Pool $pool): int
+    {
+        if ($pool->tournament->relationLoaded('knockoutFixtures')) {
+            return $pool->tournament->knockoutFixtures->count();
+        }
+
+        return $pool->tournament->knockoutFixtures()->count();
+    }
+
+    /**
+     * The viewer's completed knockout picks. A pick is complete once its advancing team is set —
+     * derived from the score on a decisive result, chosen by the player on a draw — which the
+     * cascade clears whenever an upstream change invalidates it, so it is the authoritative signal.
+     */
+    private function knockoutPredictionCount(Entry $entry): int
+    {
+        if ($entry->relationLoaded('knockoutPredictions')) {
+            return $entry->knockoutPredictions->whereNotNull('advancing_team_id')->count();
+        }
+
+        return $entry->knockoutPredictions()->whereNotNull('advancing_team_id')->count();
     }
 
     private function groupFixtureCount(Pool $pool): int

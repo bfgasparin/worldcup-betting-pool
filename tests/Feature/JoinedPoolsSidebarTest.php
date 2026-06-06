@@ -7,6 +7,7 @@ use App\Models\Entry;
 use App\Models\Pool;
 use App\Models\Tournament;
 use App\Models\User;
+use App\Services\Predictions\BracketResolver;
 use App\Services\Predictions\OfficialBracketProjector;
 use Database\Seeders\WorldCup2026Seeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -60,18 +61,38 @@ class JoinedPoolsSidebarTest extends TestCase
             );
     }
 
-    public function test_a_joined_pool_with_every_group_pick_made_needs_no_attention(): void
+    public function test_a_fully_predicted_pool_needs_no_attention(): void
     {
         $this->actingAs($this->user)->post(route('pools.join', $this->pool->slug));
         $entry = $this->pool->entryFor($this->user);
 
+        // An upfront pool is only done when the whole bracket is predicted: every group score AND
+        // every knockout pick, not just the group stage.
         $this->predictAllGroups($entry, $this->tournament, $this->seedOrderScores());
+        $this->advanceAllHome($entry, new BracketResolver);
 
         $this->actingAs($this->user)
             ->get(route('pools.index'))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('joinedPools.0.slug', 'world-cup-2026-ffa')
                 ->where('joinedPools.0.needs_attention', false)
+            );
+    }
+
+    public function test_an_upfront_pool_with_unfinished_knockout_picks_needs_attention(): void
+    {
+        $this->actingAs($this->user)->post(route('pools.join', $this->pool->slug));
+        $entry = $this->pool->entryFor($this->user);
+
+        // Every group score is in, but the self-derived knockout bracket is untouched — an upfront
+        // pool predicts that up front too, so there is still work to do.
+        $this->predictAllGroups($entry, $this->tournament, $this->seedOrderScores());
+
+        $this->actingAs($this->user)
+            ->get(route('pools.index'))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('joinedPools.0.slug', 'world-cup-2026-ffa')
+                ->where('joinedPools.0.needs_attention', true)
             );
     }
 
