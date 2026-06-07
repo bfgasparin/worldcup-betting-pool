@@ -166,6 +166,29 @@ function teamCode(
     return team?.code ?? team?.name ?? fallback ?? 'TBD';
 }
 
+/**
+ * A team's identity inside a tight match-up row: the short code on small screens, the full name on
+ * large screens (or the placeholder label for an unresolved knockout slot). `truncate` keeps a long
+ * name from breaking the row — the hidden span is removed from layout, so phones look unchanged.
+ */
+export function TeamMatchupName({
+    team,
+    label = null,
+}: {
+    team: TeamRef | null;
+    label?: string | null;
+}) {
+    const short = team?.code ?? team?.name ?? slotAbbrev(label);
+    const full = team?.name ?? team?.code ?? label ?? 'TBD';
+
+    return (
+        <>
+            <span className="truncate lg:hidden">{short}</span>
+            <span className="hidden truncate lg:inline">{full}</span>
+        </>
+    );
+}
+
 /** Display label for a venue — drops the generic " Stadium" suffix (e.g. "Mexico City"). */
 function venueLabel(venue: string): string {
     return venue.replace(/\s+Stadium$/, '');
@@ -257,9 +280,7 @@ function MatchRow({
                                 homeClass,
                             )}
                         >
-                            <span className="truncate">
-                                {teamCode(fixture.home)}
-                            </span>
+                            <TeamMatchupName team={fixture.home} />
                             <Flag team={fixture.home} className="h-4 w-6" />
                         </span>
                         {settled ? (
@@ -278,9 +299,7 @@ function MatchRow({
                             )}
                         >
                             <Flag team={fixture.away} className="h-4 w-6" />
-                            <span className="truncate">
-                                {teamCode(fixture.away)}
-                            </span>
+                            <TeamMatchupName team={fixture.away} />
                         </span>
                     </div>
                     {fixture.prediction ? (

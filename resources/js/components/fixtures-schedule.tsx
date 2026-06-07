@@ -9,7 +9,7 @@ import {
     phaseDateRange,
     PointsBadge,
     ShowTimesToggle,
-    slotAbbrev,
+    TeamMatchupName,
 } from '@/components/fixtures';
 import { FixtureComparePicks } from '@/components/fixtures-compare';
 import { Flag } from '@/components/flag';
@@ -257,11 +257,7 @@ function venueLabel(venue: string): string {
     return venue.replace(/\s+Stadium$/, '');
 }
 
-function teamCode(team: TeamRef | null, label: string | null): string {
-    return team?.code ?? team?.name ?? slotAbbrev(label);
-}
-
-/** One side of a flat match row: the team's flag + code, or the placeholder token for an open slot. */
+/** One side of a flat match row: the team's flag + code/name, or the placeholder token for an open slot. */
 function SideToken({
     team,
     label,
@@ -288,7 +284,7 @@ function SideToken({
         >
             {align === 'end' ? (
                 <>
-                    <span className="truncate">{teamCode(team, label)}</span>
+                    <TeamMatchupName team={team} label={label} />
                     <Flag team={team} className="h-4 w-6" />
                     {advanceChip && <AdvanceChip />}
                 </>
@@ -296,7 +292,7 @@ function SideToken({
                 <>
                     {advanceChip && <AdvanceChip />}
                     <Flag team={team} className="h-4 w-6" />
-                    <span className="truncate">{teamCode(team, label)}</span>
+                    <TeamMatchupName team={team} label={label} />
                 </>
             )}
         </span>
