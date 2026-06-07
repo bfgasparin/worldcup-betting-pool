@@ -36,18 +36,18 @@ class PoolController extends Controller
     use BuildsPoolIdentity;
 
     /**
-     * Rows shown for the headline (Overall) board on the pool page. Sized to fill the wide left
-     * column against the two stacked side boards in the right column (2 × {@see self::SECONDARY_BOARD_ROWS})
-     * plus ~2 rows for that column's extra card header + inter-card gap. The frontend reveals the
-     * rows past the eighth only on large screens, where the 2-column layout (and the empty space)
-     * exist; smaller screens stay at the compact count.
+     * Rows shown for the headline (Overall) board on the pool page — a short top-N summary, since the
+     * full standings live on the leaderboard page. The two side boards render as condensed summary
+     * cards (leader + the viewer's place), not tables, stacked beside this table.
      */
-    private const HEADLINE_BOARD_ROWS = 10;
+    private const HEADLINE_BOARD_ROWS = 3;
 
     /**
-     * Rows shown for each non-headline featured board on the pool page (the narrower stacked column).
+     * Rows kept for each non-headline board on the pool page. Those boards render as summary cards
+     * (leader + the viewer's pinned row), so only the leader ships here; the viewer arrives via the
+     * pinned `me` row when ranked outside it.
      */
-    private const SECONDARY_BOARD_ROWS = 4;
+    private const SECONDARY_BOARD_ROWS = 1;
 
     /**
      * List the available pools (tournaments).
@@ -440,9 +440,9 @@ class PoolController extends Controller
     }
 
     /**
-     * The first three boards as full tables for the pool page: the headline (Overall) shows more
-     * rows than the stacked side boards. Each is truncated to its top rows plus the viewer's pinned
-     * row when they rank outside them.
+     * The first three boards for the pool page: the headline (Overall) as a short top-N table, and
+     * the next two trimmed to just their leader (the frontend renders them as leader+you summary
+     * cards). Each is truncated to its top rows plus the viewer's pinned row when they rank outside.
      *
      * @param  list<array<string, mixed>>  $boards
      * @return list<array<string, mixed>>

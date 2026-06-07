@@ -635,7 +635,7 @@ class PoolControllerTest extends TestCase
             );
     }
 
-    public function test_show_features_each_board_as_a_full_table(): void
+    public function test_show_features_the_overall_table_and_condenses_side_boards(): void
     {
         $this->seed(WorldCup2026Seeder::class);
         $tournament = Tournament::firstOrFail();
@@ -658,17 +658,18 @@ class PoolControllerTest extends TestCase
             ->assertInertia(fn (AssertableInertia $page) => $page
                 // Match Winners is the second featured board, ranked by its standings.
                 ->where('featuredBoards.1.key', 'match-winners')
+                // A side board ships only its leader — the frontend renders it as a leader+you card.
+                ->has('featuredBoards.1.top', 1)
                 ->where('featuredBoards.1.top.0.name', 'Caller')
                 ->where('featuredBoards.1.top.0.primary_value', 12)
-                // Each row carries its entry id + is_me so compare selection can add a player straight
-                // from any featured table.
+                // The leader row keeps its entry id + is_me so it can be added to a comparison.
                 ->where('featuredBoards.1.top.0.entry_id', $leader->id)
                 ->where('featuredBoards.1.top.0.is_me', false)
-                ->where('featuredBoards.1.top.1.name', 'You')
-                ->where('featuredBoards.1.top.1.is_me', true)
-                ->where('featuredBoards.1.top.1.primary_value', 3)
-                // Both players fit in the top, so the viewer isn't separately pinned.
-                ->where('featuredBoards.1.me', null)
+                ->where('featuredBoards.1.participants', 2)
+                // The viewer sits outside that single-row top, so they arrive via the pinned row.
+                ->where('featuredBoards.1.me.name', 'You')
+                ->where('featuredBoards.1.me.is_me', true)
+                ->where('featuredBoards.1.me.primary_value', 3)
                 ->has('moreBoards', 0)
             );
     }
@@ -691,8 +692,8 @@ class PoolControllerTest extends TestCase
         $this->get(route('pools.show', 'world-cup-2026-ffa'))
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
-                // The headline (Overall) board caps at 10 rows but reports the full pool size...
-                ->has('featuredBoards.0.top', 10)
+                // The headline (Overall) board caps at 3 rows but reports the full pool size...
+                ->has('featuredBoards.0.top', 3)
                 ->where('featuredBoards.0.participants', 12)
                 // ...and pins the viewer's own row since they rank outside the shown top.
                 ->where('featuredBoards.0.me.rank', 12)
@@ -720,13 +721,13 @@ class PoolControllerTest extends TestCase
             );
     }
 
-    public function test_show_caps_a_secondary_featured_board_at_four_rows(): void
+    public function test_show_caps_a_secondary_featured_board_at_its_leader(): void
     {
         $this->seed(WorldCup2026Seeder::class);
         $tournament = Tournament::firstOrFail();
         $pool = $tournament->pools()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
 
-        // Six entries each with a Match Winners standing — the secondary board caps at four rows.
+        // Six entries each with a Match Winners standing — a side board ships only its leader.
         foreach (range(1, 6) as $value) {
             $entry = Entry::factory()->for($pool)->for(User::factory()->create())->create(['total_points' => $value]);
             LeaderboardStanding::factory()->for($entry)->create(['category' => LeaderboardCategory::MatchWinners, 'value' => $value]);
@@ -738,7 +739,7 @@ class PoolControllerTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('featuredBoards.1.key', 'match-winners')
-                ->has('featuredBoards.1.top', 4)
+                ->has('featuredBoards.1.top', 1)
                 ->where('featuredBoards.1.participants', 6)
             );
     }
