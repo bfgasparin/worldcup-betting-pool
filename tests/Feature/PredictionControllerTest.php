@@ -81,6 +81,65 @@ class PredictionControllerTest extends TestCase
         $this->assertSame(32, $entry->knockoutPredictions()->count());
     }
 
+    public function test_predict_group_fixtures_carry_their_matchday_key(): void
+    {
+        Entry::factory()->for($this->pool)->for($this->user)->create();
+
+        $this->actingAs($this->user)
+            ->get(route('pools.predict.edit', 'world-cup-2026-ffa'))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                // The wizard marks each group-stage row with its matchday, like the pool page.
+                ->where('groups.0.fixtures.0.matchday_key', 'group-1')
+                // But the wizard has no view switcher, so it ships no matchday timeline.
+                ->missing('matchdays')
+            );
+    }
+
+    public function test_predict_wizard_exposes_resume_and_filter_inputs(): void
+    {
+        // The wizard's auto-open, per-step "N left" badges, and "needs prediction" filter are all
+        // client-side, keyed off the pool's strategy (upfront vs phased), each group fixture's goals,
+        // each knockout phase's window, and each pick's advancing team. Guard that contract.
+        Entry::factory()->for($this->pool)->for($this->user)->create();
+
+        $this->actingAs($this->user)
+            ->get(route('pools.predict.edit', 'world-cup-2026-ffa'))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('pool.scoring_strategy', 'upfront-bracket')
+                ->where('groups.0.fixtures.0.home_goals', null)
+                ->where('groups.0.fixtures.0.away_goals', null)
+                ->where('bracket.0.window', 'open')
+                ->where('bracket.0.fixtures.0.advancing_team_id', null)
+                ->etc()
+            );
+    }
+
+    public function test_a_complete_group_still_surfaces_its_unresolved_tie(): void
+    {
+        // A four-way 0–0 group is complete yet level on every tiebreaker, so it carries an
+        // unresolved tie cluster the player must order. The "needs prediction" filter keys off this
+        // contract to keep the tie panel reachable once every fixture is scored.
+        $entry = Entry::factory()->for($this->pool)->for($this->user)->create();
+        $this->predictAllGroups(
+            $entry,
+            $this->tournament,
+            fn (int $home, int $away): array => [0, 0],
+            resolveTies: false,
+        );
+
+        $this->actingAs($this->user)
+            ->get(route('pools.predict.edit', 'world-cup-2026-ffa'))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                // Every fixture is scored…
+                ->where('groups.0.fixtures.0.home_goals', 0)
+                ->where('groups.0.fixtures.0.away_goals', 0)
+                // …yet the group exposes an unresolved tie of more than one team.
+                ->has('groups.0.tied_clusters', 1)
+                ->where('groups.0.tied_clusters.0.resolved', false)
+                ->has('groups.0.tied_clusters.0.team_ids', 4)
+            );
+    }
+
     public function test_predict_page_prefills_existing_predictions(): void
     {
         $entry = Entry::factory()->for($this->pool)->for($this->user)->create();

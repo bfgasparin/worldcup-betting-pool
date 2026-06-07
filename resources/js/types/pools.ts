@@ -112,9 +112,23 @@ export interface ScheduleFixtureRow {
     governs_prediction_lock: boolean;
 }
 
+/**
+ * A lightweight matchday in the tournament's timeline (group rounds MD1-3, then one per knockout
+ * phase). The pool page's Matchdays/Schedule views and the per-match markers resolve labels and
+ * order from this. Display-only — unlike {@see LeaderboardMatchday}, it carries no travel status.
+ */
+export interface MatchdayDescriptor {
+    key: string;
+    label: string;
+    short_label: string;
+    kind: 'group' | 'knockout';
+}
+
 export interface GroupFixture {
     fixture_id: number;
     match_number: number;
+    /** The matchday this fixture belongs to (e.g. "group-1", "round_of_16"); keys a MatchdayDescriptor. */
+    matchday_key: string | null;
     home: TeamRef | null;
     away: TeamRef | null;
     home_goals: number | null;
@@ -148,6 +162,8 @@ export interface GroupView {
 export interface BracketFixture {
     fixture_id: number;
     match_number: number;
+    /** The matchday this fixture belongs to (a knockout phase key); keys a MatchdayDescriptor. */
+    matchday_key: string | null;
     bracket_slot: string | null;
     home: TeamRef | null;
     away: TeamRef | null;
@@ -493,6 +509,8 @@ export interface StandingRow {
 export interface PredictGroupFixture {
     fixture_id: number;
     match_number: number;
+    /** The matchday this fixture belongs to (e.g. "group-1"); marks each row in the wizard. */
+    matchday_key: string | null;
     home: TeamRef | null;
     away: TeamRef | null;
     home_goals: number | null;

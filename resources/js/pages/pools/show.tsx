@@ -32,6 +32,14 @@ import {
     CompareGroupCard,
     CompareKnockoutCard,
 } from '@/components/fixtures-compare';
+import {
+    FixturesEmptyState,
+    matchesFixtureTimeFilter,
+    MatchdayView,
+    ScheduleView,
+    timeFilterEmptyMessage,
+} from '@/components/fixtures-schedule';
+import type { TimeFilter } from '@/components/fixtures-schedule';
 import { JoinPoolDialog } from '@/components/join-pool-dialog';
 import { LeaderboardRow } from '@/components/leaderboard-row';
 import { MovementArrow } from '@/components/movement-arrow';
@@ -40,6 +48,7 @@ import { PoolIdentity } from '@/components/pool-identity';
 import { PoolInfoDialog } from '@/components/pool-info-dialog';
 import { PrizePanel } from '@/components/prize-panel';
 import { Button } from '@/components/ui/button';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
 import { COMPARE_LIMIT } from '@/lib/compare';
 import { ordinal } from '@/lib/leaderboards';
@@ -57,6 +66,7 @@ import type {
     PoolDetail,
     FeaturedBoard,
     GroupView,
+    MatchdayDescriptor,
     PlayerDirectoryEntry,
     PoolStandings,
 } from '@/types/pools';
@@ -65,6 +75,8 @@ interface PoolShowProps {
     pool: PoolDetail;
     groups: GroupView[];
     bracket: BracketPhase[];
+    /** The ordered matchday timeline (group rounds, then knockout phases) for the Matchdays view. */
+    matchdays: MatchdayDescriptor[];
     standings: PoolStandings;
     /** The first three boards as full tables (Overall leads). */
     featuredBoards: FeaturedBoard[];
@@ -753,177 +765,360 @@ function metaLine(count: number, prefix: string, range: string | null): string {
     return [prefix, label, range].filter(Boolean).join(' · ');
 }
 
-/** The phase-tabbed Fixtures view: group cards, knockout slot cards, and the Final card. */
+type TimedFixture = {
+    kicks_off_at: string | null;
+    home_goals: number | null;
+    away_goals: number | null;
+};
+
+/** Narrow a fixture list to the active time filter, preserving the element type. */
+function applyTimeFilter<T extends TimedFixture>(
+    fixtures: T[],
+    filter: TimeFilter,
+    tz: string,
+): T[] {
+    return filter === 'all'
+        ? fixtures
+        : fixtures.filter((fixture) =>
+              matchesFixtureTimeFilter(fixture, filter, tz),
+          );
+}
+
+type FixturesViewMode = 'groups' | 'matchdays' | 'schedule';
+
+/**
+ * The Fixtures section, viewable three ways: Groups (phase-tabbed group/bracket cards, with
+ * standings), Matchdays (sections that mirror the leaderboard's rounds), and Schedule (every match
+ * in kickoff order). Comparison mode is only meaningful per-card, so it pins the Groups view.
+ */
 function FixturesView({
     groups,
     bracket,
+    matchdays,
     comparison,
 }: {
     groups: GroupView[];
     bracket: BracketPhase[];
+    matchdays: MatchdayDescriptor[];
     /** When set, each fixture renders a per-player comparison instead of the viewer's own card. */
     comparison: Comparison | null;
 }) {
     const tz = useDisplayTimeZone();
-    const groupMatches = groups.reduce((n, g) => n + g.fixtures.length, 0);
-    const groupFixtures = groups.flatMap((g) => g.fixtures);
+    const [view, setView] = useState<FixturesViewMode>('groups');
+    const [filter, setFilter] = useState<TimeFilter>('all');
+    // The view + time filter persist into compare mode: every view (including Matchdays/Schedule)
+    // renders each player's picks per fixture, so comparison is no longer confined to the Groups view.
+    const effectiveView: FixturesViewMode = view;
+    const effectiveFilter: TimeFilter = filter;
+
+    // The Groups view filters the fixture ROWS (standings stay full); empty groups/phases drop out.
+    const visibleGroups = groups
+        .map((group) => ({
+            ...group,
+            fixtures: applyTimeFilter(group.fixtures, effectiveFilter, tz),
+        }))
+        .filter(
+            (group) => effectiveFilter === 'all' || group.fixtures.length > 0,
+        );
+    const groupFixtures = visibleGroups.flatMap((g) => g.fixtures);
+    const groupMatches = groupFixtures.length;
 
     const koPhases = bracket.filter(
         (p) => p.phase_key !== 'final' && p.phase_key !== 'third_place',
     );
     const finalPhase = bracket.find((p) => p.phase_key === 'final');
     const thirdPhase = bracket.find((p) => p.phase_key === 'third_place');
-    const finalFixtures = [
-        ...(finalPhase?.fixtures ?? []),
-        ...(thirdPhase?.fixtures ?? []),
-    ];
+    const visibleFinal = applyTimeFilter(
+        finalPhase?.fixtures ?? [],
+        effectiveFilter,
+        tz,
+    );
+    const visibleThird = applyTimeFilter(
+        thirdPhase?.fixtures ?? [],
+        effectiveFilter,
+        tz,
+    );
+    const finalFixtures = [...visibleFinal, ...visibleThird];
+    const finalTabExists =
+        (finalPhase?.fixtures.length ?? 0) +
+            (thirdPhase?.fixtures.length ?? 0) >
+        0;
 
+    // Tab counts reflect what the active filter actually shows, so a badge never overstates a phase.
+    // The Final tab stays present whenever the tournament has those matches; its count tracks the
+    // filter (and its panel shows an empty state when the filter clears it).
     const phases: Phase[] = [
         { id: 'gs', label: 'Group Stage', count: groupMatches },
         ...koPhases.map((p) => ({
             id: p.phase_key,
             label: p.phase_name,
-            count: p.fixtures.length,
+            count: applyTimeFilter(p.fixtures, effectiveFilter, tz).length,
         })),
-        ...(finalFixtures.length > 0
+        ...(finalTabExists
             ? [{ id: 'final', label: 'Final', count: finalFixtures.length }]
             : []),
     ];
 
     const [active, setActive] = useState('gs');
+    // If the time filter empties the phase the user is on, show the first phase that still has
+    // matches instead of a bare empty state. `active` itself is untouched, so clearing the filter
+    // (every phase populated again) returns them to the tab they chose.
+    const activeCount = phases.find((p) => p.id === active)?.count ?? 0;
+    const firstNonEmpty = phases.find((p) => p.count > 0)?.id;
+    const effectiveActive =
+        activeCount > 0 ? active : (firstNonEmpty ?? active);
     const players = comparison?.players ?? [];
 
     return (
         <section className="flex flex-col gap-6">
-            <PhaseTabs phases={phases} active={active} onSelect={setActive} />
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <ToggleGroup
+                    type="single"
+                    variant="outline"
+                    size="sm"
+                    value={view}
+                    onValueChange={(next) => {
+                        if (
+                            next === 'groups' ||
+                            next === 'matchdays' ||
+                            next === 'schedule'
+                        ) {
+                            setView(next);
+                        }
+                    }}
+                >
+                    <ToggleGroupItem value="groups" className="px-4 text-xs">
+                        Groups
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="matchdays" className="px-4 text-xs">
+                        Matchdays
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="schedule" className="px-4 text-xs">
+                        Schedule
+                    </ToggleGroupItem>
+                </ToggleGroup>
 
-            {active === 'gs' && (
-                <div>
-                    <PhaseMeta
-                        title="Group Stage"
-                        meta={metaLine(
-                            groupMatches,
-                            `${groups.length} groups`,
-                            phaseDateRange(groupFixtures, tz),
-                        )}
-                    />
-                    <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
-                        {groups.map((group) =>
-                            comparison ? (
-                                <CompareGroupCard
-                                    key={group.name}
-                                    group={group}
-                                    players={players}
-                                    windowStatus={
-                                        comparison.windows.group ?? 'pending'
-                                    }
-                                />
-                            ) : (
-                                <GroupFixtureCard
-                                    key={group.name}
-                                    name={group.name}
-                                    teams={group.teams}
-                                    fixtures={group.fixtures}
-                                    standings={group.standings}
-                                    predictedStandings={
-                                        group.predicted_standings
-                                    }
-                                />
-                            ),
-                        )}
-                    </div>
-                </div>
+                <ToggleGroup
+                    type="single"
+                    variant="outline"
+                    size="sm"
+                    value={filter}
+                    onValueChange={(next) => {
+                        if (
+                            next === 'all' ||
+                            next === 'today' ||
+                            next === 'upcoming'
+                        ) {
+                            setFilter(next);
+                        }
+                    }}
+                >
+                    <ToggleGroupItem value="all" className="px-4 text-xs">
+                        All
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="today" className="px-4 text-xs">
+                        Today
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="upcoming" className="px-4 text-xs">
+                        Upcoming
+                    </ToggleGroupItem>
+                </ToggleGroup>
+            </div>
+
+            {effectiveView === 'matchdays' && (
+                <MatchdayView
+                    groups={groups}
+                    bracket={bracket}
+                    matchdays={matchdays}
+                    filter={effectiveFilter}
+                    comparison={comparison}
+                />
             )}
 
-            {koPhases.map(
-                (phase) =>
-                    active === phase.phase_key && (
-                        <div key={phase.phase_key}>
+            {effectiveView === 'schedule' && (
+                <ScheduleView
+                    groups={groups}
+                    bracket={bracket}
+                    filter={effectiveFilter}
+                    comparison={comparison}
+                />
+            )}
+
+            {effectiveView === 'groups' && (
+                <>
+                    <PhaseTabs
+                        phases={phases}
+                        active={effectiveActive}
+                        onSelect={setActive}
+                    />
+
+                    {effectiveActive === 'gs' && (
+                        <div>
                             <PhaseMeta
-                                title={phase.phase_name}
+                                title="Group Stage"
                                 meta={metaLine(
-                                    phase.fixtures.length,
-                                    '',
-                                    phaseDateRange(phase.fixtures, tz),
+                                    groupMatches,
+                                    `${visibleGroups.length} groups`,
+                                    phaseDateRange(groupFixtures, tz),
                                 )}
                             />
-                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                                {phase.fixtures.map((fixture) =>
-                                    comparison ? (
-                                        <CompareKnockoutCard
-                                            key={fixture.match_number}
-                                            fixture={fixture}
-                                            players={players}
-                                            windowStatus={
-                                                comparison.windows[
-                                                    phase.phase_key
-                                                ] ?? 'pending'
-                                            }
-                                        />
-                                    ) : (
-                                        <KnockoutSlotCard
-                                            key={fixture.match_number}
-                                            fixture={fixture}
-                                        />
-                                    ),
-                                )}
-                            </div>
-                        </div>
-                    ),
-            )}
-
-            {active === 'final' && (
-                <div>
-                    <PhaseMeta
-                        title="Final & Third Place"
-                        meta={metaLine(
-                            finalFixtures.length,
-                            '',
-                            phaseDateRange(finalFixtures, tz),
-                        )}
-                    />
-                    <div className="flex flex-col gap-4">
-                        {finalPhase?.fixtures.map((fixture) =>
-                            comparison ? (
-                                <CompareFinalCard
-                                    key={fixture.match_number}
-                                    fixture={fixture}
-                                    players={players}
-                                    windowStatus={
-                                        comparison.windows[
-                                            finalPhase.phase_key
-                                        ] ?? 'pending'
-                                    }
+                            {visibleGroups.length === 0 ? (
+                                <FixturesEmptyState
+                                    message={timeFilterEmptyMessage(
+                                        effectiveFilter,
+                                    )}
                                 />
                             ) : (
-                                <FinalCard
-                                    key={fixture.match_number}
-                                    fixture={fixture}
+                                <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+                                    {visibleGroups.map((group) =>
+                                        comparison ? (
+                                            <CompareGroupCard
+                                                key={group.name}
+                                                group={group}
+                                                players={players}
+                                                windowStatus={
+                                                    comparison.windows.group ??
+                                                    'pending'
+                                                }
+                                            />
+                                        ) : (
+                                            <GroupFixtureCard
+                                                key={group.name}
+                                                name={group.name}
+                                                teams={group.teams}
+                                                fixtures={group.fixtures}
+                                                standings={group.standings}
+                                                predictedStandings={
+                                                    group.predicted_standings
+                                                }
+                                            />
+                                        ),
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {koPhases.map((phase) => {
+                        if (effectiveActive !== phase.phase_key) {
+                            return null;
+                        }
+
+                        const phaseFixtures = applyTimeFilter(
+                            phase.fixtures,
+                            effectiveFilter,
+                            tz,
+                        );
+
+                        return (
+                            <div key={phase.phase_key}>
+                                <PhaseMeta
+                                    title={phase.phase_name}
+                                    meta={metaLine(
+                                        phaseFixtures.length,
+                                        '',
+                                        phaseDateRange(phaseFixtures, tz),
+                                    )}
                                 />
-                            ),
-                        )}
-                        {thirdPhase?.fixtures.map((fixture) => (
-                            <div
-                                key={fixture.match_number}
-                                className="mx-auto w-full max-w-xl"
-                            >
-                                {comparison ? (
-                                    <CompareKnockoutCard
-                                        fixture={fixture}
-                                        players={players}
-                                        windowStatus={
-                                            comparison.windows[
-                                                thirdPhase.phase_key
-                                            ] ?? 'pending'
-                                        }
+                                {phaseFixtures.length === 0 ? (
+                                    <FixturesEmptyState
+                                        message={timeFilterEmptyMessage(
+                                            effectiveFilter,
+                                        )}
                                     />
                                 ) : (
-                                    <KnockoutSlotCard fixture={fixture} />
+                                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                                        {phaseFixtures.map((fixture) =>
+                                            comparison ? (
+                                                <CompareKnockoutCard
+                                                    key={fixture.match_number}
+                                                    fixture={fixture}
+                                                    players={players}
+                                                    windowStatus={
+                                                        comparison.windows[
+                                                            phase.phase_key
+                                                        ] ?? 'pending'
+                                                    }
+                                                />
+                                            ) : (
+                                                <KnockoutSlotCard
+                                                    key={fixture.match_number}
+                                                    fixture={fixture}
+                                                />
+                                            ),
+                                        )}
+                                    </div>
                                 )}
                             </div>
-                        ))}
-                    </div>
-                </div>
+                        );
+                    })}
+
+                    {effectiveActive === 'final' && (
+                        <div>
+                            <PhaseMeta
+                                title="Final & Third Place"
+                                meta={metaLine(
+                                    finalFixtures.length,
+                                    '',
+                                    phaseDateRange(finalFixtures, tz),
+                                )}
+                            />
+                            {finalFixtures.length === 0 ? (
+                                <FixturesEmptyState
+                                    message={timeFilterEmptyMessage(
+                                        effectiveFilter,
+                                    )}
+                                />
+                            ) : (
+                                <div className="flex flex-col gap-4">
+                                    {visibleFinal.map((fixture) =>
+                                        comparison ? (
+                                            <CompareFinalCard
+                                                key={fixture.match_number}
+                                                fixture={fixture}
+                                                players={players}
+                                                windowStatus={
+                                                    comparison.windows[
+                                                        finalPhase?.phase_key ??
+                                                            'final'
+                                                    ] ?? 'pending'
+                                                }
+                                            />
+                                        ) : (
+                                            <FinalCard
+                                                key={fixture.match_number}
+                                                fixture={fixture}
+                                            />
+                                        ),
+                                    )}
+                                    {visibleThird.map((fixture) => (
+                                        <div
+                                            key={fixture.match_number}
+                                            className="mx-auto w-full max-w-xl"
+                                        >
+                                            {comparison ? (
+                                                <CompareKnockoutCard
+                                                    fixture={fixture}
+                                                    players={players}
+                                                    windowStatus={
+                                                        comparison.windows[
+                                                            thirdPhase?.phase_key ??
+                                                                'third_place'
+                                                        ] ?? 'pending'
+                                                    }
+                                                />
+                                            ) : (
+                                                <KnockoutSlotCard
+                                                    fixture={fixture}
+                                                />
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </>
             )}
         </section>
     );
@@ -933,6 +1128,7 @@ export default function PoolShow({
     pool,
     groups,
     bracket,
+    matchdays,
     standings,
     featuredBoards,
     moreBoards,
@@ -1068,6 +1264,7 @@ export default function PoolShow({
                 <FixturesView
                     groups={groups}
                     bracket={bracket}
+                    matchdays={matchdays}
                     comparison={compareActive ? comparison : null}
                 />
             </div>

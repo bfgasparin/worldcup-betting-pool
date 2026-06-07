@@ -26,6 +26,7 @@ use App\Services\Predictions\ManualTieOrdering;
 use App\Services\Predictions\PredictionImporter;
 use App\Services\Predictions\PredictionWindowResolver;
 use App\Services\Predictions\ResolvedBracket;
+use App\Services\Scoring\MatchdayCatalog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -80,6 +81,10 @@ class PredictionController extends Controller
         $groupPredictions = $entry?->groupPredictions->keyBy('fixture_id') ?? collect();
         $knockoutPredictions = $entry?->knockoutPredictions->keyBy('fixture_id') ?? collect();
 
+        // The matchday each group fixture belongs to, so the wizard can mark every row like the pool
+        // page does. Derived identically to the leaderboard's timeline (see MatchdayCatalog).
+        $fixtureMatchdays = (new MatchdayCatalog)->fixtureIndex($tournament);
+
         return Inertia::render('pools/predict', [
             'pool' => [
                 ...$this->poolIdentity($pool),
@@ -93,7 +98,7 @@ class PredictionController extends Controller
                 'scoring_config' => $pool->scoring_config,
             ],
             'groups' => $tournament->groups->map(
-                fn (Group $group): array => $this->mapGroup($group, $bracket, $groupPredictions, $teamsById, $pool->predictsKnockoutBracket()),
+                fn (Group $group): array => $this->mapGroup($group, $bracket, $groupPredictions, $teamsById, $pool->predictsKnockoutBracket(), $fixtureMatchdays),
             )->all(),
             'bracket' => $pool->predictsKnockoutBracket()
                 ? $this->mapBracket($tournament->knockoutFixtures, $bracket, $knockoutPredictions, $teamsById, $windows)
@@ -253,9 +258,10 @@ class PredictionController extends Controller
     /**
      * @param  Collection<int, GroupPrediction>  $predictions
      * @param  Collection<int, Team>  $teamsById
+     * @param  array<int, array{key: string, label: string, short_label: string, kind: string}>  $fixtureMatchdays
      * @return array<string, mixed>
      */
-    private function mapGroup(Group $group, ResolvedBracket $bracket, Collection $predictions, Collection $teamsById, bool $surfaceTies): array
+    private function mapGroup(Group $group, ResolvedBracket $bracket, Collection $predictions, Collection $teamsById, bool $surfaceTies, array $fixtureMatchdays): array
     {
         $standings = $bracket->standings[$group->name];
 
@@ -277,12 +283,13 @@ class PredictionController extends Controller
                 ...$this->teamRef($team),
                 'position' => $team->pivot->position,
             ])->all(),
-            'fixtures' => $group->fixtures->map(function (Fixture $fixture) use ($predictions, $teamsById): array {
+            'fixtures' => $group->fixtures->map(function (Fixture $fixture) use ($predictions, $teamsById, $fixtureMatchdays): array {
                 $prediction = $predictions->get($fixture->id);
 
                 return [
                     'fixture_id' => $fixture->id,
                     'match_number' => $fixture->match_number,
+                    'matchday_key' => $fixtureMatchdays[$fixture->id]['key'] ?? null,
                     'home' => $this->teamRef($teamsById->get($fixture->home_team_id)),
                     'away' => $this->teamRef($teamsById->get($fixture->away_team_id)),
                     'home_goals' => $prediction?->home_goals,

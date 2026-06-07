@@ -21,6 +21,7 @@ use App\Services\Pools\PrizePot;
 use App\Services\Predictions\GroupStandings;
 use App\Services\Predictions\GroupStandingsPresenter;
 use App\Services\Predictions\PlayerComparison;
+use App\Services\Scoring\MatchdayCatalog;
 use App\Services\Scoring\MatchdayLeaderboard;
 use App\Services\Scoring\RankMovement;
 use Illuminate\Http\RedirectResponse;
@@ -141,6 +142,12 @@ class PoolController extends Controller
         $groupPredictions = $entry?->groupPredictions->keyBy('fixture_id') ?? collect();
         $knockoutPredictions = $entry?->knockoutPredictions->keyBy('fixture_id') ?? collect();
 
+        // The matchday each fixture belongs to (group rounds 1-3, then one per knockout phase),
+        // derived once and identical to the leaderboard's timeline, so every match can be marked
+        // with — and grouped by — its matchday.
+        $catalog = new MatchdayCatalog;
+        $fixtureMatchdays = $catalog->fixtureIndex($tournament);
+
         // The "compare players" feature: when the page carries a ?compare= list of other entries,
         // resolve their results into a comparison payload alongside the viewer's. `players` is the
         // always-present directory the picker filters; `comparison` is null in normal mode.
@@ -171,9 +178,11 @@ class PoolController extends Controller
                 'leaderboards' => $this->boardDescriptors(),
             ],
             'groups' => $tournament->groups->map(
-                fn (Group $group): array => $this->mapGroup($group, $groupPredictions, $pool->predictsKnockoutBracket()),
+                fn (Group $group): array => $this->mapGroup($group, $groupPredictions, $pool->predictsKnockoutBracket(), $fixtureMatchdays),
             ),
-            'bracket' => $this->mapBracket($tournament->knockoutFixtures, $knockoutPredictions, $pool->predictsKnockoutBracket()),
+            'bracket' => $this->mapBracket($tournament->knockoutFixtures, $knockoutPredictions, $pool->predictsKnockoutBracket(), $fixtureMatchdays),
+            // The ordered matchday timeline the pool page's Matchdays/Schedule views group fixtures by.
+            'matchdays' => $catalog->descriptors($tournament),
             'standings' => $standings,
             // The first three boards as full tables; any beyond that stay as condensed summaries.
             'featuredBoards' => $this->featuredBoards($boards),
@@ -604,9 +613,10 @@ class PoolController extends Controller
     /**
      * @param  Collection<int, GroupPrediction>  $predictions
      * @param  bool  $showPredicted  whether to expose the viewer's projected table (upfront pools only)
+     * @param  array<int, array{key: string, label: string, short_label: string, kind: string}>  $fixtureMatchdays
      * @return array{name: string, teams: list<array<string, mixed>>, fixtures: list<array<string, mixed>>, standings: list<array<string, mixed>>, predicted_standings?: list<array<string, mixed>>|null}
      */
-    private function mapGroup(Group $group, Collection $predictions, bool $showPredicted): array
+    private function mapGroup(Group $group, Collection $predictions, bool $showPredicted, array $fixtureMatchdays): array
     {
         $mapped = [
             'name' => $group->name,
@@ -616,12 +626,13 @@ class PoolController extends Controller
                     'position' => $team->pivot->position,
                 ])
                 ->all(),
-            'fixtures' => $group->fixtures->map(function (Fixture $fixture) use ($predictions): array {
+            'fixtures' => $group->fixtures->map(function (Fixture $fixture) use ($predictions, $fixtureMatchdays): array {
                 $prediction = $predictions->get($fixture->id);
 
                 return [
                     'fixture_id' => $fixture->id,
                     'match_number' => $fixture->match_number,
+                    'matchday_key' => $fixtureMatchdays[$fixture->id]['key'] ?? null,
                     'home' => $this->teamRef($fixture->homeTeam),
                     'away' => $this->teamRef($fixture->awayTeam),
                     'home_goals' => $fixture->home_goals,
@@ -708,9 +719,10 @@ class PoolController extends Controller
      * @param  Collection<int, Fixture>  $fixtures
      * @param  Collection<int, KnockoutPrediction>  $predictions  keyed by fixture id
      * @param  bool  $showPredictedTeams  whether to expose the viewer's predicted teams (upfront brackets only)
+     * @param  array<int, array{key: string, label: string, short_label: string, kind: string}>  $fixtureMatchdays
      * @return list<array<string, mixed>>
      */
-    private function mapBracket($fixtures, Collection $predictions, bool $showPredictedTeams): array
+    private function mapBracket($fixtures, Collection $predictions, bool $showPredictedTeams, array $fixtureMatchdays): array
     {
         return $fixtures
             ->groupBy(fn (Fixture $fixture): string => $fixture->phase->key->value)
@@ -718,12 +730,13 @@ class PoolController extends Controller
                 'phase_key' => $phaseFixtures->first()->phase->key->value,
                 'phase_name' => $phaseFixtures->first()->phase->name,
                 'sort_order' => $phaseFixtures->first()->phase->sort_order,
-                'fixtures' => $phaseFixtures->map(function (Fixture $fixture) use ($predictions, $showPredictedTeams): array {
+                'fixtures' => $phaseFixtures->map(function (Fixture $fixture) use ($predictions, $showPredictedTeams, $fixtureMatchdays): array {
                     $prediction = $predictions->get($fixture->id);
 
                     return [
                         'fixture_id' => $fixture->id,
                         'match_number' => $fixture->match_number,
+                        'matchday_key' => $fixtureMatchdays[$fixture->id]['key'] ?? null,
                         'bracket_slot' => $fixture->bracket_slot,
                         'home' => $this->teamRef($fixture->homeTeam),
                         'away' => $this->teamRef($fixture->awayTeam),

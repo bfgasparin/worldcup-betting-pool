@@ -16,14 +16,63 @@ use App\Models\Tournament;
 class MatchdayCatalog
 {
     /**
+     * Memoised {@see forTournament} results, keyed by tournament id, so a single request that needs
+     * the matchdays more than once (e.g. both {@see fixtureIndex} and {@see descriptors}) runs the
+     * underlying queries only once.
+     *
+     * @var array<int, list<Matchday>>
+     */
+    private array $cache = [];
+
+    /**
      * @return list<Matchday>
      */
     public function forTournament(Tournament $tournament): array
     {
-        return [
+        return $this->cache[$tournament->id] ??= [
             ...$this->groupMatchdays($tournament),
             ...$this->knockoutMatchdays($tournament),
         ];
+    }
+
+    /**
+     * Maps every fixture id to the descriptor of the matchday that owns it, so a page can stamp each
+     * fixture with its matchday without re-deriving the chunking.
+     *
+     * @return array<int, array{key: string, label: string, short_label: string, kind: string}>
+     */
+    public function fixtureIndex(Tournament $tournament): array
+    {
+        $index = [];
+
+        foreach ($this->forTournament($tournament) as $matchday) {
+            foreach ($matchday->fixtureIds as $fixtureId) {
+                $index[$fixtureId] = [
+                    'key' => $matchday->key,
+                    'label' => $matchday->label,
+                    'short_label' => $matchday->shortLabel,
+                    'kind' => $matchday->kind,
+                ];
+            }
+        }
+
+        return $index;
+    }
+
+    /**
+     * The ordered matchday timeline as lightweight display descriptors (no fixture ids, no leaderboard
+     * status) — enough to label and order the pool page's matchday sections and view switcher.
+     *
+     * @return list<array{key: string, label: string, short_label: string, kind: string}>
+     */
+    public function descriptors(Tournament $tournament): array
+    {
+        return array_map(fn (Matchday $matchday): array => [
+            'key' => $matchday->key,
+            'label' => $matchday->label,
+            'short_label' => $matchday->shortLabel,
+            'kind' => $matchday->kind,
+        ], $this->forTournament($tournament));
     }
 
     /**
