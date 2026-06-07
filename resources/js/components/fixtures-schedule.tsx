@@ -1,10 +1,13 @@
+import { useState } from 'react';
 import {
     formatMatchDate,
     formatMatchTime,
     formatScheduleDateHeader,
     PhaseMeta,
     phaseDateRange,
+    PickAdvancer,
     PointsBadge,
+    ShowTimesToggle,
     slotAbbrev,
 } from '@/components/fixtures';
 import { FixtureComparePicks } from '@/components/fixtures-compare';
@@ -45,6 +48,7 @@ interface NormalizedMatch {
     pick: {
         homeGoals: number | null;
         awayGoals: number | null;
+        advancingTeamId: number | null;
         pointsAwarded: number | null;
     } | null;
 }
@@ -71,6 +75,7 @@ function normalizeGroupFixture(
             ? {
                   homeGoals: fixture.prediction.home_goals,
                   awayGoals: fixture.prediction.away_goals,
+                  advancingTeamId: null,
                   pointsAwarded: fixture.prediction.points_awarded,
               }
             : null,
@@ -99,6 +104,7 @@ function normalizeBracketFixture(
             ? {
                   homeGoals: fixture.prediction.home_goals,
                   awayGoals: fixture.prediction.away_goals,
+                  advancingTeamId: fixture.prediction.advancing_team_id,
                   pointsAwarded: fixture.prediction.points_awarded,
               }
             : null,
@@ -288,9 +294,11 @@ function SideToken({
 function ScheduleRow({
     match,
     comparison,
+    showTimes,
 }: {
     match: NormalizedMatch;
     comparison: Comparison | null;
+    showTimes: boolean;
 }) {
     const tz = useDisplayTimeZone();
     const settled = match.homeGoals !== null && match.awayGoals !== null;
@@ -305,6 +313,22 @@ function ScheduleRow({
             ? match.winnerTeamId === match.away?.id
             : (match.awayGoals ?? 0) > (match.homeGoals ?? 0));
 
+    // On a drawn knockout pick the score alone doesn't say who the viewer put through; resolve the
+    // advancing id against the real match-up so phased/score-only views can surface it.
+    const pickDrawAdvancer =
+        match.kind === 'knockout' &&
+        match.pick != null &&
+        match.pick.homeGoals !== null &&
+        match.pick.awayGoals !== null &&
+        match.pick.homeGoals === match.pick.awayGoals &&
+        match.pick.advancingTeamId != null
+            ? match.pick.advancingTeamId === match.home?.id
+                ? match.home
+                : match.pick.advancingTeamId === match.away?.id
+                  ? match.away
+                  : null
+            : null;
+
     // While comparing, the row shows every player's pick (below) instead of just the viewer's; the
     // window key is the phase the fixture sits in (the group stage shares one 'group' window).
     const windowKey =
@@ -315,24 +339,7 @@ function ScheduleRow({
             <MatchdayStripe matchdayKey={match.matchdayKey} />
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                 <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                        <MatchdayChip matchdayKey={match.matchdayKey} />
-                        {match.kicksOffAt && (
-                            <span
-                                className={cn(
-                                    'font-display text-[11px] font-semibold whitespace-nowrap',
-                                    settled && 'text-muted-foreground',
-                                )}
-                            >
-                                {formatMatchDate(match.kicksOffAt, tz)} ·{' '}
-                                {formatMatchTime(match.kicksOffAt, tz)}
-                            </span>
-                        )}
-                    </div>
-                    <div className="truncate text-[11px] text-muted-foreground">
-                        {match.context}
-                        {match.venue ? ` · ${venueLabel(match.venue)}` : ''}
-                    </div>
+                    <MatchdayChip matchdayKey={match.matchdayKey} />
                 </div>
 
                 <div className="flex min-w-0 flex-col items-center gap-0.5">
@@ -363,12 +370,17 @@ function ScheduleRow({
                         (match.pick &&
                         match.pick.homeGoals !== null &&
                         match.pick.awayGoals !== null ? (
-                            <div className="text-[11px] text-muted-foreground">
-                                You{' '}
-                                <span className="font-semibold tabular-nums">
-                                    {match.pick.homeGoals}–
-                                    {match.pick.awayGoals}
+                            <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+                                <span>
+                                    You{' '}
+                                    <span className="font-semibold tabular-nums">
+                                        {match.pick.homeGoals}–
+                                        {match.pick.awayGoals}
+                                    </span>
                                 </span>
+                                {pickDrawAdvancer && (
+                                    <PickAdvancer team={pickDrawAdvancer} />
+                                )}
                             </div>
                         ) : (
                             <div className="text-[11px] font-medium text-muted-foreground/70">
@@ -384,6 +396,19 @@ function ScheduleRow({
                         />
                     )}
                 </div>
+            </div>
+
+            <div
+                className={cn(
+                    'mt-1 truncate text-[11px] text-muted-foreground',
+                    showTimes ? 'block' : 'hidden',
+                )}
+            >
+                {match.kicksOffAt
+                    ? `${formatMatchDate(match.kicksOffAt, tz)} · ${formatMatchTime(match.kicksOffAt, tz)} · `
+                    : ''}
+                {match.context}
+                {match.venue ? ` · ${venueLabel(match.venue)}` : ''}
             </div>
 
             {comparison && (
@@ -410,15 +435,29 @@ function ScheduleSection({
     matches: NormalizedMatch[];
     comparison: Comparison | null;
 }) {
+    const [showTimes, setShowTimes] = useState(false);
+
     return (
         <div>
-            <PhaseMeta title={title} meta={meta} />
+            <PhaseMeta
+                title={title}
+                meta={
+                    <span className="flex items-center gap-2">
+                        {meta}
+                        <ShowTimesToggle
+                            open={showTimes}
+                            onToggle={() => setShowTimes((value) => !value)}
+                        />
+                    </span>
+                }
+            />
             <div className="card-elevated rounded-3xl px-5 py-1">
                 {matches.map((match) => (
                     <ScheduleRow
                         key={match.fixtureId}
                         match={match}
                         comparison={comparison}
+                        showTimes={showTimes}
                     />
                 ))}
             </div>

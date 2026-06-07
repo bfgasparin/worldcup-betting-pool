@@ -44,7 +44,32 @@ export function PrizePanel({
                 leaderboard.
             </p>
 
-            <div className="flex flex-col gap-2">
+            {/* Mobile/tablet (full-width): an even 3-up grid keeps the places aligned with no gutters. */}
+            <div className="grid grid-cols-3 gap-2 lg:hidden">
+                {pricing.prizes.map((prize) => (
+                    <div
+                        key={prize.place}
+                        className="flex flex-col items-center gap-0.5 rounded-xl border border-border bg-card/60 px-2 py-2.5 text-center"
+                    >
+                        <span aria-hidden className="text-base leading-none">
+                            {placeBadge(prize.place)}
+                        </span>
+                        <span className="font-display text-sm font-bold text-[#8a5a00] dark:text-amber-300">
+                            {hasMoney
+                                ? formatMoney(prize.amount, pricing.currency)
+                                : `${prize.percentage}%`}
+                        </span>
+                        {hasMoney && (
+                            <span className="text-[11px] font-semibold text-muted-foreground">
+                                {prize.percentage}%
+                            </span>
+                        )}
+                    </div>
+                ))}
+            </div>
+
+            {/* Desktop (narrow 22rem column): the labelled vertical list. */}
+            <div className="hidden flex-col gap-2 lg:flex">
                 {pricing.prizes.map((prize) => (
                     <div
                         key={prize.place}

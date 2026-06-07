@@ -4,10 +4,12 @@ import {
     CalendarClock,
     CalendarDays,
     Check,
+    ChevronDown,
     ClipboardCheck,
     GitCompare,
     PencilLine,
     Plus,
+    SlidersHorizontal,
     Trophy,
     Users,
 } from 'lucide-react';
@@ -48,6 +50,15 @@ import { PoolIdentity } from '@/components/pool-identity';
 import { PoolInfoDialog } from '@/components/pool-info-dialog';
 import { PrizePanel } from '@/components/prize-panel';
 import { Button } from '@/components/ui/button';
+import { SegmentedTabs } from '@/components/ui/segmented-tabs';
+import {
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
+} from '@/components/ui/sheet';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
 import { COMPARE_LIMIT } from '@/lib/compare';
@@ -121,7 +132,7 @@ function DashboardBanner({
         isAdmin;
 
     return (
-        <header className="hero relative overflow-hidden rounded-3xl border border-border p-6 sm:p-8">
+        <header className="hero relative overflow-hidden rounded-3xl border border-border p-5 sm:p-8">
             <div className="hero-lines" />
             {/*
               Two-column hero: identity/title/meta, then the compact lock countdown sitting directly
@@ -129,31 +140,29 @@ function DashboardBanner({
               column on its own. Pairing the deadline with the CTA it gates keeps the two columns a
               similar height and the card short, and collapses to one column (deadline high) below lg.
             */}
-            <div className="relative grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:items-start">
-                <div className="flex min-w-0 flex-col gap-5">
-                    <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
+            <div className="relative grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:items-start lg:gap-6">
+                <div className="flex min-w-0 flex-col gap-4">
+                    <div className="flex flex-col gap-3">
+                        <div className="flex items-start justify-between gap-3">
                             <PoolIdentity
                                 variant="banner"
                                 source={pool.source}
                                 scoringLabel={pool.scoring_label}
                                 accent={pool.accent}
-                                className="mb-3"
+                                className="min-w-0"
                             />
+                            <div className="shrink-0">
+                                <PoolInfoDialog pool={pool} />
+                            </div>
+                        </div>
+                        <div className="min-w-0">
                             <h1 className="text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-4xl">
                                 {pool.name}
                             </h1>
-                            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                                 <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold capitalize">
                                     {pool.status.replace('_', ' ')}
                                 </span>
-                                <span className="capitalize">{pool.sport}</span>
-                                {dates && (
-                                    <span className="inline-flex items-center gap-1.5">
-                                        <CalendarDays className="size-4" />
-                                        {dates}
-                                    </span>
-                                )}
                                 <span className="inline-flex items-center gap-1.5">
                                     <Users className="size-4" />
                                     {standings.participants}{' '}
@@ -161,10 +170,13 @@ function DashboardBanner({
                                         ? 'player'
                                         : 'players'}
                                 </span>
+                                {dates && (
+                                    <span className="inline-flex items-center gap-1.5">
+                                        <CalendarDays className="size-4" />
+                                        {dates}
+                                    </span>
+                                )}
                             </div>
-                        </div>
-                        <div className="shrink-0">
-                            <PoolInfoDialog pool={pool} />
                         </div>
                     </div>
 
@@ -177,9 +189,12 @@ function DashboardBanner({
                             hasScores={standings.has_scores}
                         />
                         {hasActions && (
-                            <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
                                 {hasEntry ? (
-                                    <Button asChild>
+                                    <Button
+                                        asChild
+                                        className="w-full sm:w-auto"
+                                    >
                                         <Link
                                             href={pools.predict.edit(pool.slug)}
                                         >
@@ -188,20 +203,28 @@ function DashboardBanner({
                                         </Link>
                                     </Button>
                                 ) : pool.can_join ? (
-                                    <JoinPoolDialog pool={pool} />
+                                    <JoinPoolDialog
+                                        pool={pool}
+                                        className="w-full sm:w-auto"
+                                    />
                                 ) : null}
                                 {canCompare && (
                                     <Button
                                         type="button"
                                         variant="outline"
                                         onClick={onCompare}
+                                        className="w-full sm:w-auto"
                                     >
                                         <GitCompare className="size-4" />
                                         Compare players
                                     </Button>
                                 )}
                                 {pool.can_review_scores && (
-                                    <Button asChild variant="outline">
+                                    <Button
+                                        asChild
+                                        variant="outline"
+                                        className="w-full sm:w-auto"
+                                    >
                                         <Link
                                             href={pools.scores.review(
                                                 pool.slug,
@@ -213,7 +236,11 @@ function DashboardBanner({
                                     </Button>
                                 )}
                                 {isAdmin && (
-                                    <Button asChild variant="outline">
+                                    <Button
+                                        asChild
+                                        variant="outline"
+                                        className="w-full sm:w-auto"
+                                    >
                                         <Link
                                             href={pools.schedule.index(
                                                 pool.slug,
@@ -786,6 +813,95 @@ function applyTimeFilter<T extends TimedFixture>(
 
 type FixturesViewMode = 'groups' | 'matchdays' | 'schedule';
 
+const VIEW_FILTER_OPTIONS: { value: FixturesViewMode; label: string }[] = [
+    { value: 'groups', label: 'Groups' },
+    { value: 'matchdays', label: 'Matchdays' },
+    { value: 'schedule', label: 'Schedule' },
+];
+
+const TIME_FILTER_OPTIONS: { value: TimeFilter; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'today', label: 'Today' },
+    { value: 'upcoming', label: 'Upcoming' },
+];
+
+/**
+ * The mobile face of the fixtures filters: a single pill summarising the active view + time filter
+ * that opens a bottom sheet with both as segmented controls — the two filter sections collapse to one
+ * tidy control on phones. Desktop keeps the side-by-side toggles.
+ */
+function FixtureFiltersSheet({
+    view,
+    onViewChange,
+    filter,
+    onFilterChange,
+}: {
+    view: FixturesViewMode;
+    onViewChange: (view: FixturesViewMode) => void;
+    filter: TimeFilter;
+    onFilterChange: (filter: TimeFilter) => void;
+}) {
+    const [open, setOpen] = useState(false);
+    const viewLabel = VIEW_FILTER_OPTIONS.find((o) => o.value === view)?.label;
+    const timeLabel = TIME_FILTER_OPTIONS.find(
+        (o) => o.value === filter,
+    )?.label;
+
+    return (
+        <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+                <button
+                    type="button"
+                    className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-2 font-display text-sm font-semibold shadow-[var(--sh-sm)]"
+                >
+                    <SlidersHorizontal className="size-4 text-muted-foreground" />
+                    <span>
+                        {viewLabel} · {timeLabel}
+                    </span>
+                    <ChevronDown className="size-4 text-muted-foreground" />
+                </button>
+            </SheetTrigger>
+            <SheetContent
+                side="bottom"
+                className="rounded-t-3xl px-4 pt-5 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
+            >
+                <SheetHeader className="p-0">
+                    <SheetTitle className="font-display text-base">
+                        Filters
+                    </SheetTitle>
+                    <SheetDescription className="sr-only">
+                        Choose how fixtures are grouped and which ones to show.
+                    </SheetDescription>
+                </SheetHeader>
+                <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-2">
+                        <span className="text-[11px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
+                            View
+                        </span>
+                        <SegmentedTabs
+                            aria-label="Fixtures view"
+                            value={view}
+                            onChange={onViewChange}
+                            items={VIEW_FILTER_OPTIONS}
+                        />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                        <span className="text-[11px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
+                            Show
+                        </span>
+                        <SegmentedTabs
+                            aria-label="Show fixtures"
+                            value={filter}
+                            onChange={onFilterChange}
+                            items={TIME_FILTER_OPTIONS}
+                        />
+                    </div>
+                </div>
+            </SheetContent>
+        </Sheet>
+    );
+}
+
 /**
  * The Fixtures section, viewable three ways: Groups (phase-tabbed group/bracket cards, with
  * standings), Matchdays (sections that mirror the leaderboard's rounds), and Schedule (every match
@@ -871,7 +987,18 @@ function FixturesView({
 
     return (
         <section className="flex flex-col gap-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            {/* Mobile: both filter sections collapse into one Filters sheet. */}
+            <div className="sm:hidden">
+                <FixtureFiltersSheet
+                    view={view}
+                    onViewChange={setView}
+                    filter={filter}
+                    onFilterChange={setFilter}
+                />
+            </div>
+
+            {/* Desktop: the side-by-side toggles. */}
+            <div className="hidden flex-wrap items-center justify-between gap-3 sm:flex">
                 <ToggleGroup
                     type="single"
                     variant="outline"
@@ -969,7 +1096,7 @@ function FixturesView({
                                     )}
                                 />
                             ) : (
-                                <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+                                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                                     {visibleGroups.map((group) =>
                                         comparison ? (
                                             <CompareGroupCard
@@ -1027,7 +1154,7 @@ function FixturesView({
                                         )}
                                     />
                                 ) : (
-                                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                                         {phaseFixtures.map((fixture) =>
                                             comparison ? (
                                                 <CompareKnockoutCard

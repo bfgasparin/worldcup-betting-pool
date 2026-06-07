@@ -16,6 +16,7 @@ import { formatMatchDate } from '@/components/fixtures';
 import { LeaderboardStandings } from '@/components/leaderboard-standings';
 import PlayerAvatar from '@/components/player-avatar';
 import { PoolIdentity } from '@/components/pool-identity';
+import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
 import { tiebreakRule } from '@/lib/leaderboards';
 import { poolTitle } from '@/lib/pool-title';
@@ -32,7 +33,7 @@ import type {
     RankMovement,
 } from '@/types/pools';
 
-/** Pill tabs for switching boards — mirrors the in-house PhaseTabs idiom. */
+/** Pill tabs for switching boards — the shared adaptive segmented strip. */
 function BoardTabs({
     boards,
     active,
@@ -43,28 +44,15 @@ function BoardTabs({
     onSelect: (key: LeaderboardCategoryKey) => void;
 }) {
     return (
-        <div className="flex [scrollbar-width:none] gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden">
-            {boards.map((board) => {
-                const on = board.key === active;
-
-                return (
-                    <button
-                        key={board.key}
-                        type="button"
-                        onClick={() => onSelect(board.key)}
-                        aria-pressed={on}
-                        className={cn(
-                            'shrink-0 rounded-full border-[1.5px] px-4 py-2 font-display text-sm font-semibold whitespace-nowrap transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
-                            on
-                                ? 'border-transparent bg-pitch-deep text-white'
-                                : 'border-transparent bg-secondary text-secondary-foreground hover:border-border',
-                        )}
-                    >
-                        {board.label}
-                    </button>
-                );
-            })}
-        </div>
+        <SegmentedTabs
+            aria-label="Leaderboard"
+            value={active}
+            onChange={onSelect}
+            items={boards.map((board) => ({
+                value: board.key,
+                label: board.label,
+            }))}
+        />
     );
 }
 
@@ -97,37 +85,19 @@ function MatchdaySelector({
     return (
         <div className="flex items-center gap-2">
             <StepButton direction="prev" target={prev} onSelect={onSelect} />
-            <div
-                className="flex flex-1 [scrollbar-width:none] gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden"
-                role="tablist"
+            <SegmentedTabs
+                className="min-w-0 flex-1"
+                size="sm"
+                disabledStyle="dashed"
                 aria-label="Matchday"
-            >
-                {matchdays.map((matchday) => {
-                    const on = matchday.key === selected;
-                    const enabled = isTravellable(matchday);
-
-                    return (
-                        <button
-                            key={matchday.key}
-                            type="button"
-                            role="tab"
-                            aria-selected={on}
-                            disabled={!enabled}
-                            onClick={() => onSelect(matchday.key)}
-                            className={cn(
-                                'shrink-0 rounded-full border-[1.5px] px-3.5 py-1.5 font-display text-xs font-semibold whitespace-nowrap transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
-                                on
-                                    ? 'border-transparent bg-pitch-deep text-white'
-                                    : enabled
-                                      ? 'border-transparent bg-secondary text-secondary-foreground hover:border-border'
-                                      : 'cursor-not-allowed border-dashed border-border/70 text-muted-foreground/50',
-                            )}
-                        >
-                            {matchday.short_label}
-                        </button>
-                    );
-                })}
-            </div>
+                value={selected}
+                onChange={onSelect}
+                items={matchdays.map((matchday) => ({
+                    value: matchday.key,
+                    label: matchday.short_label,
+                    disabled: !isTravellable(matchday),
+                }))}
+            />
             <StepButton direction="next" target={next} onSelect={onSelect} />
         </div>
     );

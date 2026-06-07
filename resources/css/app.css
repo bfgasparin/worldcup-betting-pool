@@ -131,6 +131,12 @@
     --glow-accent: 0 18px 40px -10px rgba(255, 159, 28, 0.5);
     --glow-teal: 0 18px 44px -12px rgba(28, 138, 166, 0.5);
     --glow-violet: 0 18px 44px -12px rgba(106, 95, 214, 0.5);
+
+    /* Footprints the mobile floating nav reserves at the foot / head of the screen. 0 by default so
+       every `bottom-[var(--pool-tab-bar-h)]`/`pt-[var(--top-nav-h)]` collapses to its desktop value;
+       `.has-pool-tab-bar`/`.has-floating-nav` raise them, but only under the mobile media query. */
+    --pool-tab-bar-h: 0px;
+    --top-nav-h: 0px;
 }
 
 .dark {
@@ -369,5 +375,40 @@
         border: 1px solid var(--border);
         background-color: var(--card);
         box-shadow: var(--sh-sm);
+    }
+
+    /* The mobile floating-nav footprints — only under the mobile breakpoint, so desktop keeps the
+       tokens at 0 (no reserved padding, every offset collapses flush). `.has-pool-tab-bar` covers the
+       floating bottom tab pill (in-pool); `.has-floating-nav` covers the floating top switcher/avatar
+       row (all app pages). Both include the iOS safe-area insets so nothing hides behind the notch or
+       home indicator. */
+    @media (max-width: 767px) {
+        .has-pool-tab-bar {
+            --pool-tab-bar-h: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+        }
+
+        .has-floating-nav {
+            --top-nav-h: calc(3.25rem + env(safe-area-inset-top, 0px));
+        }
+    }
+
+    /* Fades the left/right edges of a horizontal scroller so clipped content "peeks" out, hinting
+       that the row scrolls. Theme-agnostic (masks the content itself), reused by the segmented
+       tabs scroll mode and the compare strip. */
+    .edge-fade-x {
+        -webkit-mask-image: linear-gradient(
+            to right,
+            transparent 0,
+            #000 1.25rem,
+            #000 calc(100% - 1.25rem),
+            transparent 100%
+        );
+        mask-image: linear-gradient(
+            to right,
+            transparent 0,
+            #000 1.25rem,
+            #000 calc(100% - 1.25rem),
+            transparent 100%
+        );
     }
 }

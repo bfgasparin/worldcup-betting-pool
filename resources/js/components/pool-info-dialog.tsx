@@ -123,7 +123,7 @@ export function PoolInfoDialog({ pool }: { pool: PoolDetail }) {
                 className="gap-1.5"
             >
                 <Info className="size-4" />
-                How it works
+                <span className="hidden sm:inline">How it works</span>
             </Button>
 
             <Dialog open={open} onOpenChange={setOpen}>

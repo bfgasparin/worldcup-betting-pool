@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { resolveAccent, sourceMonogram } from '@/lib/accents';
 import type { PoolAccent } from '@/lib/accents';
+import { formatMoney } from '@/lib/money';
 import { cn } from '@/lib/utils';
 import { index, show } from '@/routes/pools';
 import type { PoolListItem, Paginated } from '@/types/pools';
@@ -304,6 +305,67 @@ function PoolTicket({
 }
 
 /**
+ * A pool as a compact, tappable list row — the mobile counterpart to {@link PoolTicket}. It leads
+ * with what differs between sibling pools (source, scoring style + its one-line explainer, buy-in
+ * and pool size) so the list stays scannable and comparable; the whole row is the link into the
+ * pool. A solo pool (no tournament header above it) carries its status inline.
+ */
+function PoolRow({ pool, grouped }: { pool: PoolListItem; grouped: boolean }) {
+    const accent = resolveAccent(pool.accent, pool.accent_index);
+    const money = pool.can_join
+        ? `${formatMoney(pool.pricing.entry_price, pool.pricing.currency)} buy-in`
+        : pool.pricing.net > 0
+          ? `Pot ${formatMoney(pool.pricing.net, pool.pricing.currency)}`
+          : null;
+
+    return (
+        <Link
+            href={show(pool.slug)}
+            className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50"
+        >
+            <span
+                className={cn(
+                    'flex size-10 shrink-0 items-center justify-center rounded-xl font-display text-sm leading-none font-bold shadow-[var(--sh-sm)]',
+                    accent.railClass,
+                    accent.textClass,
+                )}
+            >
+                {sourceMonogram(pool.source)}
+            </span>
+
+            <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                    <span className="truncate font-display text-base font-semibold text-foreground">
+                        {grouped ? pool.source : pool.name}
+                    </span>
+                    {pool.joined && (
+                        <Check className="size-4 shrink-0 text-primary" />
+                    )}
+                    {!grouped && <StatusBadge status={pool.status} />}
+                </div>
+                <span className="mt-0.5 block font-display text-xs font-semibold text-primary">
+                    {pool.scoring_label}
+                </span>
+                <p className="line-clamp-1 text-xs text-muted-foreground">
+                    {pool.scoring_description}
+                </p>
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                    {money && (
+                        <span className="font-semibold text-foreground">
+                            {money}
+                        </span>
+                    )}
+                    {money && <span aria-hidden>·</span>}
+                    <span>{playersLabel(pool.players_count)}</span>
+                </div>
+            </div>
+
+            <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+        </Link>
+    );
+}
+
+/**
  * A header above a cluster of same-tournament pools. It carries the facts every sibling shares —
  * name, status, dates, sport & counts — once, so the tickets beneath it only have to show what
  * makes each different. Framed as multiple pools over one competition, not as a pick-one choice.
@@ -313,17 +375,20 @@ function TournamentHeader({ group }: { group: TournamentGroup }) {
     const lead = group.pools[0];
 
     return (
-        <div className="flex flex-col gap-3 border-b border-border pb-5">
-            <div className="flex flex-wrap items-center justify-between gap-2.5">
+        <div className="flex flex-col gap-3 border-b border-border pb-4 sm:pb-5">
+            <div className="flex flex-wrap items-center gap-2.5 sm:justify-between">
                 <div className="flex flex-wrap items-center gap-2.5">
                     <StatusBadge status={lead.status} />
                     <DateRange pool={lead} />
                 </div>
-                <Chip variant="outline" className="px-3 py-1 text-xs">
+                <Chip
+                    variant="outline"
+                    className="hidden px-3 py-1 text-xs sm:inline-flex"
+                >
                     {group.pools.length} pools
                 </Chip>
             </div>
-            <h2 className="text-2xl font-semibold tracking-tight text-balance text-foreground sm:text-3xl">
+            <h2 className="text-xl font-semibold tracking-tight text-balance text-foreground sm:text-3xl">
                 {group.tournament.name}
             </h2>
             <StatPills pool={lead} />
@@ -341,13 +406,33 @@ function TournamentHeader({ group }: { group: TournamentGroup }) {
  */
 function TournamentGroupSection({ group }: { group: TournamentGroup }) {
     if (group.pools.length === 1) {
-        return <PoolTicket pool={group.pools[0]} grouped={false} />;
+        const pool = group.pools[0];
+
+        return (
+            <>
+                {/* Mobile: the same compact row, in its own list card. */}
+                <div className="overflow-hidden rounded-2xl border border-border bg-card lg:hidden">
+                    <PoolRow pool={pool} grouped={false} />
+                </div>
+                {/* Desktop: the full ticket. */}
+                <div className="hidden lg:block">
+                    <PoolTicket pool={pool} grouped={false} />
+                </div>
+            </>
+        );
     }
 
     return (
-        <section className="flex flex-col gap-5">
+        <section className="flex flex-col gap-4 lg:gap-5">
             <TournamentHeader group={group} />
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 2xl:grid-cols-3">
+            {/* Mobile: a tight, scannable divided list of pools. */}
+            <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card lg:hidden">
+                {group.pools.map((pool) => (
+                    <PoolRow key={pool.slug} pool={pool} grouped />
+                ))}
+            </div>
+            {/* Desktop: the rich ticket grid. */}
+            <div className="hidden gap-5 lg:grid lg:grid-cols-2 2xl:grid-cols-3">
                 {group.pools.map((pool) => (
                     <PoolTicket key={pool.slug} pool={pool} grouped />
                 ))}
@@ -410,7 +495,7 @@ export default function PoolsIndex({ pools }: PoolsIndexProps) {
             <Head title="Pools" />
             <div className="relative min-h-full bg-background">
                 <div className="relative w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-10">
-                    <header className="hero relative mb-8 overflow-hidden rounded-3xl border border-border p-8">
+                    <header className="hero relative mb-6 overflow-hidden rounded-3xl border border-border p-5 sm:mb-8 sm:p-8">
                         <div className="hero-lines" />
                         <div className="relative flex flex-col gap-3">
                             <span className="inline-flex w-fit items-center gap-2 text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">
@@ -420,11 +505,11 @@ export default function PoolsIndex({ pools }: PoolsIndexProps) {
                             <span className="text-sm font-semibold text-muted-foreground">
                                 {greeting()}, {firstName} 👋
                             </span>
-                            <h1 className="text-4xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl">
+                            <h1 className="text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl">
                                 Join a pool
                             </h1>
                             <span className="bg-gold-gradient mt-1 h-1 w-12 rounded-full" />
-                            <p className="max-w-2xl text-base text-muted-foreground">
+                            <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
                                 Browse the pools below, check the buy-in and
                                 prize pot, and buy into the ones you fancy.
                                 There’s no picking just one — play as many as

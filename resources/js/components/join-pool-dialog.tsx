@@ -20,7 +20,13 @@ import type { PoolDetail } from '@/types/pools';
  * fee are deliberately left to the pool page — this step is just "pay this much to lock your spot".
  * Joining creates the player's entry — the prerequisite for making predictions.
  */
-export function JoinPoolDialog({ pool }: { pool: PoolDetail }) {
+export function JoinPoolDialog({
+    pool,
+    className,
+}: {
+    pool: PoolDetail;
+    className?: string;
+}) {
     const [open, setOpen] = useState(false);
     const form = useForm({});
     const buyIn = formatMoney(pool.pricing.entry_price, pool.pricing.currency);
@@ -34,7 +40,11 @@ export function JoinPoolDialog({ pool }: { pool: PoolDetail }) {
 
     return (
         <>
-            <Button variant="gold" onClick={() => setOpen(true)}>
+            <Button
+                variant="gold"
+                onClick={() => setOpen(true)}
+                className={className}
+            >
                 <Coins className="size-4" />
                 Join for {buyIn}
             </Button>

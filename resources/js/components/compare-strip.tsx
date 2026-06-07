@@ -26,7 +26,7 @@ function LaneCard({
     const kit = lane(index);
 
     return (
-        <div className="relative min-w-[148px] flex-1 overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-[var(--sh-sm)]">
+        <div className="relative min-w-[44%] flex-1 overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-[var(--sh-sm)] sm:min-w-[148px]">
             <span
                 aria-hidden
                 className={cn('absolute inset-y-0 left-0 w-1.5', kit.rail)}
