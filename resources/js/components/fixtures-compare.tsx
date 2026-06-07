@@ -2,9 +2,11 @@ import { ChevronDown, Lock } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import {
+    AdvanceChip,
     formatMatchDate,
     formatMatchTime,
     GroupBadge,
+    KnockoutPickMatchup,
     TeamChip,
 } from '@/components/fixtures';
 import { Flag } from '@/components/flag';
@@ -129,44 +131,63 @@ function EmptyPick({
 }
 
 /**
- * A compact per-fixture strip of every compared player's pick — one lane chip each, showing the
- * scoreline + points, or the lock/dash empty state. Used by the flat Matchdays/Schedule rows, where
- * a player's pick reads as the scoreline (the fuller predicted-team matchup stays in the Groups
- * cards). Reveal gating matches the cards: an opponent's pick is the lock icon until that fixture's
- * window locks, then a dash when they predicted nothing.
+ * A compact per-fixture strip of every compared player's pick — one lane chip each, or the
+ * lock/dash empty state. Group picks read as the scoreline + points; knockout picks render the full
+ * {@link KnockoutPickMatchup} (predicted teams + advancing for upfront, score + advancer for
+ * phased), matching the Groups compare cards. `home`/`away` are the official teams, needed to
+ * resolve a phased knockout pick's advancer. Reveal gating matches the cards: an opponent's pick is
+ * the lock icon until that fixture's window locks, then a dash when they predicted nothing.
  */
 export function FixtureComparePicks({
     players,
     windowStatus,
     kind,
     fixtureId,
+    home = null,
+    away = null,
 }: {
     players: ComparePlayer[];
     windowStatus: PredictionWindowStatus | undefined;
     kind: 'group' | 'knockout';
     fixtureId: number;
+    home?: TeamRef | null;
+    away?: TeamRef | null;
 }) {
     return (
         <div className="mt-2 flex flex-wrap justify-center gap-1.5">
             {players.map((player, index) => {
-                const pick =
-                    kind === 'group'
-                        ? player.group_predictions[fixtureId]
-                        : player.knockout_predictions[fixtureId];
+                if (kind === 'knockout') {
+                    const pick = player.knockout_predictions[fixtureId];
 
-                if (pick) {
-                    return (
+                    return pick ? (
                         <LaneChip key={index} index={index} player={player}>
-                            <b className="font-display text-foreground tabular-nums">
-                                {pick.home_goals ?? '–'}–
-                                {pick.away_goals ?? '–'}
-                            </b>
+                            <ComparePickMatchup
+                                pick={pick}
+                                home={home}
+                                away={away}
+                            />
                             <PointsTick points={pick.points_awarded} />
                         </LaneChip>
+                    ) : (
+                        <EmptyPick
+                            key={index}
+                            index={index}
+                            player={player}
+                            hidden={!isRevealed(player, windowStatus)}
+                        />
                     );
                 }
 
-                return (
+                const pick = player.group_predictions[fixtureId];
+
+                return pick ? (
+                    <LaneChip key={index} index={index} player={player}>
+                        <b className="font-display text-foreground tabular-nums">
+                            {pick.home_goals ?? '–'}–{pick.away_goals ?? '–'}
+                        </b>
+                        <PointsTick points={pick.points_awarded} />
+                    </LaneChip>
+                ) : (
                     <EmptyPick
                         key={index}
                         index={index}
@@ -432,100 +453,33 @@ export function CompareGroupCard({
 /* ------------------------------------------------------------ knockout */
 
 /**
- * A compact rendering of one player's knockout pick. For an **upfront** bracket the player picks
- * their own match-up, so both teams are shown (flag + code) with the side they sent through
- * emphasised and the scoreline between (e.g. "ARG🏴 2–1 🏴MEX"). For a **phased** bracket the teams
- * are the official ones (already shown atop the card) and aren't predicted, so only the score and
- * the advancing team (flag + code) are shown. Tones adapt to the light knockout card and the dark
- * final card.
+ * Adapts a compared player's knockout pick to the shared {@link KnockoutPickMatchup} so every
+ * surface (cards, compare lanes, flat rows) renders picks identically. `home`/`away` are the
+ * official teams, used to resolve the advancing team for phased picks (which carry no predicted
+ * teams of their own).
  */
-function PickMatchup({
+function ComparePickMatchup({
     pick,
-    fixture,
+    home,
+    away,
     tone = 'light',
 }: {
     pick: ComparePlayer['knockout_predictions'][number];
-    fixture: BracketFixture;
+    home: TeamRef | null;
+    away: TeamRef | null;
     tone?: 'light' | 'dark';
 }) {
-    const advancingId = pick.advancing_team_id;
-    const hasScore = pick.home_goals !== null && pick.away_goals !== null;
-    // Predicted teams are present only for upfront brackets; phased picks omit them (the payload
-    // sends null), since the match-up is the official one shown on the card.
-    const predictsTeams =
-        pick.predicted_home != null || pick.predicted_away != null;
-
-    const advanced =
-        tone === 'dark' ? 'font-bold text-gold' : 'font-bold text-foreground';
-    const muted = tone === 'dark' ? 'text-white/70' : 'text-muted-foreground';
-    const scoreColor = tone === 'dark' ? 'text-white/80' : 'text-foreground';
-    const flagClass = 'h-3 w-[18px]';
-
-    const scoreNode = hasScore ? (
-        <b className={cn('font-display tabular-nums', scoreColor)}>
-            {pick.home_goals}–{pick.away_goals}
-        </b>
-    ) : (
-        <span className={muted}>v</span>
-    );
-
-    if (predictsTeams) {
-        const home = pick.predicted_home;
-        const away = pick.predicted_away;
-        const homeAdvances = advancingId != null && advancingId === home?.id;
-        const awayAdvances = advancingId != null && advancingId === away?.id;
-
-        return (
-            <span className="inline-flex items-center gap-1.5">
-                <span
-                    className={cn(
-                        'inline-flex items-center gap-1',
-                        homeAdvances ? advanced : muted,
-                    )}
-                >
-                    {code(home)}
-                    <Flag team={home} className={flagClass} />
-                </span>
-                {scoreNode}
-                <span
-                    className={cn(
-                        'inline-flex items-center gap-1',
-                        awayAdvances ? advanced : muted,
-                    )}
-                >
-                    <Flag team={away} className={flagClass} />
-                    {code(away)}
-                </span>
-            </span>
-        );
-    }
-
-    // Phased: show only the score and the advancing team (resolved against the official teams).
-    const advancing =
-        advancingId == null
-            ? null
-            : advancingId === fixture.home?.id
-              ? fixture.home
-              : advancingId === fixture.away?.id
-                ? fixture.away
-                : null;
-
-    if (!hasScore && advancing === null) {
-        return <span className={muted}>—</span>;
-    }
-
     return (
-        <span className="inline-flex items-center gap-1.5">
-            {scoreNode}
-            {advancing && (
-                <span
-                    className={cn('inline-flex items-center gap-1', advanced)}
-                >
-                    <Flag team={advancing} className={flagClass} />
-                    {code(advancing)}
-                </span>
-            )}
-        </span>
+        <KnockoutPickMatchup
+            homeGoals={pick.home_goals}
+            awayGoals={pick.away_goals}
+            advancingTeamId={pick.advancing_team_id}
+            predictedHome={pick.predicted_home}
+            predictedAway={pick.predicted_away}
+            officialHome={home}
+            officialAway={away}
+            tone={tone}
+        />
     );
 }
 
@@ -538,6 +492,8 @@ function OfficialKnockout({ fixture }: { fixture: BracketFixture }) {
     const awayWins =
         fixture.winner_team_id != null &&
         fixture.winner_team_id === fixture.away?.id;
+    // A level result decided on penalties/extra time — the only case the "Advances" chip is needed.
+    const isDraw = settled && fixture.home_goals === fixture.away_goals;
 
     return (
         <>
@@ -565,6 +521,7 @@ function OfficialKnockout({ fixture }: { fixture: BracketFixture }) {
                         {slotLabel(fixture.home, fixture.home_label)}
                     </span>
                     <Flag team={fixture.home} className="h-4 w-6" />
+                    {isDraw && homeWins && <AdvanceChip />}
                 </span>
                 {settled ? (
                     <span className="font-display text-base font-semibold tabular-nums">
@@ -583,6 +540,7 @@ function OfficialKnockout({ fixture }: { fixture: BracketFixture }) {
                             : 'font-semibold text-muted-foreground',
                     )}
                 >
+                    {isDraw && awayWins && <AdvanceChip />}
                     <Flag team={fixture.away} className="h-4 w-6" />
                     <span className="truncate">
                         {slotLabel(fixture.away, fixture.away_label)}
@@ -610,7 +568,11 @@ function KnockoutPickChips({
                 if (pick) {
                     return (
                         <LaneChip key={index} index={index} player={player}>
-                            <PickMatchup pick={pick} fixture={fixture} />
+                            <ComparePickMatchup
+                                pick={pick}
+                                home={fixture.home}
+                                away={fixture.away}
+                            />
                             <PointsTick points={pick.points_awarded} />
                         </LaneChip>
                     );
@@ -732,9 +694,10 @@ export function CompareFinalCard({
                                     </span>
                                     {pick ? (
                                         <>
-                                            <PickMatchup
+                                            <ComparePickMatchup
                                                 pick={pick}
-                                                fixture={fixture}
+                                                home={fixture.home}
+                                                away={fixture.away}
                                                 tone="dark"
                                             />
                                             <PointsTick

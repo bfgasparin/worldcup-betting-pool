@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import {
+    AdvanceChip,
     formatMatchDate,
     formatMatchTime,
     formatScheduleDateHeader,
+    KnockoutPickMatchup,
     PhaseMeta,
     phaseDateRange,
-    PickAdvancer,
     PointsBadge,
     ShowTimesToggle,
     slotAbbrev,
@@ -50,6 +51,9 @@ interface NormalizedMatch {
         awayGoals: number | null;
         advancingTeamId: number | null;
         pointsAwarded: number | null;
+        /** The teams the viewer predicted (upfront knockout picks); null for phased & group picks. */
+        predictedHome: TeamRef | null;
+        predictedAway: TeamRef | null;
     } | null;
 }
 
@@ -77,6 +81,8 @@ function normalizeGroupFixture(
                   awayGoals: fixture.prediction.away_goals,
                   advancingTeamId: null,
                   pointsAwarded: fixture.prediction.points_awarded,
+                  predictedHome: null,
+                  predictedAway: null,
               }
             : null,
     };
@@ -106,6 +112,8 @@ function normalizeBracketFixture(
                   awayGoals: fixture.prediction.away_goals,
                   advancingTeamId: fixture.prediction.advancing_team_id,
                   pointsAwarded: fixture.prediction.points_awarded,
+                  predictedHome: fixture.prediction.predicted_home,
+                  predictedAway: fixture.prediction.predicted_away,
               }
             : null,
     };
@@ -259,11 +267,14 @@ function SideToken({
     label,
     align,
     advancing,
+    advanceChip = false,
 }: {
     team: TeamRef | null;
     label: string | null;
     align: 'start' | 'end';
     advancing: boolean;
+    /** Show the "Advances" chip — only a knockout winner on a level (pens/extra-time) result. */
+    advanceChip?: boolean;
 }) {
     return (
         <span
@@ -279,9 +290,11 @@ function SideToken({
                 <>
                     <span className="truncate">{teamCode(team, label)}</span>
                     <Flag team={team} className="h-4 w-6" />
+                    {advanceChip && <AdvanceChip />}
                 </>
             ) : (
                 <>
+                    {advanceChip && <AdvanceChip />}
                     <Flag team={team} className="h-4 w-6" />
                     <span className="truncate">{teamCode(team, label)}</span>
                 </>
@@ -313,21 +326,12 @@ function ScheduleRow({
             ? match.winnerTeamId === match.away?.id
             : (match.awayGoals ?? 0) > (match.homeGoals ?? 0));
 
-    // On a drawn knockout pick the score alone doesn't say who the viewer put through; resolve the
-    // advancing id against the real match-up so phased/score-only views can surface it.
-    const pickDrawAdvancer =
+    // A knockout decided on a level scoreline (penalties/extra time) is the only official result
+    // that needs the "Advances" chip — a decisive score speaks for itself via the winner's emphasis.
+    const officialDrawWinner =
         match.kind === 'knockout' &&
-        match.pick != null &&
-        match.pick.homeGoals !== null &&
-        match.pick.awayGoals !== null &&
-        match.pick.homeGoals === match.pick.awayGoals &&
-        match.pick.advancingTeamId != null
-            ? match.pick.advancingTeamId === match.home?.id
-                ? match.home
-                : match.pick.advancingTeamId === match.away?.id
-                  ? match.away
-                  : null
-            : null;
+        settled &&
+        match.homeGoals === match.awayGoals;
 
     // While comparing, the row shows every player's pick (below) instead of just the viewer's; the
     // window key is the phase the fixture sits in (the group stage shares one 'group' window).
@@ -349,6 +353,7 @@ function ScheduleRow({
                             label={match.homeLabel}
                             align="end"
                             advancing={homeAdvances}
+                            advanceChip={officialDrawWinner && homeAdvances}
                         />
                         {settled ? (
                             <span className="text-center font-display text-base font-semibold tabular-nums">
@@ -364,27 +369,34 @@ function ScheduleRow({
                             label={match.awayLabel}
                             align="start"
                             advancing={awayAdvances}
+                            advanceChip={officialDrawWinner && awayAdvances}
                         />
                     </div>
                     {!comparison &&
-                        (match.pick &&
-                        match.pick.homeGoals !== null &&
-                        match.pick.awayGoals !== null ? (
-                            <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-                                <span>
-                                    You{' '}
-                                    <span className="font-semibold tabular-nums">
-                                        {match.pick.homeGoals}–
-                                        {match.pick.awayGoals}
-                                    </span>
-                                </span>
-                                {pickDrawAdvancer && (
-                                    <PickAdvancer team={pickDrawAdvancer} />
-                                )}
-                            </div>
-                        ) : (
+                        (match.pick == null ? (
                             <div className="text-[11px] font-medium text-muted-foreground/70">
                                 No prediction
+                            </div>
+                        ) : match.kind === 'knockout' ? (
+                            <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+                                <span className="shrink-0">You</span>
+                                <KnockoutPickMatchup
+                                    homeGoals={match.pick.homeGoals}
+                                    awayGoals={match.pick.awayGoals}
+                                    advancingTeamId={match.pick.advancingTeamId}
+                                    predictedHome={match.pick.predictedHome}
+                                    predictedAway={match.pick.predictedAway}
+                                    officialHome={match.home}
+                                    officialAway={match.away}
+                                />
+                            </div>
+                        ) : (
+                            <div className="text-[11px] text-muted-foreground">
+                                You{' '}
+                                <span className="font-semibold tabular-nums">
+                                    {match.pick.homeGoals}–
+                                    {match.pick.awayGoals}
+                                </span>
                             </div>
                         ))}
                 </div>
@@ -417,6 +429,8 @@ function ScheduleRow({
                     windowStatus={comparison.windows[windowKey]}
                     kind={match.kind}
                     fixtureId={match.fixtureId}
+                    home={match.home}
+                    away={match.away}
                 />
             )}
         </div>
