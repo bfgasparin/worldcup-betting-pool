@@ -12,6 +12,7 @@ import {
     Sheet,
     SheetClose,
     SheetContent,
+    SheetDescription,
     SheetHeader,
     SheetTitle,
     SheetTrigger,
@@ -120,6 +121,9 @@ function PoolSwitcher({
                     <SheetTitle className="font-display text-base">
                         Switch pool
                     </SheetTitle>
+                    <SheetDescription className="sr-only">
+                        Switch between your pools or browse all pools.
+                    </SheetDescription>
                 </SheetHeader>
                 <ul className="flex flex-col gap-1">
                     {pools.map((entry) => {

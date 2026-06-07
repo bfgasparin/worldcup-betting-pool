@@ -54,6 +54,7 @@ import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import {
     Sheet,
     SheetContent,
+    SheetDescription,
     SheetHeader,
     SheetTitle,
     SheetTrigger,
@@ -868,6 +869,9 @@ function FixtureFiltersSheet({
                     <SheetTitle className="font-display text-base">
                         Filters
                     </SheetTitle>
+                    <SheetDescription className="sr-only">
+                        Choose how fixtures are grouped and which ones to show.
+                    </SheetDescription>
                 </SheetHeader>
                 <div className="flex flex-col gap-4">
                     <div className="flex flex-col gap-2">
