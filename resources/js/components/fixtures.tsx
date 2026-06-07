@@ -1,4 +1,4 @@
-import { ChevronDown, Clock } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Flag } from '@/components/flag';
@@ -164,6 +164,29 @@ function teamCode(
     fallback: string | null = null,
 ): string {
     return team?.code ?? team?.name ?? fallback ?? 'TBD';
+}
+
+/**
+ * A team's identity inside a tight match-up row: the short code on small screens, the full name on
+ * large screens (or the placeholder label for an unresolved knockout slot). `truncate` keeps a long
+ * name from breaking the row — the hidden span is removed from layout, so phones look unchanged.
+ */
+export function TeamMatchupName({
+    team,
+    label = null,
+}: {
+    team: TeamRef | null;
+    label?: string | null;
+}) {
+    const short = team?.code ?? team?.name ?? slotAbbrev(label);
+    const full = team?.name ?? team?.code ?? label ?? 'TBD';
+
+    return (
+        <>
+            <span className="truncate lg:hidden">{short}</span>
+            <span className="hidden truncate lg:inline">{full}</span>
+        </>
+    );
 }
 
 /** Display label for a venue — drops the generic " Stadium" suffix (e.g. "Mexico City"). */
@@ -514,39 +537,21 @@ function KnockoutSlot({
     );
 }
 
-function AdvanceChip({ tone = 'light' }: { tone?: 'light' | 'dark' }) {
+export function AdvanceChip({ tone = 'light' }: { tone?: 'light' | 'dark' }) {
     return (
         <span
+            aria-label="Advances"
+            title="Advances"
             className={cn(
-                'font-body inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[9.5px] font-bold tracking-wide uppercase',
+                'font-body inline-flex shrink-0 items-center rounded-full px-1 py-0.5 text-[9.5px] font-bold tracking-wide uppercase sm:px-2',
                 tone === 'dark'
                     ? 'bg-gold/20 text-gold'
                     : 'bg-primary/15 text-pitch-deep dark:text-primary',
             )}
         >
-            Advances
-        </span>
-    );
-}
-
-/** The team a player picked to advance on a drawn knockout pick — flag, code and an "Advances" chip. */
-export function PickAdvancer({
-    team,
-    tone = 'light',
-}: {
-    team: TeamRef;
-    tone?: 'light' | 'dark';
-}) {
-    return (
-        <span
-            className={cn(
-                'flex min-w-0 items-center gap-1.5 font-semibold',
-                tone === 'dark' ? 'text-white' : 'text-foreground',
-            )}
-        >
-            <Flag team={team} className="h-3.5 w-5" />
-            <span className="truncate">{teamCode(team)}</span>
-            <AdvanceChip tone={tone} />
+            {/* Tight match-up rows can't fit the word on phones, so collapse to a glyph below sm. */}
+            <ChevronUp className="size-3 sm:hidden" aria-hidden />
+            <span className="hidden sm:inline">Advances</span>
         </span>
     );
 }
@@ -556,11 +561,14 @@ function SettledKnockoutTeam({
     label,
     goals,
     advancing,
+    isDraw,
 }: {
     team: TeamRef | null;
     label: string | null;
     goals: number;
     advancing: boolean;
+    /** A level scoreline decided on penalties/extra time — the only case that needs the chip. */
+    isDraw: boolean;
 }) {
     return (
         <div className="flex items-center justify-between gap-3 py-2">
@@ -574,7 +582,7 @@ function SettledKnockoutTeam({
             >
                 <Flag team={team} className="h-7 w-10 rounded-md" />
                 <span className="truncate">{team?.name ?? label}</span>
-                {advancing && <AdvanceChip />}
+                {advancing && isDraw && <AdvanceChip />}
             </span>
             <span
                 className={cn(
@@ -589,76 +597,114 @@ function SettledKnockoutTeam({
 }
 
 /**
- * The teams the viewer predicted for a knockout match, with the one they picked to advance
- * emphasised — so the pick can be compared against the official match-up above it. Tones adapt
- * to the light knockout card and the dark final card.
+ * The canonical rendering of a knockout pick as a single match-up line, reused everywhere a pick is
+ * shown (the Groups/knockout cards, the flat Matchdays/Schedule rows, and the compare lanes).
+ *
+ * For an **upfront** bracket the player predicts their own teams, so both are shown (flag + code)
+ * with the side they sent through emphasised and the scoreline between (e.g. "ARG🏴 2–1 🏴MEX").
+ * For a **phased** bracket the teams are the official ones (already shown above), so only the score
+ * and the advancing team are rendered — the advancer is resolved against the official match-up.
+ *
+ * The advancing/winning side is bold; on a **draw** — where the scoreline alone can't say who went
+ * through (penalties/extra time) — an "Advances" chip marks the chosen side. Tones adapt to the
+ * light cards and the dark final card.
  */
-function PredictedMatchup({
-    prediction,
+export function KnockoutPickMatchup({
+    homeGoals,
+    awayGoals,
+    advancingTeamId,
+    predictedHome = null,
+    predictedAway = null,
+    officialHome = null,
+    officialAway = null,
     tone = 'light',
-    inline = false,
 }: {
-    prediction: NonNullable<BracketFixture['prediction']>;
+    homeGoals: number | null;
+    awayGoals: number | null;
+    advancingTeamId: number | null;
+    /** The teams the player predicted (upfront pools); null for phased and group picks. */
+    predictedHome?: TeamRef | null;
+    predictedAway?: TeamRef | null;
+    /** The official match-up, used to resolve the advancing team for phased picks. */
+    officialHome?: TeamRef | null;
+    officialAway?: TeamRef | null;
     tone?: 'light' | 'dark';
-    /** Render at natural width on one line (for a footer beside its label) instead of a full grid. */
-    inline?: boolean;
 }) {
-    const advHome =
-        prediction.advancing_team_id != null &&
-        prediction.advancing_team_id === prediction.predicted_home?.id;
-    const advAway =
-        prediction.advancing_team_id != null &&
-        prediction.advancing_team_id === prediction.predicted_away?.id;
-
-    // On a draw the score alone doesn't reveal who the viewer picked to advance (extra time or
-    // penalties), so flag the chosen side explicitly. A decisive score speaks for itself.
-    const isDraw =
-        prediction.home_goals != null &&
-        prediction.away_goals != null &&
-        prediction.home_goals === prediction.away_goals;
+    const hasScore = homeGoals !== null && awayGoals !== null;
+    const isDraw = hasScore && homeGoals === awayGoals;
+    const predictsTeams = predictedHome != null || predictedAway != null;
 
     const advanced =
         tone === 'dark' ? 'font-bold text-gold' : 'font-bold text-foreground';
     const muted = tone === 'dark' ? 'text-white/60' : 'text-muted-foreground';
     const score = tone === 'dark' ? 'text-white/70' : 'text-muted-foreground';
 
+    const scoreNode = (
+        <span className={cn('font-display tabular-nums', score)}>
+            {homeGoals ?? '–'}–{awayGoals ?? '–'}
+        </span>
+    );
+
+    if (predictsTeams) {
+        const advHome =
+            advancingTeamId != null && advancingTeamId === predictedHome?.id;
+        const advAway =
+            advancingTeamId != null && advancingTeamId === predictedAway?.id;
+
+        return (
+            <span className="inline-flex min-w-0 items-center justify-center gap-1.5 text-xs">
+                <span
+                    className={cn(
+                        'flex min-w-0 items-center justify-end gap-1.5',
+                        advHome ? advanced : muted,
+                    )}
+                >
+                    <span className="truncate">{teamCode(predictedHome)}</span>
+                    <Flag team={predictedHome} className="h-3.5 w-5" />
+                    {isDraw && advHome && <AdvanceChip tone={tone} />}
+                </span>
+                {scoreNode}
+                <span
+                    className={cn(
+                        'flex min-w-0 items-center gap-1.5',
+                        advAway ? advanced : muted,
+                    )}
+                >
+                    {isDraw && advAway && <AdvanceChip tone={tone} />}
+                    <Flag team={predictedAway} className="h-3.5 w-5" />
+                    <span className="truncate">{teamCode(predictedAway)}</span>
+                </span>
+            </span>
+        );
+    }
+
+    // Phased: teams aren't predicted, so resolve the advancer against the official match-up.
+    const advancing =
+        advancingTeamId == null
+            ? null
+            : advancingTeamId === officialHome?.id
+              ? officialHome
+              : advancingTeamId === officialAway?.id
+                ? officialAway
+                : null;
+
+    if (!hasScore && advancing === null) {
+        return <span className={cn('text-xs', muted)}>—</span>;
+    }
+
     return (
-        <div
-            className={cn(
-                'items-center text-xs',
-                inline
-                    ? 'flex min-w-0 justify-center gap-1.5'
-                    : 'mt-1.5 grid grid-cols-[1fr_auto_1fr] gap-2',
+        <span className="inline-flex items-center gap-1.5 text-xs">
+            {scoreNode}
+            {advancing && (
+                <span
+                    className={cn('inline-flex items-center gap-1', advanced)}
+                >
+                    <Flag team={advancing} className="h-3.5 w-5" />
+                    {teamCode(advancing)}
+                    {isDraw && <AdvanceChip tone={tone} />}
+                </span>
             )}
-        >
-            <span
-                className={cn(
-                    'flex min-w-0 items-center justify-end gap-1.5',
-                    advHome ? advanced : muted,
-                )}
-            >
-                <span className="truncate">
-                    {teamCode(prediction.predicted_home)}
-                </span>
-                <Flag team={prediction.predicted_home} className="h-3.5 w-5" />
-                {isDraw && advHome && <AdvanceChip tone={tone} />}
-            </span>
-            <span className={cn('font-display tabular-nums', score)}>
-                {prediction.home_goals ?? '–'}–{prediction.away_goals ?? '–'}
-            </span>
-            <span
-                className={cn(
-                    'flex min-w-0 items-center gap-1.5',
-                    advAway ? advanced : muted,
-                )}
-            >
-                {isDraw && advAway && <AdvanceChip tone={tone} />}
-                <Flag team={prediction.predicted_away} className="h-3.5 w-5" />
-                <span className="truncate">
-                    {teamCode(prediction.predicted_away)}
-                </span>
-            </span>
-        </div>
+        </span>
     );
 }
 
@@ -678,60 +724,37 @@ function PredictionFoot({
     away: TeamRef | null;
     showPoints?: boolean;
 }) {
-    const hasTeams = prediction != null && prediction.predicted_home != null;
     const hasPick =
         prediction != null &&
         prediction.home_goals !== null &&
         prediction.away_goals !== null;
-    // On a draw the score alone doesn't say who the player put through (extra time / penalties).
-    // Phased pools carry no predicted teams, so resolve the advancing id against the real match-up.
-    const drawAdvancer =
-        prediction != null &&
-        prediction.home_goals !== null &&
-        prediction.away_goals !== null &&
-        prediction.home_goals === prediction.away_goals &&
-        prediction.advancing_team_id != null
-            ? prediction.advancing_team_id === home?.id
-                ? home
-                : prediction.advancing_team_id === away?.id
-                  ? away
-                  : null
-            : null;
-
-    if (hasTeams) {
-        return (
-            <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-3">
-                <div className="flex min-w-0 items-center gap-2">
-                    <span className="shrink-0 text-[11px] font-medium text-muted-foreground">
-                        Your pick
-                    </span>
-                    <PredictedMatchup prediction={prediction} inline />
-                </div>
-                {showPoints && (
-                    <PointsBadge points={prediction.points_awarded ?? null} />
-                )}
-            </div>
-        );
-    }
+    // Upfront picks carry predicted teams (shown even before a score); phased picks show once scored.
+    const hasContent =
+        prediction != null && (prediction.predicted_home != null || hasPick);
 
     return (
         <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-3">
-            <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-muted-foreground">
-                {hasPick ? (
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-muted-foreground">
+                {hasContent ? (
                     <>
-                        <span className="flex items-baseline gap-2">
-                            Your pick
-                            <b className="font-display text-foreground">
-                                {prediction.home_goals}–{prediction.away_goals}
-                            </b>
-                        </span>
-                        {drawAdvancer && <PickAdvancer team={drawAdvancer} />}
+                        <span className="shrink-0">Your pick</span>
+                        <KnockoutPickMatchup
+                            homeGoals={prediction.home_goals}
+                            awayGoals={prediction.away_goals}
+                            advancingTeamId={prediction.advancing_team_id}
+                            predictedHome={prediction.predicted_home}
+                            predictedAway={prediction.predicted_away}
+                            officialHome={home}
+                            officialAway={away}
+                        />
                     </>
                 ) : (
                     'No prediction'
                 )}
-            </span>
-            <PointsBadge points={prediction?.points_awarded ?? null} />
+            </div>
+            {showPoints && (
+                <PointsBadge points={prediction?.points_awarded ?? null} />
+            )}
         </div>
     );
 }
@@ -773,6 +796,8 @@ export function KnockoutSlotCard({ fixture }: { fixture: BracketFixture }) {
             fixture.winner_team_id === fixture.away?.id;
         const penalties =
             fixture.home_penalties !== null && fixture.away_penalties !== null;
+        // Level result decided on penalties/extra time — the only case the "Advances" chip is needed.
+        const isDraw = homeGoals === awayGoals;
 
         return (
             <div className="card-elevated rounded-3xl p-5">
@@ -782,12 +807,14 @@ export function KnockoutSlotCard({ fixture }: { fixture: BracketFixture }) {
                     label={fixture.home_label}
                     goals={homeGoals}
                     advancing={homeAdvances}
+                    isDraw={isDraw}
                 />
                 <SettledKnockoutTeam
                     team={fixture.away}
                     label={fixture.away_label}
                     goals={awayGoals}
                     advancing={awayAdvances}
+                    isDraw={isDraw}
                 />
                 {penalties && (
                     <div className="mt-1 text-[11px] font-semibold text-muted-foreground">
@@ -929,20 +956,8 @@ export function FinalCard({ fixture }: { fixture: BracketFixture }) {
             pick != null &&
             pick.home_goals !== null &&
             pick.away_goals !== null;
-        const hasTeams = pick != null && pick.predicted_home != null;
-        // On a draw, the score alone doesn't reveal the champion the player picked — resolve the id.
-        const pickedChampion =
-            pick != null &&
-            pick.home_goals !== null &&
-            pick.away_goals !== null &&
-            pick.home_goals === pick.away_goals &&
-            pick.advancing_team_id != null
-                ? pick.advancing_team_id === fixture.home?.id
-                    ? fixture.home
-                    : pick.advancing_team_id === fixture.away?.id
-                      ? fixture.away
-                      : null
-                : null;
+        const hasContent =
+            pick != null && (pick.predicted_home != null || hasPick);
 
         return (
             <div className="relative mx-auto max-w-xl overflow-hidden rounded-3xl border border-accent/30 bg-ink p-6 text-center text-white sm:p-9">
@@ -983,41 +998,26 @@ export function FinalCard({ fixture }: { fixture: BracketFixture }) {
                             🏆 {champion.name} are World Champions
                         </div>
                     )}
-                    {hasTeams ? (
+                    {hasContent ? (
                         <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/10 pt-4 text-sm font-medium text-white/60">
-                            <div className="flex min-w-0 items-center gap-2">
+                            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                                 <span className="shrink-0">Your pick</span>
-                                <PredictedMatchup
-                                    prediction={pick}
+                                <KnockoutPickMatchup
+                                    homeGoals={pick.home_goals}
+                                    awayGoals={pick.away_goals}
+                                    advancingTeamId={pick.advancing_team_id}
+                                    predictedHome={pick.predicted_home}
+                                    predictedAway={pick.predicted_away}
+                                    officialHome={fixture.home}
+                                    officialAway={fixture.away}
                                     tone="dark"
-                                    inline
                                 />
                             </div>
                             <FinalPoints points={pick.points_awarded ?? null} />
                         </div>
                     ) : (
-                        <div className="mt-5 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-white/10 pt-4 text-sm font-medium text-white/60">
-                            <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-                                {hasPick ? (
-                                    <>
-                                        <span className="flex items-baseline gap-2">
-                                            Your pick
-                                            <b className="font-display text-white">
-                                                {pick.home_goals}–
-                                                {pick.away_goals}
-                                            </b>
-                                        </span>
-                                        {pickedChampion && (
-                                            <PickAdvancer
-                                                team={pickedChampion}
-                                                tone="dark"
-                                            />
-                                        )}
-                                    </>
-                                ) : (
-                                    'No prediction'
-                                )}
-                            </span>
+                        <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/10 pt-4 text-sm font-medium text-white/60">
+                            <span>No prediction</span>
                             <FinalPoints
                                 points={pick?.points_awarded ?? null}
                             />
@@ -1052,12 +1052,19 @@ export function FinalCard({ fixture }: { fixture: BracketFixture }) {
                 </div>
                 {/* Upfront-bracket tournaments: preview the final the player called. */}
                 {fixture.prediction?.predicted_home != null && (
-                    <div className="mt-6 flex items-center justify-center gap-2 border-t border-white/10 pt-4 text-sm font-medium text-white/60">
+                    <div className="mt-6 flex flex-wrap items-center justify-center gap-2 border-t border-white/10 pt-4 text-sm font-medium text-white/60">
                         <span className="shrink-0">Your pick</span>
-                        <PredictedMatchup
-                            prediction={fixture.prediction}
+                        <KnockoutPickMatchup
+                            homeGoals={fixture.prediction.home_goals}
+                            awayGoals={fixture.prediction.away_goals}
+                            advancingTeamId={
+                                fixture.prediction.advancing_team_id
+                            }
+                            predictedHome={fixture.prediction.predicted_home}
+                            predictedAway={fixture.prediction.predicted_away}
+                            officialHome={fixture.home}
+                            officialAway={fixture.away}
                             tone="dark"
-                            inline
                         />
                     </div>
                 )}
