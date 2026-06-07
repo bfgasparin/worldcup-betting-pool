@@ -529,6 +529,28 @@ function AdvanceChip({ tone = 'light' }: { tone?: 'light' | 'dark' }) {
     );
 }
 
+/** The team a player picked to advance on a drawn knockout pick — flag, code and an "Advances" chip. */
+export function PickAdvancer({
+    team,
+    tone = 'light',
+}: {
+    team: TeamRef;
+    tone?: 'light' | 'dark';
+}) {
+    return (
+        <span
+            className={cn(
+                'flex min-w-0 items-center gap-1.5 font-semibold',
+                tone === 'dark' ? 'text-white' : 'text-foreground',
+            )}
+        >
+            <Flag team={team} className="h-3.5 w-5" />
+            <span className="truncate">{teamCode(team)}</span>
+            <AdvanceChip tone={tone} />
+        </span>
+    );
+}
+
 function SettledKnockoutTeam({
     team,
     label,
@@ -647,9 +669,13 @@ function PredictedMatchup({
  */
 function PredictionFoot({
     prediction,
+    home,
+    away,
     showPoints = true,
 }: {
     prediction: BracketFixture['prediction'];
+    home: TeamRef | null;
+    away: TeamRef | null;
     showPoints?: boolean;
 }) {
     const hasTeams = prediction != null && prediction.predicted_home != null;
@@ -657,6 +683,20 @@ function PredictionFoot({
         prediction != null &&
         prediction.home_goals !== null &&
         prediction.away_goals !== null;
+    // On a draw the score alone doesn't say who the player put through (extra time / penalties).
+    // Phased pools carry no predicted teams, so resolve the advancing id against the real match-up.
+    const drawAdvancer =
+        prediction != null &&
+        prediction.home_goals !== null &&
+        prediction.away_goals !== null &&
+        prediction.home_goals === prediction.away_goals &&
+        prediction.advancing_team_id != null
+            ? prediction.advancing_team_id === home?.id
+                ? home
+                : prediction.advancing_team_id === away?.id
+                  ? away
+                  : null
+            : null;
 
     if (hasTeams) {
         return (
@@ -676,13 +716,16 @@ function PredictionFoot({
 
     return (
         <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-3">
-            <span className="flex items-baseline gap-2 text-xs font-medium text-muted-foreground">
+            <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-muted-foreground">
                 {hasPick ? (
                     <>
-                        Your pick
-                        <b className="font-display text-foreground">
-                            {prediction.home_goals}–{prediction.away_goals}
-                        </b>
+                        <span className="flex items-baseline gap-2">
+                            Your pick
+                            <b className="font-display text-foreground">
+                                {prediction.home_goals}–{prediction.away_goals}
+                            </b>
+                        </span>
+                        {drawAdvancer && <PickAdvancer team={drawAdvancer} />}
                     </>
                 ) : (
                     'No prediction'
@@ -752,7 +795,11 @@ export function KnockoutSlotCard({ fixture }: { fixture: BracketFixture }) {
                         {fixture.away_penalties}
                     </div>
                 )}
-                <PredictionFoot prediction={fixture.prediction} />
+                <PredictionFoot
+                    prediction={fixture.prediction}
+                    home={fixture.home}
+                    away={fixture.away}
+                />
             </div>
         );
     }
@@ -773,6 +820,8 @@ export function KnockoutSlotCard({ fixture }: { fixture: BracketFixture }) {
             {fixture.prediction?.predicted_home != null && (
                 <PredictionFoot
                     prediction={fixture.prediction}
+                    home={fixture.home}
+                    away={fixture.away}
                     showPoints={false}
                 />
             )}
@@ -881,6 +930,19 @@ export function FinalCard({ fixture }: { fixture: BracketFixture }) {
             pick.home_goals !== null &&
             pick.away_goals !== null;
         const hasTeams = pick != null && pick.predicted_home != null;
+        // On a draw, the score alone doesn't reveal the champion the player picked — resolve the id.
+        const pickedChampion =
+            pick != null &&
+            pick.home_goals !== null &&
+            pick.away_goals !== null &&
+            pick.home_goals === pick.away_goals &&
+            pick.advancing_team_id != null
+                ? pick.advancing_team_id === fixture.home?.id
+                    ? fixture.home
+                    : pick.advancing_team_id === fixture.away?.id
+                      ? fixture.away
+                      : null
+                : null;
 
         return (
             <div className="relative mx-auto max-w-xl overflow-hidden rounded-3xl border border-accent/30 bg-ink p-6 text-center text-white sm:p-9">
@@ -934,14 +996,23 @@ export function FinalCard({ fixture }: { fixture: BracketFixture }) {
                             <FinalPoints points={pick.points_awarded ?? null} />
                         </div>
                     ) : (
-                        <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/10 pt-4 text-sm font-medium text-white/60">
-                            <span className="flex items-baseline gap-2">
+                        <div className="mt-5 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-white/10 pt-4 text-sm font-medium text-white/60">
+                            <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
                                 {hasPick ? (
                                     <>
-                                        Your pick
-                                        <b className="font-display text-white">
-                                            {pick.home_goals}–{pick.away_goals}
-                                        </b>
+                                        <span className="flex items-baseline gap-2">
+                                            Your pick
+                                            <b className="font-display text-white">
+                                                {pick.home_goals}–
+                                                {pick.away_goals}
+                                            </b>
+                                        </span>
+                                        {pickedChampion && (
+                                            <PickAdvancer
+                                                team={pickedChampion}
+                                                tone="dark"
+                                            />
+                                        )}
                                     </>
                                 ) : (
                                     'No prediction'

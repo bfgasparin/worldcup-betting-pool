@@ -5,6 +5,7 @@ import {
     formatScheduleDateHeader,
     PhaseMeta,
     phaseDateRange,
+    PickAdvancer,
     PointsBadge,
     ShowTimesToggle,
     slotAbbrev,
@@ -47,6 +48,7 @@ interface NormalizedMatch {
     pick: {
         homeGoals: number | null;
         awayGoals: number | null;
+        advancingTeamId: number | null;
         pointsAwarded: number | null;
     } | null;
 }
@@ -73,6 +75,7 @@ function normalizeGroupFixture(
             ? {
                   homeGoals: fixture.prediction.home_goals,
                   awayGoals: fixture.prediction.away_goals,
+                  advancingTeamId: null,
                   pointsAwarded: fixture.prediction.points_awarded,
               }
             : null,
@@ -101,6 +104,7 @@ function normalizeBracketFixture(
             ? {
                   homeGoals: fixture.prediction.home_goals,
                   awayGoals: fixture.prediction.away_goals,
+                  advancingTeamId: fixture.prediction.advancing_team_id,
                   pointsAwarded: fixture.prediction.points_awarded,
               }
             : null,
@@ -309,6 +313,22 @@ function ScheduleRow({
             ? match.winnerTeamId === match.away?.id
             : (match.awayGoals ?? 0) > (match.homeGoals ?? 0));
 
+    // On a drawn knockout pick the score alone doesn't say who the viewer put through; resolve the
+    // advancing id against the real match-up so phased/score-only views can surface it.
+    const pickDrawAdvancer =
+        match.kind === 'knockout' &&
+        match.pick != null &&
+        match.pick.homeGoals !== null &&
+        match.pick.awayGoals !== null &&
+        match.pick.homeGoals === match.pick.awayGoals &&
+        match.pick.advancingTeamId != null
+            ? match.pick.advancingTeamId === match.home?.id
+                ? match.home
+                : match.pick.advancingTeamId === match.away?.id
+                  ? match.away
+                  : null
+            : null;
+
     // While comparing, the row shows every player's pick (below) instead of just the viewer's; the
     // window key is the phase the fixture sits in (the group stage shares one 'group' window).
     const windowKey =
@@ -350,12 +370,17 @@ function ScheduleRow({
                         (match.pick &&
                         match.pick.homeGoals !== null &&
                         match.pick.awayGoals !== null ? (
-                            <div className="text-[11px] text-muted-foreground">
-                                You{' '}
-                                <span className="font-semibold tabular-nums">
-                                    {match.pick.homeGoals}–
-                                    {match.pick.awayGoals}
+                            <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+                                <span>
+                                    You{' '}
+                                    <span className="font-semibold tabular-nums">
+                                        {match.pick.homeGoals}–
+                                        {match.pick.awayGoals}
+                                    </span>
                                 </span>
+                                {pickDrawAdvancer && (
+                                    <PickAdvancer team={pickDrawAdvancer} />
+                                )}
                             </div>
                         ) : (
                             <div className="text-[11px] font-medium text-muted-foreground/70">
