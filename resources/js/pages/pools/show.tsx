@@ -4,10 +4,12 @@ import {
     CalendarClock,
     CalendarDays,
     Check,
+    ChevronDown,
     ClipboardCheck,
     GitCompare,
     PencilLine,
     Plus,
+    SlidersHorizontal,
     Trophy,
     Users,
 } from 'lucide-react';
@@ -48,6 +50,14 @@ import { PoolIdentity } from '@/components/pool-identity';
 import { PoolInfoDialog } from '@/components/pool-info-dialog';
 import { PrizePanel } from '@/components/prize-panel';
 import { Button } from '@/components/ui/button';
+import { SegmentedTabs } from '@/components/ui/segmented-tabs';
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
+} from '@/components/ui/sheet';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
 import { COMPARE_LIMIT } from '@/lib/compare';
@@ -802,6 +812,92 @@ function applyTimeFilter<T extends TimedFixture>(
 
 type FixturesViewMode = 'groups' | 'matchdays' | 'schedule';
 
+const VIEW_FILTER_OPTIONS: { value: FixturesViewMode; label: string }[] = [
+    { value: 'groups', label: 'Groups' },
+    { value: 'matchdays', label: 'Matchdays' },
+    { value: 'schedule', label: 'Schedule' },
+];
+
+const TIME_FILTER_OPTIONS: { value: TimeFilter; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'today', label: 'Today' },
+    { value: 'upcoming', label: 'Upcoming' },
+];
+
+/**
+ * The mobile face of the fixtures filters: a single pill summarising the active view + time filter
+ * that opens a bottom sheet with both as segmented controls — the two filter sections collapse to one
+ * tidy control on phones. Desktop keeps the side-by-side toggles.
+ */
+function FixtureFiltersSheet({
+    view,
+    onViewChange,
+    filter,
+    onFilterChange,
+}: {
+    view: FixturesViewMode;
+    onViewChange: (view: FixturesViewMode) => void;
+    filter: TimeFilter;
+    onFilterChange: (filter: TimeFilter) => void;
+}) {
+    const [open, setOpen] = useState(false);
+    const viewLabel = VIEW_FILTER_OPTIONS.find((o) => o.value === view)?.label;
+    const timeLabel = TIME_FILTER_OPTIONS.find(
+        (o) => o.value === filter,
+    )?.label;
+
+    return (
+        <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+                <button
+                    type="button"
+                    className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-2 font-display text-sm font-semibold shadow-[var(--sh-sm)]"
+                >
+                    <SlidersHorizontal className="size-4 text-muted-foreground" />
+                    <span>
+                        {viewLabel} · {timeLabel}
+                    </span>
+                    <ChevronDown className="size-4 text-muted-foreground" />
+                </button>
+            </SheetTrigger>
+            <SheetContent
+                side="bottom"
+                className="rounded-t-3xl px-4 pt-5 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
+            >
+                <SheetHeader className="p-0">
+                    <SheetTitle className="font-display text-base">
+                        Filters
+                    </SheetTitle>
+                </SheetHeader>
+                <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-2">
+                        <span className="text-[11px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
+                            View
+                        </span>
+                        <SegmentedTabs
+                            aria-label="Fixtures view"
+                            value={view}
+                            onChange={onViewChange}
+                            items={VIEW_FILTER_OPTIONS}
+                        />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                        <span className="text-[11px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
+                            Show
+                        </span>
+                        <SegmentedTabs
+                            aria-label="Show fixtures"
+                            value={filter}
+                            onChange={onFilterChange}
+                            items={TIME_FILTER_OPTIONS}
+                        />
+                    </div>
+                </div>
+            </SheetContent>
+        </Sheet>
+    );
+}
+
 /**
  * The Fixtures section, viewable three ways: Groups (phase-tabbed group/bracket cards, with
  * standings), Matchdays (sections that mirror the leaderboard's rounds), and Schedule (every match
@@ -887,7 +983,18 @@ function FixturesView({
 
     return (
         <section className="flex flex-col gap-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            {/* Mobile: both filter sections collapse into one Filters sheet. */}
+            <div className="sm:hidden">
+                <FixtureFiltersSheet
+                    view={view}
+                    onViewChange={setView}
+                    filter={filter}
+                    onFilterChange={setFilter}
+                />
+            </div>
+
+            {/* Desktop: the side-by-side toggles. */}
+            <div className="hidden flex-wrap items-center justify-between gap-3 sm:flex">
                 <ToggleGroup
                     type="single"
                     variant="outline"
