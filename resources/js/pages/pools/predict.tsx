@@ -390,7 +390,7 @@ function GroupCard({
     group,
     scores,
     canEdit,
-    saveStatus,
+    dimCompleted,
     onChange,
     onCommit,
     orderingUrl,
@@ -399,7 +399,8 @@ function GroupCard({
     group: PredictGroup;
     scores: GroupScores;
     canEdit: boolean;
-    saveStatus: SaveStatusValue;
+    /** When true (the filter is on), de-emphasise rows that are already complete. */
+    dimCompleted: boolean;
     onChange: (fixtureId: number, side: 'home' | 'away', value: string) => void;
     onCommit: () => void;
     orderingUrl: string;
@@ -448,7 +449,12 @@ function GroupCard({
                     return (
                         <div
                             key={fixture.fixture_id}
-                            className="relative flex items-center gap-2 pl-3"
+                            className={cn(
+                                'relative flex items-center gap-2 pl-3',
+                                dimCompleted &&
+                                    isGroupScoreDone(score) &&
+                                    'opacity-50',
+                            )}
                         >
                             <MatchdayStripe
                                 matchdayKey={fixture.matchday_key}
@@ -505,12 +511,6 @@ function GroupCard({
                                     </span>
                                 </span>
                             </div>
-                            {/* Reserved fixed-width slot so the mark appearing never shifts the row. */}
-                            <span className="flex w-4 shrink-0 items-center justify-center">
-                                {isGroupScoreDone(score) && (
-                                    <RowSavedIcon status={saveStatus} />
-                                )}
-                            </span>
                         </div>
                     );
                 })}
@@ -588,7 +588,7 @@ function KnockoutCard({
     pick,
     canEdit,
     isFinal,
-    saveStatus,
+    dimCompleted,
     onChange,
     onCommit,
 }: {
@@ -596,7 +596,8 @@ function KnockoutCard({
     pick: KnockoutPick;
     canEdit: boolean;
     isFinal: boolean;
-    saveStatus: SaveStatusValue;
+    /** When true (the filter is on), de-emphasise this card if its pick is already complete. */
+    dimCompleted: boolean;
     onChange: (patch: Partial<KnockoutPick>, immediate?: boolean) => void;
     onCommit: () => void;
 }) {
@@ -639,25 +640,18 @@ function KnockoutCard({
                 isFinal
                     ? 'shadow-glow-accent border border-accent/40 bg-card'
                     : 'card-elevated',
+                dimCompleted && isKnockoutPickDone(pick) && 'opacity-50',
             )}
         >
             <div className="mb-1 flex items-center justify-between gap-2">
                 <span className="font-display text-xs font-semibold text-muted-foreground">
                     Match {fixture.match_number}
                 </span>
-                <span className="flex items-center gap-2">
-                    {/* Reserved fixed-width slot so the mark appearing never shifts the header. */}
-                    <span className="flex w-4 items-center justify-center">
-                        {isKnockoutPickDone(pick) && (
-                            <RowSavedIcon status={saveStatus} />
-                        )}
+                {isFinal && (
+                    <span className="font-display text-[11px] font-bold tracking-wide text-amber uppercase">
+                        Final
                     </span>
-                    {isFinal && (
-                        <span className="font-display text-[11px] font-bold tracking-wide text-amber uppercase">
-                            Final
-                        </span>
-                    )}
-                </span>
+                )}
             </div>
             <SlotRow
                 label={teamName(fixture.home, fixture.home_label)}
@@ -736,10 +730,6 @@ function KnockoutCard({
 }
 
 function SaveStatus({ status }: { status: SaveStatusValue }) {
-    if (status === 'idle') {
-        return null;
-    }
-
     if (status === 'saving') {
         return (
             <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -748,40 +738,22 @@ function SaveStatus({ status }: { status: SaveStatusValue }) {
         );
     }
 
-    if (status === 'saved') {
+    if (status === 'error') {
         return (
-            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Check className="size-3.5 text-primary" /> All changes saved
+            <span className="inline-flex items-center gap-1.5 text-xs text-destructive">
+                <CircleAlert className="size-3.5" /> Couldn't save — check your
+                connection
             </span>
         );
     }
 
+    // idle + saved both rest on the "saved" state, so on an editable step the dock indicator is
+    // always visible (idle = nothing pending = effectively all saved).
     return (
-        <span className="inline-flex items-center gap-1.5 text-xs text-destructive">
-            <CircleAlert className="size-3.5" /> Couldn't save — check your
-            connection
+        <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Check className="size-3.5 text-primary" /> All changes saved
         </span>
     );
-}
-
-/**
- * A tiny per-row status icon shown on a completed fixture so the player sees their pick is recorded
- * (not vanished). Icon-only with a fixed footprint, and meant to sit inside an always-present
- * reserved slot at the call site, so its appearance never reflows the row. Mirrors the single
- * `saveStatus` source, so it can't contradict the footer indicator.
- */
-function RowSavedIcon({ status }: { status: SaveStatusValue }) {
-    if (status === 'saving') {
-        return (
-            <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
-        );
-    }
-
-    if (status === 'error') {
-        return <CircleAlert className="size-3.5 text-destructive" />;
-    }
-
-    return <Check className="size-3.5 text-primary" />;
 }
 
 export default function Predict({
@@ -1431,7 +1403,7 @@ export default function Predict({
                                             group={group}
                                             scores={groupScores}
                                             canEdit={canEdit}
-                                            saveStatus={saveStatus}
+                                            dimCompleted={onlyRemaining}
                                             onChange={updateGroupScore}
                                             onCommit={flush}
                                             orderingUrl={orderingUrl}
@@ -1484,7 +1456,7 @@ export default function Predict({
                                     }
                                     phasesByKey={phasesByKey}
                                     picks={picks}
-                                    saveStatus={saveStatus}
+                                    dimCompleted={onlyRemaining}
                                     fixtureFilter={
                                         onlyRemaining
                                             ? knockoutFixtureVisible
@@ -1598,7 +1570,7 @@ function KnockoutStep({
     phaseKeys,
     phasesByKey,
     picks,
-    saveStatus,
+    dimCompleted,
     fixtureFilter,
     onChange,
     onCommit,
@@ -1606,7 +1578,8 @@ function KnockoutStep({
     phaseKeys: string[];
     phasesByKey: Record<string, PredictBracketPhase>;
     picks: KnockoutPicks;
-    saveStatus: SaveStatusValue;
+    /** When true (the filter is on), de-emphasise cards whose pick is already complete. */
+    dimCompleted: boolean;
     /** When set, only fixtures it keeps are shown (the "needs my prediction" filter). */
     fixtureFilter?: (fixture: KnockoutPredictionFixture) => boolean;
     onChange: (
@@ -1663,7 +1636,7 @@ function KnockoutStep({
                                         }
                                         canEdit={phaseEditable}
                                         isFinal={fixture.phase_key === 'final'}
-                                        saveStatus={saveStatus}
+                                        dimCompleted={dimCompleted}
                                         onChange={(patch, immediate) =>
                                             onChange(
                                                 fixture.fixture_id,
