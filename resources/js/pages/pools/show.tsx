@@ -121,7 +121,7 @@ function DashboardBanner({
         isAdmin;
 
     return (
-        <header className="hero relative overflow-hidden rounded-3xl border border-border p-6 sm:p-8">
+        <header className="hero relative overflow-hidden rounded-3xl border border-border p-5 sm:p-8">
             <div className="hero-lines" />
             {/*
               Two-column hero: identity/title/meta, then the compact lock countdown sitting directly
@@ -129,31 +129,29 @@ function DashboardBanner({
               column on its own. Pairing the deadline with the CTA it gates keeps the two columns a
               similar height and the card short, and collapses to one column (deadline high) below lg.
             */}
-            <div className="relative grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:items-start">
-                <div className="flex min-w-0 flex-col gap-5">
-                    <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
+            <div className="relative grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:items-start lg:gap-6">
+                <div className="flex min-w-0 flex-col gap-4">
+                    <div className="flex flex-col gap-3">
+                        <div className="flex items-start justify-between gap-3">
                             <PoolIdentity
                                 variant="banner"
                                 source={pool.source}
                                 scoringLabel={pool.scoring_label}
                                 accent={pool.accent}
-                                className="mb-3"
+                                className="min-w-0"
                             />
+                            <div className="shrink-0">
+                                <PoolInfoDialog pool={pool} />
+                            </div>
+                        </div>
+                        <div className="min-w-0">
                             <h1 className="text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-4xl">
                                 {pool.name}
                             </h1>
-                            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                                 <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold capitalize">
                                     {pool.status.replace('_', ' ')}
                                 </span>
-                                <span className="capitalize">{pool.sport}</span>
-                                {dates && (
-                                    <span className="inline-flex items-center gap-1.5">
-                                        <CalendarDays className="size-4" />
-                                        {dates}
-                                    </span>
-                                )}
                                 <span className="inline-flex items-center gap-1.5">
                                     <Users className="size-4" />
                                     {standings.participants}{' '}
@@ -161,10 +159,13 @@ function DashboardBanner({
                                         ? 'player'
                                         : 'players'}
                                 </span>
+                                {dates && (
+                                    <span className="inline-flex items-center gap-1.5">
+                                        <CalendarDays className="size-4" />
+                                        {dates}
+                                    </span>
+                                )}
                             </div>
-                        </div>
-                        <div className="shrink-0">
-                            <PoolInfoDialog pool={pool} />
                         </div>
                     </div>
 
@@ -177,9 +178,12 @@ function DashboardBanner({
                             hasScores={standings.has_scores}
                         />
                         {hasActions && (
-                            <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
                                 {hasEntry ? (
-                                    <Button asChild>
+                                    <Button
+                                        asChild
+                                        className="w-full sm:w-auto"
+                                    >
                                         <Link
                                             href={pools.predict.edit(pool.slug)}
                                         >
@@ -188,20 +192,28 @@ function DashboardBanner({
                                         </Link>
                                     </Button>
                                 ) : pool.can_join ? (
-                                    <JoinPoolDialog pool={pool} />
+                                    <JoinPoolDialog
+                                        pool={pool}
+                                        className="w-full sm:w-auto"
+                                    />
                                 ) : null}
                                 {canCompare && (
                                     <Button
                                         type="button"
                                         variant="outline"
                                         onClick={onCompare}
+                                        className="w-full sm:w-auto"
                                     >
                                         <GitCompare className="size-4" />
                                         Compare players
                                     </Button>
                                 )}
                                 {pool.can_review_scores && (
-                                    <Button asChild variant="outline">
+                                    <Button
+                                        asChild
+                                        variant="outline"
+                                        className="w-full sm:w-auto"
+                                    >
                                         <Link
                                             href={pools.scores.review(
                                                 pool.slug,
@@ -213,7 +225,11 @@ function DashboardBanner({
                                     </Button>
                                 )}
                                 {isAdmin && (
-                                    <Button asChild variant="outline">
+                                    <Button
+                                        asChild
+                                        variant="outline"
+                                        className="w-full sm:w-auto"
+                                    >
                                         <Link
                                             href={pools.schedule.index(
                                                 pool.slug,
