@@ -574,9 +574,12 @@ function SettledKnockoutTeam({
 function PredictedMatchup({
     prediction,
     tone = 'light',
+    inline = false,
 }: {
     prediction: NonNullable<BracketFixture['prediction']>;
     tone?: 'light' | 'dark';
+    /** Render at natural width on one line (for a footer beside its label) instead of a full grid. */
+    inline?: boolean;
 }) {
     const advHome =
         prediction.advancing_team_id != null &&
@@ -598,7 +601,14 @@ function PredictedMatchup({
     const score = tone === 'dark' ? 'text-white/70' : 'text-muted-foreground';
 
     return (
-        <div className="mt-1.5 grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-xs">
+        <div
+            className={cn(
+                'items-center text-xs',
+                inline
+                    ? 'flex min-w-0 justify-center gap-1.5'
+                    : 'mt-1.5 grid grid-cols-[1fr_auto_1fr] gap-2',
+            )}
+        >
             <span
                 className={cn(
                     'flex min-w-0 items-center justify-end gap-1.5',
@@ -650,28 +660,26 @@ function PredictionFoot({
 
     if (hasTeams) {
         return (
-            <div className="mt-3 border-t border-border pt-3">
-                <div className="flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-medium text-muted-foreground">
+            <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-3">
+                <div className="flex min-w-0 items-center gap-2">
+                    <span className="shrink-0 text-[11px] font-medium text-muted-foreground">
                         Your pick
                     </span>
-                    {showPoints && (
-                        <PointsBadge
-                            points={prediction.points_awarded ?? null}
-                        />
-                    )}
+                    <PredictedMatchup prediction={prediction} inline />
                 </div>
-                <PredictedMatchup prediction={prediction} />
+                {showPoints && (
+                    <PointsBadge points={prediction.points_awarded ?? null} />
+                )}
             </div>
         );
     }
 
     return (
         <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-3">
-            <span className="text-xs font-medium text-muted-foreground">
+            <span className="flex items-baseline gap-2 text-xs font-medium text-muted-foreground">
                 {hasPick ? (
                     <>
-                        Your pick{' '}
+                        Your pick
                         <b className="font-display text-foreground">
                             {prediction.home_goals}–{prediction.away_goals}
                         </b>
@@ -914,21 +922,23 @@ export function FinalCard({ fixture }: { fixture: BracketFixture }) {
                         </div>
                     )}
                     {hasTeams ? (
-                        <div className="mt-5 border-t border-white/10 pt-4">
-                            <div className="flex items-center justify-between gap-3 text-sm font-medium text-white/60">
-                                <span>Your pick</span>
-                                <FinalPoints
-                                    points={pick.points_awarded ?? null}
+                        <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/10 pt-4 text-sm font-medium text-white/60">
+                            <div className="flex min-w-0 items-center gap-2">
+                                <span className="shrink-0">Your pick</span>
+                                <PredictedMatchup
+                                    prediction={pick}
+                                    tone="dark"
+                                    inline
                                 />
                             </div>
-                            <PredictedMatchup prediction={pick} tone="dark" />
+                            <FinalPoints points={pick.points_awarded ?? null} />
                         </div>
                     ) : (
                         <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/10 pt-4 text-sm font-medium text-white/60">
-                            <span>
+                            <span className="flex items-baseline gap-2">
                                 {hasPick ? (
                                     <>
-                                        Your pick{' '}
+                                        Your pick
                                         <b className="font-display text-white">
                                             {pick.home_goals}–{pick.away_goals}
                                         </b>
@@ -971,13 +981,12 @@ export function FinalCard({ fixture }: { fixture: BracketFixture }) {
                 </div>
                 {/* Upfront-bracket tournaments: preview the final the player called. */}
                 {fixture.prediction?.predicted_home != null && (
-                    <div className="mt-6 border-t border-white/10 pt-4">
-                        <div className="text-sm font-medium text-white/60">
-                            Your pick
-                        </div>
+                    <div className="mt-6 flex items-center justify-center gap-2 border-t border-white/10 pt-4 text-sm font-medium text-white/60">
+                        <span className="shrink-0">Your pick</span>
                         <PredictedMatchup
                             prediction={fixture.prediction}
                             tone="dark"
+                            inline
                         />
                     </div>
                 )}
