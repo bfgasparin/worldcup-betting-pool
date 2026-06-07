@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\OrderingScope;
 use App\Enums\PredictionWindowStatus;
 use App\Http\Controllers\Concerns\BuildsPoolIdentity;
+use App\Http\Controllers\Concerns\PersistsTieOrdering;
 use App\Http\Requests\Predictions\ImportPredictionsRequest;
 use App\Http\Requests\Predictions\UpdateGroupOrderingRequest;
 use App\Http\Requests\Predictions\UpdateGroupPredictionsRequest;
@@ -37,6 +38,7 @@ use Inertia\Response;
 class PredictionController extends Controller
 {
     use BuildsPoolIdentity;
+    use PersistsTieOrdering;
 
     public function __construct(
         private readonly BracketResolver $resolver,
@@ -203,18 +205,13 @@ class PredictionController extends Controller
     {
         $entry = $request->entry();
         $scope = OrderingScope::from($request->string('scope')->value());
-        $ordered = array_map('intval', $request->input('ordered_team_ids'));
-        $tied = $ordered;
-        sort($tied);
+        $cluster = array_map('intval', $request->input('ordered_team_ids'));
 
         $groupId = $scope === OrderingScope::WithinGroup
             ? $pool->tournament->groups()->where('name', $request->input('group'))->value('id')
             : null;
 
-        $entry->groupOrderings()->updateOrCreate(
-            ['group_id' => $groupId, 'scope' => $scope],
-            ['tied_team_ids' => $tied, 'ordered_team_ids' => $ordered],
-        );
+        $this->persistTieOrdering(fn () => $entry->groupOrderings(), $scope, $groupId, $cluster);
 
         $this->resolver->persist($entry);
 

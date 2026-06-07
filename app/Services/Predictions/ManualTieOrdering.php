@@ -53,6 +53,27 @@ class ManualTieOrdering
     }
 
     /**
+     * Merge a just-confirmed tie's order into a group's existing per-group ordering, replacing only
+     * this tie's own teams and preserving every other already-ordered cluster in the group — so
+     * confirming one tie never drops another. A group's single row holds every cluster's order as
+     * one flat list (the engine filters it per cluster), mirroring the union {@see DefaultTieOrdering}
+     * writes for a multi-cluster group.
+     *
+     * @param  list<int>  $existing  the group's current ordered team ids (across all its clusters)
+     * @param  list<int>  $cluster  the confirmed tie's ordered team ids
+     * @return list<int>
+     */
+    public static function merge(array $existing, array $cluster): array
+    {
+        $preserved = array_values(array_filter(
+            $existing,
+            fn (int $id): bool => ! in_array($id, $cluster, true),
+        ));
+
+        return [...$preserved, ...$cluster];
+    }
+
+    /**
      * @param  Collection<int, EntryGroupOrdering|TournamentGroupOrdering>  $rows
      */
     private static function fromRows(Collection $rows): self
