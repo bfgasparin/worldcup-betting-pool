@@ -2,12 +2,14 @@
 
 namespace Tests\Feature\Scoring;
 
+use App\Enums\OrderingScope;
 use App\Enums\ProposalStatus;
 use App\Models\Fixture;
 use App\Models\Pool;
 use App\Models\Team;
 use App\Models\Tournament;
 use App\Models\User;
+use App\Services\Predictions\TieResolutionState;
 use Database\Seeders\WorldCup2026Seeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia;
@@ -287,6 +289,84 @@ class ScoreReviewControllerTest extends TestCase
         $teams = $this->threeTeams();
 
         return [$teams[0], $teams[1]];
+    }
+
+    public function test_ordering_one_official_group_tie_keeps_a_second_tie_in_the_same_group_resolved(): void
+    {
+        // Clean winners everywhere, then make group A's official results hold two independent ties:
+        // positions 1 & 2 level on 7pts and positions 3 & 4 level on 1pt.
+        $this->recordOfficialGroupResults($this->tournament, fn (int $h, int $a): array => $h < $a ? [1, 0] : [0, 1], resolveTies: false);
+        $this->recordOfficialGroupResults($this->tournament, $this->twoClusterScores(), onlyGroups: ['A'], resolveTies: false);
+
+        [$first, $second, $third, $fourth] = $this->groupTeamIdsByPosition('A');
+
+        $this->assertCount(2, (new TieResolutionState)->forTournament($this->tournament)->groupTies['A'] ?? []);
+
+        $this->confirmOrdering([$second, $first]);
+
+        $afterFirst = (new TieResolutionState)->forTournament($this->tournament->fresh());
+        $this->assertFalse($afterFirst->groupsResolved);
+        $this->assertSame($second, $afterFirst->standings['A']->winner());
+        $this->assertNull($afterFirst->standings['A']->thirdStanding());
+
+        // Ordering the 3rd/4th tie must NOT wipe the just-saved 1st/2nd ordering.
+        $this->confirmOrdering([$fourth, $third]);
+
+        $afterSecond = (new TieResolutionState)->forTournament($this->tournament->fresh());
+        $this->assertTrue($afterSecond->groupsResolved, 'Both group ties should be resolved.');
+        $this->assertSame($second, $afterSecond->standings['A']->winner(), 'The first tie must stay resolved.');
+        $this->assertSame($fourth, $afterSecond->standings['A']->thirdStanding()->teamId);
+
+        $row = $this->tournament->groupOrderings()->where('scope', OrderingScope::WithinGroup->value)->sole();
+        $this->assertEqualsCanonicalizing([$first, $second, $third, $fourth], $row->ordered_team_ids);
+    }
+
+    /**
+     * PUT a within-group official ordering for group A as an admin.
+     *
+     * @param  list<int>  $orderedTeamIds
+     */
+    private function confirmOrdering(array $orderedTeamIds): void
+    {
+        $this->actingAs($this->admin())
+            ->put(route('pools.scores.ordering', $this->pool), [
+                'scope' => OrderingScope::WithinGroup->value,
+                'group' => 'A',
+                'ordered_team_ids' => $orderedTeamIds,
+            ])
+            ->assertRedirect();
+    }
+
+    /**
+     * The group's team ids in seed-position order [pos1, pos2, pos3, pos4].
+     *
+     * @return list<int>
+     */
+    private function groupTeamIdsByPosition(string $groupName): array
+    {
+        return $this->tournament->groups()->where('name', $groupName)->firstOrFail()
+            ->teams()->orderByPivot('position')->pluck('teams.id')->all();
+    }
+
+    /**
+     * A position-pair result rule leaving two independent unbreakable ties in a group: positions
+     * 1 & 2 draw and each beat 3 & 4 (level on 7pts), 3 & 4 draw and lose the rest (level on 1pt).
+     * Orientation-independent, so it does not assume the seeder's home/away order.
+     *
+     * @return callable(int, int): array{int, int}
+     */
+    private function twoClusterScores(): callable
+    {
+        return function (int $homePosition, int $awayPosition): array {
+            $pair = [$homePosition, $awayPosition];
+            sort($pair);
+
+            if ($pair === [1, 2] || $pair === [3, 4]) {
+                return [0, 0];
+            }
+
+            return $homePosition === $pair[0] ? [1, 0] : [0, 1];
+        };
     }
 
     /**

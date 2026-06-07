@@ -6,6 +6,7 @@ use App\Enums\BatchStatus;
 use App\Enums\OrderingScope;
 use App\Enums\ProposalStatus;
 use App\Http\Controllers\Concerns\BuildsPoolIdentity;
+use App\Http\Controllers\Concerns\PersistsTieOrdering;
 use App\Http\Requests\Tournaments\ApproveScoreBatchRequest;
 use App\Http\Requests\Tournaments\UpdateGroupOrderingRequest;
 use App\Http\Requests\Tournaments\UpdateScoreProposalRequest;
@@ -28,6 +29,7 @@ use Inertia\Response;
 class ScoreReviewController extends Controller
 {
     use BuildsPoolIdentity;
+    use PersistsTieOrdering;
 
     /**
      * The admin screen for reviewing, editing and approving a batch of proposed official scores.
@@ -145,18 +147,13 @@ class ScoreReviewController extends Controller
     {
         $tournament = $pool->tournament;
         $scope = OrderingScope::from($request->string('scope')->value());
-        $ordered = array_map('intval', $request->input('ordered_team_ids'));
-        $tied = $ordered;
-        sort($tied);
+        $cluster = array_map('intval', $request->input('ordered_team_ids'));
 
         $groupId = $scope === OrderingScope::WithinGroup
             ? $tournament->groups()->where('name', $request->input('group'))->value('id')
             : null;
 
-        $tournament->groupOrderings()->updateOrCreate(
-            ['group_id' => $groupId, 'scope' => $scope],
-            ['tied_team_ids' => $tied, 'ordered_team_ids' => $ordered],
-        );
+        $this->persistTieOrdering(fn () => $tournament->groupOrderings(), $scope, $groupId, $cluster);
 
         $projector->project($tournament);
 
