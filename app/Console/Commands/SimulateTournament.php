@@ -40,6 +40,7 @@ use Illuminate\Support\Collection;
     {--predict-only : Set up players + predictions only; leave fixtures scheduled with no official results}
     {--me-skip= : Leave the --me user joined but WITHOUT predictions in this pool (by slug or source), so the "import from another pool" suggestion shows when you open it — its sibling, which the user fills, becomes the source}
     {--tie= : Stage an UNRESOLVED official tie for an admin to resolve on the review screen — "thirds" (a best-thirds cut tie) or "group" (every group level). Skips the normal results play.}
+    {--player-tie= : Leave players with an UNRESOLVED PREDICTED tie so the player tie-resolution UI shows — "thirds" gives the --me user seed-order wins so the best-thirds cut ties, "group" gives all-level group scores so every group ties. Auto-resolution is disabled for everyone, so demo players are left incomplete too. Pair with --predict-only to inspect the predict page before the lock.}
     {--reset : Clear official results + scoring for the tournament before simulating}')]
 #[Description('Locally simulate a closed, fully-scored tournament: demo players + predictions, official results, computed board.')]
 class SimulateTournament extends Command
@@ -103,6 +104,14 @@ class SimulateTournament extends Command
             return self::FAILURE;
         }
 
+        $playerTie = $this->option('player-tie');
+
+        if ($playerTie !== null && ! in_array($playerTie, ['thirds', 'group'], true)) {
+            $this->components->error("Unknown --player-tie [{$playerTie}]. Use one of: thirds, group.");
+
+            return self::FAILURE;
+        }
+
         $until = ($untilOption = $this->option('until')) !== null
             ? CarbonImmutable::parse($untilOption, 'UTC')
             : null;
@@ -147,15 +156,28 @@ class SimulateTournament extends Command
                     continue;
                 }
 
-                $this->generateGroupPredictions($tournament, $entry, $seedIndex);
+                // With --player-tie, give the --me user (seed index 0) deliberate tie-producing
+                // scores of the requested kind so the player tie-resolution UI reliably shows;
+                // everyone else keeps the normal random scores.
+                if ($playerTie !== null && $seedIndex === 0) {
+                    $this->generateTiedGroupPredictions($tournament, $entry, $playerTie);
+                } else {
+                    $this->generateGroupPredictions($tournament, $entry, $seedIndex);
+                }
 
                 // Upfront pools derive the whole bracket from group picks now. Phased pools leave the
                 // knockout rounds to be predicted against the official teams as they are projected
                 // (see playResults), so there is nothing to resolve up front for them.
                 if ($pool->predictsKnockoutBracket()) {
                     // No human to break ties in a simulation: fall back to the deterministic default
-                    // order so the self-derived bracket resolves fully before knockout picks.
-                    $defaultTieOrdering->applyToEntry($entry);
+                    // order so the self-derived bracket resolves fully before knockout picks. With
+                    // --player-tie this is skipped for everyone, so the --me deliberate tie and any
+                    // demo player's natural tie are left unresolved (the bracket fills as far as it
+                    // resolves) for testing the tie-resolution UI and incomplete-board scenarios.
+                    if ($playerTie === null) {
+                        $defaultTieOrdering->applyToEntry($entry);
+                    }
+
                     $this->generateKnockoutPredictions($tournament, $entry, $seedIndex, $resolver);
                 }
             }
@@ -211,9 +233,7 @@ class SimulateTournament extends Command
      */
     private function stageUnresolvedTie(Tournament $tournament, Pool $pool, string $tie): void
     {
-        $rule = $tie === 'group'
-            ? fn (int $home, int $away): array => [0, 0]
-            : fn (int $home, int $away): array => $home < $away ? [1, 0] : [0, 1];
+        $rule = $this->tieRule($tie);
 
         $batch = $tournament->scoreBatches()->firstOrCreate(
             ['status' => BatchStatus::Open],
@@ -372,6 +392,49 @@ class SimulateTournament extends Command
                 );
             }
         }
+    }
+
+    /**
+     * Give one entry deliberate tie-producing group predictions of the requested kind (the player
+     * analogue of {@see stageUnresolvedTie}): "group" makes every group level (all goalless draws);
+     * "thirds" makes the better seed win every match so the groups resolve cleanly but all twelve
+     * thirds tie across the qualifying cut. Paired with skipping the default tie ordering, this
+     * leaves the entry's bracket blocked on a tie the player must resolve by hand.
+     */
+    private function generateTiedGroupPredictions(Tournament $tournament, Entry $entry, string $tie): void
+    {
+        $rule = $this->tieRule($tie);
+
+        foreach ($tournament->groups()->with(['teams', 'fixtures'])->get() as $group) {
+            $positions = $group->teams->mapWithKeys(
+                fn ($team): array => [$team->id => (int) $team->pivot->position],
+            );
+
+            foreach ($group->fixtures as $fixture) {
+                [$home, $away] = $rule($positions[$fixture->home_team_id], $positions[$fixture->away_team_id]);
+
+                GroupPrediction::updateOrCreate(
+                    ['entry_id' => $entry->id, 'fixture_id' => $fixture->id],
+                    ['home_goals' => $home, 'away_goals' => $away],
+                );
+            }
+        }
+    }
+
+    /**
+     * The deterministic scoreline rule that produces an unresolved tie of the given kind, shared by
+     * the official tie staging ({@see stageUnresolvedTie}) and the per-player tie generation
+     * ({@see generateTiedGroupPredictions}). "group" draws every match 0-0 so each group is fully
+     * level; "thirds" lets the better seed win 1-0 so the groups resolve cleanly but every third is
+     * identical, tying the best-thirds cut.
+     *
+     * @return callable(int, int): array{0: int, 1: int} home seed, away seed => [home goals, away goals]
+     */
+    private function tieRule(string $tie): callable
+    {
+        return $tie === 'group'
+            ? fn (int $home, int $away): array => [0, 0]
+            : fn (int $home, int $away): array => $home < $away ? [1, 0] : [0, 1];
     }
 
     /**
@@ -715,6 +778,38 @@ class SimulateTournament extends Command
                 $this->newLine();
                 $this->components->info("Left {$me} with no predictions in {$skip->source} — open ".route('pools.predict.edit', $skip).' to see the "import from another pool" suggestion.');
             }
+        }
+
+        if (($playerTie = $this->option('player-tie')) !== null) {
+            $this->reportPlayerTie($pools, $playerTie, $predictOnly);
+        }
+    }
+
+    /**
+     * Tell the operator what unresolved predicted tie was left and how to drive the player-side
+     * tie-resolution flow. Warns when results were played, since that locks the prediction window
+     * and makes the tie UI read-only.
+     *
+     * @param  Collection<int, Pool>  $pools
+     */
+    private function reportPlayerTie(Collection $pools, string $tie, bool $predictOnly): void
+    {
+        $upfront = $pools->first(fn (Pool $pool): bool => $pool->predictsKnockoutBracket());
+        $me = (string) $this->option('me');
+
+        $description = $tie === 'group'
+            ? 'every group in their predictions is level — order who finishes 1st/2nd/3rd in each'
+            : 'their best third-placed teams are tied across the qualifying cut — order which thirds classify';
+
+        $this->newLine();
+        $this->components->info("Left players with an UNRESOLVED predicted tie: {$description}. Demo players' natural ties are left unresolved too.");
+
+        if (! $predictOnly) {
+            $this->components->warn('Results were played, so the prediction window is likely locked and the tie UI read-only. Re-run with --predict-only to resolve it in the UI.');
+        }
+
+        if ($upfront !== null && $me !== '') {
+            $this->components->info('Open '.route('pools.predict.edit', $upfront)." as {$me} to resolve the tie (the 6-digit login code is written to the log — `php artisan pail`).");
         }
     }
 

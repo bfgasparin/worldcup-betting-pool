@@ -3,6 +3,7 @@
 namespace Tests\Feature\Console;
 
 use App\Enums\BatchStatus;
+use App\Models\Entry;
 use App\Models\Pool;
 use App\Models\Tournament;
 use App\Models\User;
@@ -66,6 +67,50 @@ class SimulateTournamentTieTest extends TestCase
         $this->artisan('tournament:simulate', ['--tie' => 'bogus'])->assertFailed();
 
         $this->assertDatabaseCount('score_batches', 0);
+    }
+
+    public function test_player_tie_thirds_leaves_the_me_user_with_an_unresolved_thirds_tie(): void
+    {
+        $this->artisan('tournament:simulate', ['--player-tie' => 'thirds', '--players' => 2, '--predict-only' => true, '--reset' => true])
+            ->assertSuccessful();
+
+        $entry = $this->meEntryInUpfrontPool();
+        $state = (new TieResolutionState)->forEntry($entry);
+
+        $this->assertNotEmpty($state->thirds);
+        $this->assertTrue($state->blocked());
+
+        // Auto-resolution is disabled for everyone, so no default entry orderings were recorded —
+        // the --me deliberate tie and any demo player's natural tie are left for a human.
+        $this->assertDatabaseCount('entry_group_orderings', 0);
+    }
+
+    public function test_player_tie_group_leaves_the_me_user_with_an_unresolved_group_tie(): void
+    {
+        $this->artisan('tournament:simulate', ['--player-tie' => 'group', '--players' => 2, '--predict-only' => true, '--reset' => true])
+            ->assertSuccessful();
+
+        $entry = $this->meEntryInUpfrontPool();
+        $state = (new TieResolutionState)->forEntry($entry);
+
+        $this->assertNotEmpty($state->groupTies);
+        $this->assertTrue($state->blocked());
+        $this->assertDatabaseCount('entry_group_orderings', 0);
+    }
+
+    public function test_an_unknown_player_tie_value_fails_and_predicts_nothing(): void
+    {
+        $this->artisan('tournament:simulate', ['--player-tie' => 'bogus'])->assertFailed();
+
+        $this->assertDatabaseCount('group_predictions', 0);
+    }
+
+    private function meEntryInUpfrontPool(): Entry
+    {
+        $upfront = $this->tournament->pools()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
+        $me = User::firstWhere('email', 'test@example.com');
+
+        return $upfront->entries()->where('user_id', $me->id)->firstOrFail();
     }
 
     private function admin(): User

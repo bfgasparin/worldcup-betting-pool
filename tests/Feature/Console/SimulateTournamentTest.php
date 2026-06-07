@@ -10,6 +10,7 @@ use App\Models\KnockoutPrediction;
 use App\Models\Pool;
 use App\Models\Tournament;
 use App\Models\User;
+use App\Services\Predictions\TieResolutionState;
 use Database\Seeders\WorldCup2026Seeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -69,6 +70,21 @@ class SimulateTournamentTest extends TestCase
 
         // Staged per-round snapshots leave a movement baseline.
         $this->assertGreaterThan(0, $this->pool->entries()->whereNotNull('previous_rank')->count());
+    }
+
+    public function test_by_default_every_upfront_entry_has_a_fully_resolved_bracket(): void
+    {
+        // The default has no human to break ties, so it must auto-resolve every player's standings
+        // — including a thirds tie hidden behind a within-group tie — leaving no bracket blocked.
+        $this->artisan('tournament:simulate', ['--players' => 3, '--predict-only' => true])
+            ->assertSuccessful();
+
+        $this->pool->entries->each(function (Entry $entry): void {
+            $this->assertFalse(
+                (new TieResolutionState)->forEntry($entry)->blocked(),
+                "Entry {$entry->id} should have a fully-resolved bracket by default.",
+            );
+        });
     }
 
     public function test_it_also_simulates_the_phased_bracket_pool(): void
