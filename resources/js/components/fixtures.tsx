@@ -1,4 +1,4 @@
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Clock } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Flag } from '@/components/flag';
@@ -9,6 +9,7 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
 import { cn } from '@/lib/utils';
@@ -214,7 +215,13 @@ export function PointsBadge({ points }: { points: number | null }) {
     );
 }
 
-function MatchRow({ fixture }: { fixture: GroupFixture }) {
+function MatchRow({
+    fixture,
+    showTimes,
+}: {
+    fixture: GroupFixture;
+    showTimes: boolean;
+}) {
     const tz = useDisplayTimeZone();
     const { home_goals: homeGoals, away_goals: awayGoals } = fixture;
     const settled = homeGoals !== null && awayGoals !== null;
@@ -234,84 +241,87 @@ function MatchRow({ fixture }: { fixture: GroupFixture }) {
           : 'font-semibold text-muted-foreground';
 
     return (
-        <div className="relative grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-t border-border py-2.5 pl-3 first:border-t-0">
+        <div className="relative border-t border-border py-2.5 pl-3 first:border-t-0">
             <MatchdayStripe matchdayKey={fixture.matchday_key} />
-            <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
+
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                <div className="min-w-0">
                     <MatchdayChip matchdayKey={fixture.matchday_key} />
-                    {fixture.kicks_off_at && (
+                </div>
+
+                <div className="flex min-w-0 flex-col items-center gap-0.5">
+                    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
                         <span
                             className={cn(
-                                'font-display text-[11px] font-semibold whitespace-nowrap',
-                                settled && 'text-muted-foreground',
+                                'flex min-w-0 items-center justify-end gap-1.5 text-sm',
+                                homeClass,
                             )}
                         >
+                            <span className="truncate">
+                                {teamCode(fixture.home)}
+                            </span>
+                            <Flag team={fixture.home} className="h-4 w-6" />
+                        </span>
+                        {settled ? (
+                            <span className="text-center font-display text-base font-semibold tabular-nums">
+                                {homeGoals}–{awayGoals}
+                            </span>
+                        ) : (
+                            <span className="text-center font-display text-xs text-muted-foreground">
+                                v
+                            </span>
+                        )}
+                        <span
+                            className={cn(
+                                'flex min-w-0 items-center gap-1.5 text-sm',
+                                awayClass,
+                            )}
+                        >
+                            <Flag team={fixture.away} className="h-4 w-6" />
+                            <span className="truncate">
+                                {teamCode(fixture.away)}
+                            </span>
+                        </span>
+                    </div>
+                    {fixture.prediction ? (
+                        <div className="text-[11px] text-muted-foreground">
+                            You{' '}
+                            <span className="font-semibold tabular-nums">
+                                {fixture.prediction.home_goals}–
+                                {fixture.prediction.away_goals}
+                            </span>
+                        </div>
+                    ) : (
+                        <div className="text-[11px] font-medium text-muted-foreground/70">
+                            No prediction
+                        </div>
+                    )}
+                </div>
+
+                <div className="justify-self-end">
+                    <PointsBadge
+                        points={fixture.prediction?.points_awarded ?? null}
+                    />
+                </div>
+            </div>
+
+            {(fixture.kicks_off_at || fixture.venue) && (
+                <div
+                    className={cn(
+                        'mt-1 truncate text-[11px] text-muted-foreground',
+                        showTimes ? 'block' : 'hidden',
+                    )}
+                >
+                    {fixture.kicks_off_at && (
+                        <>
                             {formatMatchDate(fixture.kicks_off_at, tz)} ·{' '}
                             {formatMatchTime(fixture.kicks_off_at, tz)}
-                        </span>
+                        </>
                     )}
+                    {fixture.kicks_off_at && fixture.venue ? ' · ' : ''}
+                    {fixture.venue ? venueLabel(fixture.venue) : ''}
                 </div>
-                {fixture.venue && (
-                    <div className="truncate text-[11px] text-muted-foreground">
-                        {venueLabel(fixture.venue)}
-                    </div>
-                )}
-            </div>
-
-            <div className="flex min-w-0 flex-col items-center gap-0.5">
-                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                    <span
-                        className={cn(
-                            'flex min-w-0 items-center justify-end gap-1.5 text-sm',
-                            homeClass,
-                        )}
-                    >
-                        <span className="truncate">
-                            {teamCode(fixture.home)}
-                        </span>
-                        <Flag team={fixture.home} className="h-4 w-6" />
-                    </span>
-                    {settled ? (
-                        <span className="text-center font-display text-base font-semibold tabular-nums">
-                            {homeGoals}–{awayGoals}
-                        </span>
-                    ) : (
-                        <span className="text-center font-display text-xs text-muted-foreground">
-                            v
-                        </span>
-                    )}
-                    <span
-                        className={cn(
-                            'flex min-w-0 items-center gap-1.5 text-sm',
-                            awayClass,
-                        )}
-                    >
-                        <Flag team={fixture.away} className="h-4 w-6" />
-                        <span className="truncate">
-                            {teamCode(fixture.away)}
-                        </span>
-                    </span>
-                </div>
-                {fixture.prediction ? (
-                    <div className="text-[11px] text-muted-foreground">
-                        You{' '}
-                        <span className="font-semibold tabular-nums">
-                            {fixture.prediction.home_goals}–
-                            {fixture.prediction.away_goals}
-                        </span>
-                    </div>
-                ) : (
-                    <div className="text-[11px] font-medium text-muted-foreground/70">
-                        No prediction
-                    </div>
-                )}
-            </div>
-
-            <div className="justify-self-end">
-                <PointsBadge
-                    points={fixture.prediction?.points_awarded ?? null}
-                />
-            </div>
+            )}
         </div>
     );
 }
@@ -371,6 +381,33 @@ function StandingsPanel({
     );
 }
 
+/** A compact per-card toggle that reveals each row's kickoff date · venue. */
+export function ShowTimesToggle({
+    open,
+    onToggle,
+}: {
+    open: boolean;
+    onToggle: () => void;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={open}
+            aria-label="Show kickoff times"
+            className="inline-flex shrink-0 items-center gap-0.5 rounded-full p-1 text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:text-foreground"
+        >
+            <Clock className="size-3.5" />
+            <ChevronDown
+                className={cn(
+                    'size-3.5 transition-transform duration-200',
+                    open && 'rotate-180',
+                )}
+            />
+        </button>
+    );
+}
+
 export function GroupFixtureCard({
     name,
     teams,
@@ -389,6 +426,8 @@ export function GroupFixtureCard({
      */
     predictedStandings?: StandingRow[] | null;
 }) {
+    const [showTimes, setShowTimes] = useState(false);
+
     return (
         <div className="card-elevated rounded-3xl p-5">
             <div className="mb-3 flex items-center justify-between gap-2">
@@ -398,9 +437,15 @@ export function GroupFixtureCard({
                         Group {name}
                     </h3>
                 </div>
-                <span className="text-[11px] font-bold tracking-wide text-muted-foreground uppercase">
-                    {fixtures.length} matches
-                </span>
+                <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-bold tracking-wide text-muted-foreground uppercase">
+                        {fixtures.length} matches
+                    </span>
+                    <ShowTimesToggle
+                        open={showTimes}
+                        onToggle={() => setShowTimes((value) => !value)}
+                    />
+                </div>
             </div>
 
             <div className="flex flex-wrap gap-1.5 border-b border-border pb-3">
@@ -411,7 +456,11 @@ export function GroupFixtureCard({
 
             <div className="mt-1">
                 {fixtures.map((fixture) => (
-                    <MatchRow key={fixture.match_number} fixture={fixture} />
+                    <MatchRow
+                        key={fixture.match_number}
+                        fixture={fixture}
+                        showTimes={showTimes}
+                    />
                 ))}
             </div>
 
@@ -826,7 +875,7 @@ export function FinalCard({ fixture }: { fixture: BracketFixture }) {
         const hasTeams = pick != null && pick.predicted_home != null;
 
         return (
-            <div className="relative mx-auto max-w-xl overflow-hidden rounded-3xl border border-accent/30 bg-ink p-9 text-center text-white">
+            <div className="relative mx-auto max-w-xl overflow-hidden rounded-3xl border border-accent/30 bg-ink p-6 text-center text-white sm:p-9">
                 <div className="pointer-events-none absolute -top-20 left-1/2 size-72 -translate-x-1/2 rounded-full bg-gold opacity-20 blur-[110px]" />
                 <div className="relative">
                     <div className="text-4xl">🏆</div>
@@ -838,7 +887,7 @@ export function FinalCard({ fixture }: { fixture: BracketFixture }) {
                             {formatLongDate(fixture.kicks_off_at, tz)}
                         </div>
                     )}
-                    <div className="mt-6 flex items-center justify-center gap-6">
+                    <div className="mt-6 flex items-center justify-center gap-4 sm:gap-6">
                         <FinalResultTeam
                             team={fixture.home}
                             label={fixture.home_label}
@@ -899,7 +948,7 @@ export function FinalCard({ fixture }: { fixture: BracketFixture }) {
     }
 
     return (
-        <div className="relative mx-auto max-w-xl overflow-hidden rounded-3xl border border-accent/30 bg-ink p-9 text-center text-white">
+        <div className="relative mx-auto max-w-xl overflow-hidden rounded-3xl border border-accent/30 bg-ink p-6 text-center text-white sm:p-9">
             <div className="pointer-events-none absolute -top-20 left-1/2 size-72 -translate-x-1/2 rounded-full bg-gold opacity-20 blur-[110px]" />
             <div className="relative">
                 <div className="text-4xl">🏆</div>
@@ -956,40 +1005,18 @@ export function PhaseTabs({
 }) {
     return (
         <div className="sticky top-0 z-30 -mx-4 border-b border-border bg-background/85 px-4 py-3 backdrop-blur">
-            <div className="flex [scrollbar-width:none] gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden">
-                {phases.map((phase) => {
-                    const on = phase.id === active;
+            <SegmentedTabs
+                aria-label="Phases"
+                value={active}
+                onChange={onSelect}
+                items={phases.map((phase) => ({
+                    value: phase.id,
+                    label: phase.label,
+                    count: phase.count,
                     // A filter can empty a phase; dim and disable it so it can't be selected.
-                    const empty = phase.count === 0;
-
-                    return (
-                        <button
-                            key={phase.id}
-                            type="button"
-                            disabled={empty}
-                            onClick={() => onSelect(phase.id)}
-                            className={cn(
-                                'flex shrink-0 items-center gap-2 rounded-full border-[1.5px] px-4 py-2 font-display text-sm font-semibold whitespace-nowrap transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-transparent',
-                                on
-                                    ? 'border-transparent bg-pitch-deep text-white'
-                                    : 'border-transparent bg-secondary text-secondary-foreground hover:border-border',
-                            )}
-                        >
-                            {phase.label}
-                            <span
-                                className={cn(
-                                    'font-body text-[11px] font-bold',
-                                    on
-                                        ? 'text-white/70'
-                                        : 'text-muted-foreground',
-                                )}
-                            >
-                                {phase.count}
-                            </span>
-                        </button>
-                    );
-                })}
-            </div>
+                    disabled: phase.count === 0,
+                }))}
+            />
         </div>
     );
 }

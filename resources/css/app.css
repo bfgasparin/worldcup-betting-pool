@@ -131,6 +131,11 @@
     --glow-accent: 0 18px 40px -10px rgba(255, 159, 28, 0.5);
     --glow-teal: 0 18px 44px -12px rgba(28, 138, 166, 0.5);
     --glow-violet: 0 18px 44px -12px rgba(106, 95, 214, 0.5);
+
+    /* Height the mobile in-pool tab bar reserves at the foot of the screen. 0 by default so every
+       `bottom-[var(--pool-tab-bar-h)]` offset collapses to its desktop value; `.has-pool-tab-bar`
+       (set only on mobile in-pool pages) raises it to the real value. */
+    --pool-tab-bar-h: 0px;
 }
 
 .dark {
@@ -369,5 +374,32 @@
         border: 1px solid var(--border);
         background-color: var(--card);
         box-shadow: var(--sh-sm);
+    }
+
+    /* Activates the mobile in-pool tab bar height — applied to the scroll container so the bar's
+       offset token resolves only where the bar actually shows. Includes the iOS home-indicator
+       inset so the bar and everything floating above it clear the safe area. */
+    .has-pool-tab-bar {
+        --pool-tab-bar-h: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+    }
+
+    /* Fades the left/right edges of a horizontal scroller so clipped content "peeks" out, hinting
+       that the row scrolls. Theme-agnostic (masks the content itself), reused by the segmented
+       tabs scroll mode and the compare strip. */
+    .edge-fade-x {
+        -webkit-mask-image: linear-gradient(
+            to right,
+            transparent 0,
+            #000 1.25rem,
+            #000 calc(100% - 1.25rem),
+            transparent 100%
+        );
+        mask-image: linear-gradient(
+            to right,
+            transparent 0,
+            #000 1.25rem,
+            #000 calc(100% - 1.25rem),
+            transparent 100%
+        );
     }
 }

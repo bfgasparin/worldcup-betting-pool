@@ -23,7 +23,7 @@ import { ScoreStepper } from '@/components/score-stepper';
 import { StandingsTable } from '@/components/standings-table';
 import { TieResolutionPanel } from '@/components/tie-resolution-panel';
 import { Button } from '@/components/ui/button';
-import { chipVariants } from '@/components/ui/chip';
+import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { poolTitle } from '@/lib/pool-title';
 import { scoringRules } from '@/lib/scoring';
@@ -459,7 +459,12 @@ function GroupCard({
                             <MatchdayStripe
                                 matchdayKey={fixture.matchday_key}
                             />
-                            <MatchdayChip matchdayKey={fixture.matchday_key} />
+                            {/* The coloured stripe already encodes the matchday on phones; the chip
+                                only earns its space from sm up, where there's room. */}
+                            <MatchdayChip
+                                matchdayKey={fixture.matchday_key}
+                                className="hidden sm:inline-flex"
+                            />
                             <div className="grid flex-1 grid-cols-[1fr_auto_1fr] items-center gap-2">
                                 <span className="flex min-w-0 items-center justify-end gap-1.5 text-sm font-bold">
                                     <span className="truncate">
@@ -470,7 +475,7 @@ function GroupCard({
                                         className="h-4 w-6"
                                     />
                                 </span>
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1 sm:gap-1.5">
                                     <ScoreStepper
                                         value={score.home}
                                         disabled={!canEdit}
@@ -636,7 +641,7 @@ function KnockoutCard({
     return (
         <div
             className={cn(
-                'flex w-72 flex-col gap-2.5 rounded-2xl p-4 text-sm',
+                'flex w-full flex-col gap-2.5 rounded-2xl p-4 text-sm',
                 isFinal
                     ? 'shadow-glow-accent border border-accent/40 bg-card'
                     : 'card-elevated',
@@ -1298,38 +1303,26 @@ export default function Predict({
                     </div>
                 )}
 
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    <ol className="flex flex-wrap gap-2">
-                        {STEP_TITLES.map((title, index) => {
+                <div className="flex flex-col gap-3">
+                    <SegmentedTabs
+                        aria-label="Prediction steps"
+                        value={String(step)}
+                        onChange={(value) => goToStep(Number(value))}
+                        items={STEP_TITLES.map((title, index) => {
                             const remaining = stepRemainingCounts[index];
                             const showCount =
                                 isStepEditable(index, canEdit, phasesByKey) &&
                                 remaining > 0;
 
-                            return (
-                                <li key={title}>
-                                    <button
-                                        type="button"
-                                        onClick={() => goToStep(index)}
-                                        className={chipVariants({
-                                            variant:
-                                                index === step
-                                                    ? 'active'
-                                                    : 'default',
-                                        })}
-                                    >
-                                        {index + 1}. {title}
-                                        {showCount
-                                            ? ` · ${remaining} left`
-                                            : ''}
-                                    </button>
-                                </li>
-                            );
+                            return {
+                                value: String(index),
+                                label: `${index + 1}. ${title}${showCount ? ` · ${remaining} left` : ''}`,
+                            };
                         })}
-                    </ol>
+                    />
 
                     {anyOpen && (
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                             <Button
                                 type="button"
                                 variant={onlyRemaining ? 'default' : 'outline'}
@@ -1472,7 +1465,7 @@ export default function Predict({
                     )}
                 </section>
 
-                <footer className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-border bg-background/80 py-4 backdrop-blur">
+                <footer className="sticky bottom-[var(--pool-tab-bar-h)] flex items-center justify-between gap-3 border-t border-border bg-background/80 py-4 backdrop-blur">
                     <Button
                         type="button"
                         variant="outline"
@@ -1622,7 +1615,7 @@ function KnockoutStep({
                                 results are in.
                             </p>
                         ) : (
-                            <div className="flex flex-wrap gap-3">
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                                 {fixtures.map((fixture) => (
                                     <KnockoutCard
                                         key={fixture.fixture_id}

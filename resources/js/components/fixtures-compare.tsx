@@ -663,7 +663,7 @@ export function CompareFinalCard({
     const settled = fixture.home_goals !== null && fixture.away_goals !== null;
 
     return (
-        <div className="relative mx-auto max-w-xl overflow-hidden rounded-3xl border border-accent/30 bg-ink p-8 text-center text-white">
+        <div className="relative mx-auto max-w-xl overflow-hidden rounded-3xl border border-accent/30 bg-ink p-6 text-center text-white sm:p-8">
             <div className="pointer-events-none absolute -top-20 left-1/2 size-72 -translate-x-1/2 rounded-full bg-gold opacity-20 blur-[110px]" />
             <div className="relative">
                 <div className="text-3xl">🏆</div>

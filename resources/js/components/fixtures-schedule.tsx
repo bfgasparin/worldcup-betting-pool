@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
     formatMatchDate,
     formatMatchTime,
@@ -5,6 +6,7 @@ import {
     PhaseMeta,
     phaseDateRange,
     PointsBadge,
+    ShowTimesToggle,
     slotAbbrev,
 } from '@/components/fixtures';
 import { FixtureComparePicks } from '@/components/fixtures-compare';
@@ -288,9 +290,11 @@ function SideToken({
 function ScheduleRow({
     match,
     comparison,
+    showTimes,
 }: {
     match: NormalizedMatch;
     comparison: Comparison | null;
+    showTimes: boolean;
 }) {
     const tz = useDisplayTimeZone();
     const settled = match.homeGoals !== null && match.awayGoals !== null;
@@ -315,24 +319,7 @@ function ScheduleRow({
             <MatchdayStripe matchdayKey={match.matchdayKey} />
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                 <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                        <MatchdayChip matchdayKey={match.matchdayKey} />
-                        {match.kicksOffAt && (
-                            <span
-                                className={cn(
-                                    'font-display text-[11px] font-semibold whitespace-nowrap',
-                                    settled && 'text-muted-foreground',
-                                )}
-                            >
-                                {formatMatchDate(match.kicksOffAt, tz)} ·{' '}
-                                {formatMatchTime(match.kicksOffAt, tz)}
-                            </span>
-                        )}
-                    </div>
-                    <div className="truncate text-[11px] text-muted-foreground">
-                        {match.context}
-                        {match.venue ? ` · ${venueLabel(match.venue)}` : ''}
-                    </div>
+                    <MatchdayChip matchdayKey={match.matchdayKey} />
                 </div>
 
                 <div className="flex min-w-0 flex-col items-center gap-0.5">
@@ -386,6 +373,19 @@ function ScheduleRow({
                 </div>
             </div>
 
+            <div
+                className={cn(
+                    'mt-1 truncate text-[11px] text-muted-foreground',
+                    showTimes ? 'block' : 'hidden',
+                )}
+            >
+                {match.kicksOffAt
+                    ? `${formatMatchDate(match.kicksOffAt, tz)} · ${formatMatchTime(match.kicksOffAt, tz)} · `
+                    : ''}
+                {match.context}
+                {match.venue ? ` · ${venueLabel(match.venue)}` : ''}
+            </div>
+
             {comparison && (
                 <FixtureComparePicks
                     players={comparison.players}
@@ -410,15 +410,29 @@ function ScheduleSection({
     matches: NormalizedMatch[];
     comparison: Comparison | null;
 }) {
+    const [showTimes, setShowTimes] = useState(false);
+
     return (
         <div>
-            <PhaseMeta title={title} meta={meta} />
+            <PhaseMeta
+                title={title}
+                meta={
+                    <span className="flex items-center gap-2">
+                        {meta}
+                        <ShowTimesToggle
+                            open={showTimes}
+                            onToggle={() => setShowTimes((value) => !value)}
+                        />
+                    </span>
+                }
+            />
             <div className="card-elevated rounded-3xl px-5 py-1">
                 {matches.map((match) => (
                     <ScheduleRow
                         key={match.fixtureId}
                         match={match}
                         comparison={comparison}
+                        showTimes={showTimes}
                     />
                 ))}
             </div>
