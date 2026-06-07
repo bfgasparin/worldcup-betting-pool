@@ -63,6 +63,9 @@ const STEP_TITLES = [
 
 const AUTOSAVE_DELAY = 700;
 
+/** A stable empty set so the frozen-set lookup never allocates on a miss. */
+const EMPTY_ID_SET: ReadonlySet<number> = new Set<number>();
+
 /** The knockout phase keys that make up a wizard step (empty for the group step). */
 function stepPhaseKeys(step: number): string[] {
     return step === 0 ? [] : KNOCKOUT_STEPS[step - 1].phaseKeys;
@@ -108,6 +111,29 @@ function isKnockoutPickDone(pick: KnockoutPick | undefined): boolean {
 function groupTieUnresolved(group: PredictGroup): boolean {
     return group.tied_clusters.some(
         (cluster) => !cluster.resolved && cluster.team_ids.length > 1,
+    );
+}
+
+/** Whether a group fixture still needs a scoreline — the live "needs prediction" test. */
+function groupFixtureRemainingFor(
+    fixture: PredictGroupFixture,
+    scores: GroupScores,
+): boolean {
+    return !isGroupScoreDone(scores[fixture.fixture_id]);
+}
+
+/**
+ * Whether a knockout fixture still needs a pick the player can act on now — participants known and
+ * the advancing team not yet set.
+ */
+function knockoutFixtureRemainingFor(
+    fixture: KnockoutPredictionFixture,
+    picks: KnockoutPicks,
+): boolean {
+    return (
+        fixture.home !== null &&
+        fixture.away !== null &&
+        !isKnockoutPickDone(picks[fixture.fixture_id])
     );
 }
 
@@ -364,6 +390,7 @@ function GroupCard({
     group,
     scores,
     canEdit,
+    saveStatus,
     onChange,
     onCommit,
     orderingUrl,
@@ -372,6 +399,7 @@ function GroupCard({
     group: PredictGroup;
     scores: GroupScores;
     canEdit: boolean;
+    saveStatus: SaveStatusValue;
     onChange: (fixtureId: number, side: 'home' | 'away', value: string) => void;
     onCommit: () => void;
     orderingUrl: string;
@@ -477,6 +505,12 @@ function GroupCard({
                                     </span>
                                 </span>
                             </div>
+                            {/* Reserved fixed-width slot so the mark appearing never shifts the row. */}
+                            <span className="flex w-4 shrink-0 items-center justify-center">
+                                {isGroupScoreDone(score) && (
+                                    <RowSavedIcon status={saveStatus} />
+                                )}
+                            </span>
                         </div>
                     );
                 })}
@@ -554,6 +588,7 @@ function KnockoutCard({
     pick,
     canEdit,
     isFinal,
+    saveStatus,
     onChange,
     onCommit,
 }: {
@@ -561,6 +596,7 @@ function KnockoutCard({
     pick: KnockoutPick;
     canEdit: boolean;
     isFinal: boolean;
+    saveStatus: SaveStatusValue;
     onChange: (patch: Partial<KnockoutPick>, immediate?: boolean) => void;
     onCommit: () => void;
 }) {
@@ -609,11 +645,19 @@ function KnockoutCard({
                 <span className="font-display text-xs font-semibold text-muted-foreground">
                     Match {fixture.match_number}
                 </span>
-                {isFinal && (
-                    <span className="font-display text-[11px] font-bold tracking-wide text-amber uppercase">
-                        Final
+                <span className="flex items-center gap-2">
+                    {/* Reserved fixed-width slot so the mark appearing never shifts the header. */}
+                    <span className="flex w-4 items-center justify-center">
+                        {isKnockoutPickDone(pick) && (
+                            <RowSavedIcon status={saveStatus} />
+                        )}
                     </span>
-                )}
+                    {isFinal && (
+                        <span className="font-display text-[11px] font-bold tracking-wide text-amber uppercase">
+                            Final
+                        </span>
+                    )}
+                </span>
             </div>
             <SlotRow
                 label={teamName(fixture.home, fixture.home_label)}
@@ -720,6 +764,26 @@ function SaveStatus({ status }: { status: SaveStatusValue }) {
     );
 }
 
+/**
+ * A tiny per-row status icon shown on a completed fixture so the player sees their pick is recorded
+ * (not vanished). Icon-only with a fixed footprint, and meant to sit inside an always-present
+ * reserved slot at the call site, so its appearance never reflows the row. Mirrors the single
+ * `saveStatus` source, so it can't contradict the footer indicator.
+ */
+function RowSavedIcon({ status }: { status: SaveStatusValue }) {
+    if (status === 'saving') {
+        return (
+            <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+        );
+    }
+
+    if (status === 'error') {
+        return <CircleAlert className="size-3.5 text-destructive" />;
+    }
+
+    return <Check className="size-3.5 text-primary" />;
+}
+
 export default function Predict({
     pool,
     groups,
@@ -769,6 +833,12 @@ export default function Predict({
     );
     // "Needs my prediction": hide matches already filled in, so only outstanding work shows.
     const [onlyRemaining, setOnlyRemaining] = useState(false);
+    // Sticky working set, keyed by step: the fixture ids that were outstanding when the filter was
+    // (re-)entered for that step. Visibility under the filter is the UNION of this and what's still
+    // live-remaining, so a just-completed fixture stays put (with a "Saved" pill) while newly-arising
+    // work still appears. Re-snapshotted only on explicit actions (toggle on, step change, "Hide
+    // completed"); cleared when the filter is turned off.
+    const [frozen, setFrozen] = useState<Record<number, Set<number>>>({});
 
     // Refs mirror the latest editable state and context so the debounced/queued auto-save
     // always reads current values, even from a timer scheduled in an earlier render.
@@ -859,22 +929,25 @@ export default function Predict({
         return null;
     }, [step, canEdit, phasesByKey, stepRemainingCounts]);
 
-    // Predicates for the "needs my prediction" filter: keep only matches still awaiting a pick (and,
-    // for knockout, only ones the player can act on now — participants known).
-    const groupFixtureRemaining = (fixture: PredictGroupFixture): boolean =>
-        !isGroupScoreDone(groupScores[fixture.fixture_id]);
-    const knockoutFixtureRemaining = (
+    // Visibility under the filter = frozen-for-this-step OR still live-remaining (the union): a
+    // just-completed fixture stays in its frozen slot (shown with a "Saved" pill), while newly-arising
+    // work (an upfront cascade re-emptying a pick, a phased round reopening) still surfaces.
+    const frozenForStep = (target: number): ReadonlySet<number> =>
+        frozen[target] ?? EMPTY_ID_SET;
+    const groupFixtureVisible = (fixture: PredictGroupFixture): boolean =>
+        frozenForStep(0).has(fixture.fixture_id) ||
+        groupFixtureRemainingFor(fixture, groupScores);
+    const knockoutFixtureVisible = (
         fixture: KnockoutPredictionFixture,
     ): boolean =>
-        fixture.home !== null &&
-        fixture.away !== null &&
-        !isKnockoutPickDone(picks[fixture.fixture_id]);
-    // A group is outstanding while it has matches left to score OR an unresolved tie to order — the
-    // tie panel lives inside the card, so dropping a complete-but-tied group would strand it.
+        frozenForStep(step).has(fixture.fixture_id) ||
+        knockoutFixtureRemainingFor(fixture, picks);
+    // A group is outstanding while it has matches to show OR an unresolved tie to order — the tie
+    // panel lives inside the card, so dropping a complete-but-tied group would strand it.
     const visiblePredictGroups = onlyRemaining
         ? groups.filter(
               (group) =>
-                  group.fixtures.some(groupFixtureRemaining) ||
+                  group.fixtures.some(groupFixtureVisible) ||
                   groupTieUnresolved(group),
           )
         : groups;
@@ -885,6 +958,25 @@ export default function Predict({
         thirdsTie !== null &&
         thirdsTie.teams.length > 0 &&
         !thirdsTie.resolved;
+
+    // Whether the filtered step would render anything under the union rule — drives StepClearNote so
+    // the "all done" note shows only when there's genuinely nothing to display (not merely nothing
+    // live-remaining, since completed-but-frozen rows must keep showing).
+    const groupStepHasVisible =
+        visiblePredictGroups.length > 0 || thirdsTieUnresolved;
+    const knockoutStepHasVisible = (target: number): boolean =>
+        KNOCKOUT_STEPS[target - 1].phaseKeys.some((key) =>
+            (phasesByKey[key]?.fixtures ?? []).some(knockoutFixtureVisible),
+        );
+    // A completed-but-still-shown row exists when something in the frozen set is now done — exactly
+    // what "Hide completed" would tidy away, so that button only appears when there's work to remove.
+    const completedShowing =
+        onlyRemaining &&
+        [...frozenForStep(step)].some((id) =>
+            step === 0
+                ? isGroupScoreDone(groupScores[id])
+                : isKnockoutPickDone(picks[id]),
+        );
 
     const canImport = importSources.length > 0;
     const showImportSuggestion =
@@ -1073,10 +1165,58 @@ export default function Predict({
         }
     };
 
+    // Re-freeze the working set for a step: the fixture ids currently live-remaining there. Reads the
+    // refs (current as of this click) so it never lags a keystroke — call it only from click/nav
+    // handlers, never during render, or it would re-snapshot every edit and reintroduce the vanishing.
+    function snapshotStep(target: number): void {
+        const ids = new Set<number>();
+
+        if (target === 0) {
+            for (const group of groupsRef.current) {
+                for (const fixture of group.fixtures) {
+                    if (
+                        groupFixtureRemainingFor(
+                            fixture,
+                            groupScoresRef.current,
+                        )
+                    ) {
+                        ids.add(fixture.fixture_id);
+                    }
+                }
+            }
+        } else {
+            for (const key of KNOCKOUT_STEPS[target - 1].phaseKeys) {
+                const phase = phasesByKeyRef.current[key];
+
+                if (!phase) {
+                    continue;
+                }
+
+                for (const fixture of phase.fixtures) {
+                    if (
+                        knockoutFixtureRemainingFor(fixture, picksRef.current)
+                    ) {
+                        ids.add(fixture.fixture_id);
+                    }
+                }
+            }
+        }
+
+        setFrozen((previous) => ({ ...previous, [target]: ids }));
+    }
+
     const goToStep = (target: number): void => {
         flush();
         setStep(target);
+
+        // Switching steps re-tidies the destination: freeze its still-outstanding set afresh.
+        if (onlyRemaining) {
+            snapshotStep(target);
+        }
     };
+
+    // Re-freeze the current step, dropping rows the player has since completed.
+    const hideCompleted = (): void => snapshotStep(stepRef.current);
 
     // Each tie panel saves its order to this endpoint (a discrete commit, separate from the
     // debounced score auto-save); the server re-cascades and returns the bracket with slots filled.
@@ -1223,13 +1363,35 @@ export default function Predict({
                                 variant={onlyRemaining ? 'default' : 'outline'}
                                 size="sm"
                                 aria-pressed={onlyRemaining}
-                                onClick={() =>
-                                    setOnlyRemaining((value) => !value)
-                                }
+                                onClick={() => {
+                                    if (onlyRemaining) {
+                                        setOnlyRemaining(false);
+                                        setFrozen({});
+                                    } else {
+                                        snapshotStep(stepRef.current);
+                                        setOnlyRemaining(true);
+                                    }
+                                }}
                             >
                                 <ListFilter className="size-4" />
                                 Needs prediction
                             </Button>
+                            {onlyRemaining && (
+                                <span className="text-xs font-semibold text-muted-foreground">
+                                    {stepRemainingCounts[step]} left
+                                </span>
+                            )}
+                            {completedShowing && (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={hideCompleted}
+                                >
+                                    <Check className="size-4" />
+                                    Hide completed
+                                </Button>
+                            )}
                             {nextStep !== null && (
                                 <Button
                                     type="button"
@@ -1259,9 +1421,7 @@ export default function Predict({
                                     </span>
                                 </div>
                             )}
-                            {onlyRemaining &&
-                            stepRemainingCounts[0] === 0 &&
-                            !thirdsTieUnresolved ? (
+                            {onlyRemaining && !groupStepHasVisible ? (
                                 <StepClearNote />
                             ) : (
                                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -1271,6 +1431,7 @@ export default function Predict({
                                             group={group}
                                             scores={groupScores}
                                             canEdit={canEdit}
+                                            saveStatus={saveStatus}
                                             onChange={updateGroupScore}
                                             onCommit={flush}
                                             orderingUrl={orderingUrl}
@@ -1279,9 +1440,9 @@ export default function Predict({
                                                 // (scored) fixtures for context, not an empty card.
                                                 onlyRemaining &&
                                                 group.fixtures.some(
-                                                    groupFixtureRemaining,
+                                                    groupFixtureVisible,
                                                 )
-                                                    ? groupFixtureRemaining
+                                                    ? groupFixtureVisible
                                                     : undefined
                                             }
                                         />
@@ -1314,8 +1475,7 @@ export default function Predict({
                             {step === 1 && isUpfront && (
                                 <ThirdsPanel thirds={thirds} />
                             )}
-                            {onlyRemaining &&
-                            stepRemainingCounts[step] === 0 ? (
+                            {onlyRemaining && !knockoutStepHasVisible(step) ? (
                                 <StepClearNote />
                             ) : (
                                 <KnockoutStep
@@ -1324,9 +1484,10 @@ export default function Predict({
                                     }
                                     phasesByKey={phasesByKey}
                                     picks={picks}
+                                    saveStatus={saveStatus}
                                     fixtureFilter={
                                         onlyRemaining
-                                            ? knockoutFixtureRemaining
+                                            ? knockoutFixtureVisible
                                             : undefined
                                     }
                                     onChange={(fixtureId, patch, immediate) =>
@@ -1437,6 +1598,7 @@ function KnockoutStep({
     phaseKeys,
     phasesByKey,
     picks,
+    saveStatus,
     fixtureFilter,
     onChange,
     onCommit,
@@ -1444,6 +1606,7 @@ function KnockoutStep({
     phaseKeys: string[];
     phasesByKey: Record<string, PredictBracketPhase>;
     picks: KnockoutPicks;
+    saveStatus: SaveStatusValue;
     /** When set, only fixtures it keeps are shown (the "needs my prediction" filter). */
     fixtureFilter?: (fixture: KnockoutPredictionFixture) => boolean;
     onChange: (
@@ -1500,6 +1663,7 @@ function KnockoutStep({
                                         }
                                         canEdit={phaseEditable}
                                         isFinal={fixture.phase_key === 'final'}
+                                        saveStatus={saveStatus}
                                         onChange={(patch, immediate) =>
                                             onChange(
                                                 fixture.fixture_id,
