@@ -6,6 +6,7 @@ import AppLogoIcon from '@/components/app-logo-icon';
 import AvatarUploadField from '@/components/avatar-upload-field';
 import InputError from '@/components/input-error';
 import OnboardingProgress from '@/components/onboarding/onboarding-progress';
+import OnboardingStepper from '@/components/onboarding/onboarding-stepper';
 import PasskeyRegistration from '@/components/passkey-register';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -117,45 +118,93 @@ export default function Wizard({ hasPasskeys }: Props) {
     const busy = nameForm.processing || avatarForm.processing || completing;
 
     return (
-        <div className="relative flex min-h-svh flex-col items-center justify-center overflow-hidden bg-background p-6">
+        <div className="grid min-h-svh lg:grid-cols-2">
             <Head title="Welcome" />
 
-            <div
-                aria-hidden
-                className="bg-brand-gradient pointer-events-none absolute inset-x-0 -top-40 h-80 opacity-[0.08] blur-3xl"
-            />
-
-            <div className="relative w-full max-w-md">
-                <div className="mb-7 flex flex-col items-center gap-3 text-center">
-                    <div className="app-icon size-12 rounded-2xl shadow-[var(--sh-md)]">
-                        <AppLogoIcon className="size-7 text-white" />
-                    </div>
-                    <div>
-                        <p className="font-display text-lg font-semibold tracking-tight">
-                            Welcome to Brothers Bets
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                            A few quick things to get you match-ready.
-                        </p>
-                    </div>
+            {/* Pitch brand + progress panel — desktop only. */}
+            <aside className="hero relative hidden flex-col justify-between overflow-hidden p-10 lg:flex xl:p-14">
+                <div className="hero-lines" />
+                <div className="pointer-events-none absolute inset-0 -z-10">
+                    <div className="absolute -top-24 -right-28 size-[34rem] rounded-full bg-primary/25 blur-[120px]" />
+                    <div className="absolute -bottom-40 -left-32 size-[26rem] rounded-full bg-accent/15 blur-[120px]" />
                 </div>
 
-                <div className="card-elevated rounded-3xl p-6 sm:p-8">
-                    <OnboardingProgress
+                <span className="relative z-10 flex w-fit items-center gap-3">
+                    <span className="app-icon size-10 rounded-2xl shadow-[var(--sh-sm)]">
+                        <AppLogoIcon className="size-6 text-white" />
+                    </span>
+                    <span className="inline-flex items-baseline font-display text-lg font-semibold tracking-tight text-foreground">
+                        Brothers
+                        <span className="ml-2 text-[10px] font-bold tracking-[0.22em] text-amber uppercase">
+                            Bets
+                        </span>
+                    </span>
+                </span>
+
+                <div className="relative z-10 flex flex-col gap-8">
+                    <div className="flex flex-col gap-3">
+                        <span className="inline-flex w-fit items-center gap-2.5 rounded-full bg-muted px-4 py-1.5 text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">
+                            <span className="bg-brand-gradient size-2 rounded-full" />
+                            Getting started
+                        </span>
+                        <h2 className="max-w-sm font-display text-4xl font-semibold tracking-tight text-balance text-foreground">
+                            Let&apos;s get you{' '}
+                            <span className="text-primary">match-ready</span>.
+                        </h2>
+                        <p className="max-w-sm text-pretty text-muted-foreground">
+                            A few quick things and you&apos;re in — then
+                            it&apos;s straight to the predictions.
+                        </p>
+                    </div>
+
+                    <OnboardingStepper
                         steps={STEPS}
                         currentIndex={currentIndex}
                     />
+                </div>
 
+                <p className="relative z-10 max-w-sm text-sm text-muted-foreground">
+                    Every step is optional — you can change all of this later in
+                    settings.
+                </p>
+            </aside>
+
+            {/* Working area — full screen on mobile. */}
+            <div className="flex min-h-svh flex-col bg-background">
+                {/* Slim branded header + progress — mobile only. */}
+                <div className="hero relative overflow-hidden px-6 pt-8 pb-5 lg:hidden">
+                    <div className="hero-lines" />
+                    <div className="relative flex flex-col gap-4">
+                        <span className="flex w-fit items-center gap-2.5">
+                            <span className="app-icon size-9 rounded-xl shadow-[var(--sh-sm)]">
+                                <AppLogoIcon className="size-5 text-white" />
+                            </span>
+                            <span className="inline-flex items-baseline font-display text-base font-semibold tracking-tight text-foreground">
+                                Brothers
+                                <span className="ml-2 text-[10px] font-bold tracking-[0.22em] text-amber uppercase">
+                                    Bets
+                                </span>
+                            </span>
+                        </span>
+                        <OnboardingProgress
+                            steps={STEPS}
+                            currentIndex={currentIndex}
+                        />
+                    </div>
+                </div>
+
+                {/* Active step. */}
+                <div className="flex flex-1 flex-col justify-center px-6 py-8 sm:px-10">
                     <div
                         key={step}
-                        className="mt-7 flex animate-in flex-col gap-5 duration-300 fade-in-0 slide-in-from-bottom-2"
+                        className="mx-auto flex w-full max-w-md animate-in flex-col gap-6 duration-300 fade-in-0 slide-in-from-bottom-2"
                     >
                         <div className="flex flex-col gap-3">
-                            <span className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                                <StepIcon className="size-5" />
+                            <span className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                                <StepIcon className="size-6" />
                             </span>
-                            <div className="space-y-1.5">
-                                <h1 className="font-display text-xl font-semibold tracking-tight">
+                            <div className="space-y-2">
+                                <h1 className="font-display text-2xl font-semibold tracking-tight">
                                     {content.title}
                                 </h1>
                                 <p className="text-sm leading-relaxed text-muted-foreground">
@@ -243,8 +292,11 @@ export default function Wizard({ hasPasskeys }: Props) {
                             )}
                         </p>
                     </div>
+                </div>
 
-                    <div className="mt-8 flex items-center justify-between gap-3">
+                {/* Sticky action bar — always within thumb's reach on mobile. */}
+                <div className="sticky bottom-0 border-t border-border bg-background/90 px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] backdrop-blur sm:px-10">
+                    <div className="mx-auto flex w-full max-w-md items-center justify-between gap-3">
                         {currentIndex > 0 ? (
                             <Button
                                 type="button"
