@@ -1,4 +1,4 @@
-import { ChevronDown, Clock } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Flag } from '@/components/flag';
@@ -517,14 +517,18 @@ function KnockoutSlot({
 export function AdvanceChip({ tone = 'light' }: { tone?: 'light' | 'dark' }) {
     return (
         <span
+            aria-label="Advances"
+            title="Advances"
             className={cn(
-                'font-body inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[9.5px] font-bold tracking-wide uppercase',
+                'font-body inline-flex shrink-0 items-center rounded-full px-1 py-0.5 text-[9.5px] font-bold tracking-wide uppercase sm:px-2',
                 tone === 'dark'
                     ? 'bg-gold/20 text-gold'
                     : 'bg-primary/15 text-pitch-deep dark:text-primary',
             )}
         >
-            Advances
+            {/* Tight match-up rows can't fit the word on phones, so collapse to a glyph below sm. */}
+            <ChevronUp className="size-3 sm:hidden" aria-hidden />
+            <span className="hidden sm:inline">Advances</span>
         </span>
     );
 }
