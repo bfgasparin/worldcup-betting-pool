@@ -455,13 +455,6 @@ function BoardTag({ awardsPrizes }: { awardsPrizes: boolean }) {
 }
 
 /**
- * Overall-board rows shown below `lg`. The backend sends more (to fill the wide column against the
- * two stacked side boards on large screens); the extras reveal only at `lg+`, so smaller single-
- * column screens stay this short. Keep in step with `PoolController::HEADLINE_BOARD_ROWS`.
- */
-const OVERALL_COMPACT_ROWS = 8;
-
-/**
  * One featured board as a full table: its top rows plus the viewer's pinned row when they rank
  * outside them. On the Overall (prize) board of a paid pool, each paying place shows its prize
  * amount inline. While choosing players to compare, rows become selectable and the pinned row hides.
@@ -472,15 +465,12 @@ function FeaturedBoardCard({
     selecting,
     selectedIds,
     onToggle,
-    compactRows,
 }: {
     pool: PoolDetail;
     board: FeaturedBoard;
     selecting: boolean;
     selectedIds: number[];
     onToggle: (entryId: number) => void;
-    /** Rows shown below `lg`; rows past this reveal only on large screens. Headline board only. */
-    compactRows?: number;
 }) {
     const atLimit = selectedIds.length >= COMPARE_LIMIT;
     const isPaid = pool.pricing.entry_price > 0;
@@ -491,25 +481,6 @@ function FeaturedBoardCard({
     // undefined hides the prize column entirely; null reserves it for a place that doesn't pay.
     const prizeFor = (rank: number): string | null | undefined =>
         showPrizes ? prizeForPlace(pool.pricing, rank) : undefined;
-
-    // Reveal rows past the compact count only on large screens (where the 2-column layout — and the
-    // empty space the extra rows fill — exist). The boundary row drops its divider below `lg` so the
-    // card bottom is clean there, unless a pinned "You" row follows it.
-    const rowClassName = (index: number): string | undefined => {
-        if (compactRows == null || board.top.length <= compactRows) {
-            return undefined;
-        }
-
-        if (index >= compactRows) {
-            return 'max-lg:hidden';
-        }
-
-        if (index === compactRows - 1 && !pinnedMe) {
-            return 'border-b-0 lg:border-b';
-        }
-
-        return undefined;
-    };
 
     return (
         <section className="flex flex-col gap-3">
@@ -547,10 +518,9 @@ function FeaturedBoardCard({
                               onToggle={onToggle}
                           />
                       ))
-                    : board.top.map((row, index) => (
+                    : board.top.map((row) => (
                           <LeaderboardRow
                               key={row.rank}
-                              className={rowClassName(index)}
                               entry={{
                                   rank: row.rank,
                                   name: row.name,
@@ -590,9 +560,44 @@ function FeaturedBoardCard({
 }
 
 /**
- * The first three boards as full tables: the headline (Overall) fills a wide left column with the
- * remaining boards stacked in a narrower right column; below `lg` they stack into one column. Each
- * board links to its own detail page via its "Details" header — there's no single global link.
+ * Condense a featured board into the summary-card shape: its leader (top row) and the viewer's own
+ * standing. The viewer sits in `top` when ranked there, otherwise in the pinned `me` row; either way
+ * the card needs only those two, so the side boards ship just the leader plus the pinned viewer.
+ */
+function featuredBoardToSummary(board: FeaturedBoard): BoardSummary {
+    const leader = board.top[0] ?? null;
+    const mine = board.top.find((row) => row.is_me) ?? board.me;
+
+    return {
+        key: board.key,
+        label: board.label,
+        primary_stat_label: board.primary_stat_label,
+        leader: leader
+            ? {
+                  entry_id: leader.entry_id,
+                  name: leader.name,
+                  initials: leader.initials,
+                  avatar: leader.avatar,
+                  primary_value: leader.primary_value,
+                  is_me: leader.is_me,
+              }
+            : null,
+        you: mine
+            ? {
+                  rank: mine.rank,
+                  primary_value: mine.primary_value,
+                  movement: mine.movement,
+                  movement_delta: mine.movement_delta,
+              }
+            : null,
+    };
+}
+
+/**
+ * The leaderboard summary on the pool page: the headline (Overall) board as a short top-N table
+ * filling a wide left column, with the remaining boards condensed into leader+you summary cards
+ * stacked in a narrower right column; below `lg` they stack into one column. Each board links to its
+ * own detail page (the table via its "Details" header, each summary card as a whole).
  */
 function FeaturedBoards({
     pool,
@@ -625,17 +630,17 @@ function FeaturedBoards({
                 </span>
             )}
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] lg:items-start">
-                <FeaturedBoardCard
-                    board={headline}
-                    compactRows={OVERALL_COMPACT_ROWS}
-                    {...cardProps}
-                />
+                <FeaturedBoardCard board={headline} {...cardProps} />
                 {boards.length > 1 && (
-                    <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-3">
+                        {/* Mirror the headline card's section header (h3 + Details, ~h-7)
+                            so the side cards line up with the table body; lg+ only, since
+                            the columns stack into one below it. */}
+                        <div className="hidden h-7 lg:block" aria-hidden />
                         {boards.slice(1).map((board) => (
-                            <FeaturedBoardCard
+                            <BoardSummaryCard
                                 key={board.key}
-                                board={board}
+                                summary={featuredBoardToSummary(board)}
                                 {...cardProps}
                             />
                         ))}
@@ -647,10 +652,121 @@ function FeaturedBoards({
 }
 
 /**
- * A summary card per non-Overall board: the board's leader as the headline, with the viewer's own
- * position beneath. Shown once scoring has begun. In normal mode each card deep-links to that
- * board's tab; while choosing players to compare it stays put (no link) and the leader gains a `+`
- * so its winner can be added straight from the card — the section no longer vanishes on selection.
+ * One non-Overall board condensed to a card: its leader as the headline, with the viewer's own
+ * position beneath. Used both in the pool page's right column (next to the Overall table) and in the
+ * "More leaderboards" grid. In normal mode it deep-links to that board's tab; while choosing players
+ * to compare it stays put (no link) and the leader gains a `+` so its winner can be added straight
+ * from the card.
+ */
+function BoardSummaryCard({
+    pool,
+    summary,
+    selecting,
+    selectedIds,
+    onToggle,
+}: {
+    pool: PoolDetail;
+    summary: BoardSummary;
+    selecting: boolean;
+    selectedIds: number[];
+    onToggle: (entryId: number) => void;
+}) {
+    const atLimit = selectedIds.length >= COMPARE_LIMIT;
+    const unit = summary.primary_stat_label.toLowerCase();
+    const leader =
+        summary.leader && summary.leader.primary_value ? summary.leader : null;
+    const cardClass =
+        'flex flex-col gap-2 rounded-2xl border border-border bg-card px-4 py-3 shadow-[var(--sh-sm)]';
+
+    const body = (
+        <>
+            <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
+                    {summary.label}
+                </span>
+                {!selecting && (
+                    <ArrowRight className="size-4 text-muted-foreground transition-all group-hover:translate-x-0.5 group-hover:text-primary" />
+                )}
+            </div>
+
+            <div className="flex items-center justify-between gap-2">
+                {leader ? (
+                    <span className="flex min-w-0 items-center gap-2">
+                        <PlayerAvatar
+                            name={leader.name}
+                            initials={leader.initials}
+                            src={leader.avatar}
+                            fallbackClassName="bg-gold-gradient text-xs text-[#3a2600]"
+                            className="size-7"
+                        />
+                        <span className="truncate font-display text-sm font-semibold">
+                            {leader.name}
+                        </span>
+                    </span>
+                ) : (
+                    <span className="font-display text-sm font-semibold text-muted-foreground">
+                        No leader yet
+                    </span>
+                )}
+                <span className="flex shrink-0 items-center gap-2">
+                    {leader && (
+                        <span className="font-display text-sm font-semibold tabular-nums">
+                            {leader.primary_value?.toLocaleString()} {unit}
+                        </span>
+                    )}
+                    {selecting && leader && !leader.is_me && (
+                        <AddToggle
+                            entryId={leader.entry_id}
+                            name={leader.name}
+                            selected={selectedIds.includes(leader.entry_id)}
+                            disabled={
+                                atLimit &&
+                                !selectedIds.includes(leader.entry_id)
+                            }
+                            onToggle={onToggle}
+                        />
+                    )}
+                </span>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 border-t border-border pt-2 text-xs font-medium text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
+                    You · {summary.you ? ordinal(summary.you.rank) : '—'}
+                    {summary.you?.movement && (
+                        <MovementArrow
+                            movement={summary.you.movement}
+                            delta={summary.you.movement_delta}
+                            size="sm"
+                        />
+                    )}
+                </span>
+                {summary.you && (
+                    <span className="shrink-0 tabular-nums">
+                        {summary.you.primary_value?.toLocaleString()} {unit}
+                    </span>
+                )}
+            </div>
+        </>
+    );
+
+    return selecting ? (
+        <div className={cardClass}>{body}</div>
+    ) : (
+        <Link
+            href={`${pools.leaderboard(pool.slug).url}?board=${summary.key}`}
+            className={cn(
+                'group transition-colors hover:border-primary/40',
+                cardClass,
+            )}
+        >
+            {body}
+        </Link>
+    );
+}
+
+/**
+ * The "More leaderboards" grid: any boards beyond the first three, each as a {@see BoardSummaryCard}.
+ * Empty while a pool runs three or fewer boards (the case today).
  */
 function BoardSummaries({
     pool,
@@ -669,9 +785,7 @@ function BoardSummaries({
         return null;
     }
 
-    const atLimit = selectedIds.length >= COMPARE_LIMIT;
-    const cardClass =
-        'flex flex-col gap-2 rounded-2xl border border-border bg-card px-4 py-3 shadow-[var(--sh-sm)]';
+    const cardProps = { pool, selecting, selectedIds, onToggle };
 
     return (
         <section className="flex flex-col gap-3">
@@ -679,108 +793,13 @@ function BoardSummaries({
                 More leaderboards
             </h2>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {summaries.map((board) => {
-                    const unit = board.primary_stat_label.toLowerCase();
-                    const leader =
-                        board.leader && board.leader.primary_value
-                            ? board.leader
-                            : null;
-
-                    const body = (
-                        <>
-                            <div className="flex items-center justify-between">
-                                <span className="text-[11px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
-                                    {board.label}
-                                </span>
-                                {!selecting && (
-                                    <ArrowRight className="size-4 text-muted-foreground transition-all group-hover:translate-x-0.5 group-hover:text-primary" />
-                                )}
-                            </div>
-
-                            <div className="flex items-center justify-between gap-2">
-                                {leader ? (
-                                    <span className="flex min-w-0 items-center gap-2">
-                                        <PlayerAvatar
-                                            name={leader.name}
-                                            initials={leader.initials}
-                                            src={leader.avatar}
-                                            fallbackClassName="bg-gold-gradient text-xs text-[#3a2600]"
-                                            className="size-7"
-                                        />
-                                        <span className="truncate font-display text-sm font-semibold">
-                                            {leader.name}
-                                        </span>
-                                    </span>
-                                ) : (
-                                    <span className="font-display text-sm font-semibold text-muted-foreground">
-                                        No leader yet
-                                    </span>
-                                )}
-                                <span className="flex shrink-0 items-center gap-2">
-                                    {leader && (
-                                        <span className="font-display text-sm font-semibold tabular-nums">
-                                            {leader.primary_value?.toLocaleString()}{' '}
-                                            {unit}
-                                        </span>
-                                    )}
-                                    {selecting && leader && !leader.is_me && (
-                                        <AddToggle
-                                            entryId={leader.entry_id}
-                                            name={leader.name}
-                                            selected={selectedIds.includes(
-                                                leader.entry_id,
-                                            )}
-                                            disabled={
-                                                atLimit &&
-                                                !selectedIds.includes(
-                                                    leader.entry_id,
-                                                )
-                                            }
-                                            onToggle={onToggle}
-                                        />
-                                    )}
-                                </span>
-                            </div>
-
-                            <div className="flex items-center justify-between gap-2 border-t border-border pt-2 text-xs font-medium text-muted-foreground">
-                                <span className="inline-flex items-center gap-1.5">
-                                    You ·{' '}
-                                    {board.you ? ordinal(board.you.rank) : '—'}
-                                    {board.you?.movement && (
-                                        <MovementArrow
-                                            movement={board.you.movement}
-                                            delta={board.you.movement_delta}
-                                            size="sm"
-                                        />
-                                    )}
-                                </span>
-                                {board.you && (
-                                    <span className="shrink-0 tabular-nums">
-                                        {board.you.primary_value?.toLocaleString()}{' '}
-                                        {unit}
-                                    </span>
-                                )}
-                            </div>
-                        </>
-                    );
-
-                    return selecting ? (
-                        <div key={board.key} className={cardClass}>
-                            {body}
-                        </div>
-                    ) : (
-                        <Link
-                            key={board.key}
-                            href={`${pools.leaderboard(pool.slug).url}?board=${board.key}`}
-                            className={cn(
-                                'group transition-colors hover:border-primary/40',
-                                cardClass,
-                            )}
-                        >
-                            {body}
-                        </Link>
-                    );
-                })}
+                {summaries.map((summary) => (
+                    <BoardSummaryCard
+                        key={summary.key}
+                        summary={summary}
+                        {...cardProps}
+                    />
+                ))}
             </div>
         </section>
     );
