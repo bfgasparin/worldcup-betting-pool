@@ -8,7 +8,6 @@ import {
     GroupBadge,
     KnockoutPickMatchup,
     TeamChip,
-    TeamMatchupName,
 } from '@/components/fixtures';
 import { Flag } from '@/components/flag';
 import { StandingsTable } from '@/components/standings-table';
@@ -31,6 +30,10 @@ import type {
 } from '@/types/pools';
 
 /* ------------------------------------------------------------------ atoms */
+
+function code(team: TeamRef | null): string {
+    return team?.code ?? team?.name ?? 'TBD';
+}
 
 function slotLabel(team: TeamRef | null, label: string | null): string {
     return team ? (team.name ?? team.code ?? 'TBD') : (label ?? 'TBD');
@@ -224,7 +227,7 @@ function OfficialGroupMatchup({
             </div>
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
                 <span className="flex min-w-0 items-center justify-end gap-1.5 text-sm font-bold">
-                    <TeamMatchupName team={fixture.home} />
+                    <span className="truncate">{code(fixture.home)}</span>
                     <Flag team={fixture.home} className="h-4 w-6" />
                 </span>
                 {settled ? (
@@ -238,7 +241,7 @@ function OfficialGroupMatchup({
                 )}
                 <span className="flex min-w-0 items-center gap-1.5 text-sm font-bold">
                     <Flag team={fixture.away} className="h-4 w-6" />
-                    <TeamMatchupName team={fixture.away} />
+                    <span className="truncate">{code(fixture.away)}</span>
                 </span>
             </div>
         </>

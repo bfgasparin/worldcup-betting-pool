@@ -264,6 +264,7 @@ function SideToken({
     align,
     advancing,
     advanceChip = false,
+    showFullName = false,
 }: {
     team: TeamRef | null;
     label: string | null;
@@ -271,7 +272,15 @@ function SideToken({
     advancing: boolean;
     /** Show the "Advances" chip — only a knockout winner on a level (pens/extra-time) result. */
     advanceChip?: boolean;
+    /** Knockout rows reveal the full name on big screens; group rows stay code-only. */
+    showFullName?: boolean;
 }) {
+    const identity = showFullName ? (
+        <TeamMatchupName team={team} label={label} />
+    ) : (
+        <span className="truncate">{team?.code ?? team?.name ?? 'TBD'}</span>
+    );
+
     return (
         <span
             className={cn(
@@ -284,7 +293,7 @@ function SideToken({
         >
             {align === 'end' ? (
                 <>
-                    <TeamMatchupName team={team} label={label} />
+                    {identity}
                     <Flag team={team} className="h-4 w-6" />
                     {advanceChip && <AdvanceChip />}
                 </>
@@ -292,7 +301,7 @@ function SideToken({
                 <>
                     {advanceChip && <AdvanceChip />}
                     <Flag team={team} className="h-4 w-6" />
-                    <TeamMatchupName team={team} label={label} />
+                    {identity}
                 </>
             )}
         </span>
@@ -337,19 +346,22 @@ function ScheduleRow({
     return (
         <div className="relative border-t border-border py-2.5 pl-3 first:border-t-0">
             <MatchdayStripe matchdayKey={match.matchdayKey} />
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+            <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
                 <div className="min-w-0">
                     <MatchdayChip matchdayKey={match.matchdayKey} />
                 </div>
 
                 <div className="flex min-w-0 flex-col items-center gap-0.5">
-                    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                    {/* Full-width, equal-width sides so the score stays centred even when knockout
+                        team names differ in length (group rows show short codes either way). */}
+                    <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
                         <SideToken
                             team={match.home}
                             label={match.homeLabel}
                             align="end"
                             advancing={homeAdvances}
                             advanceChip={officialDrawWinner && homeAdvances}
+                            showFullName={match.kind === 'knockout'}
                         />
                         {settled ? (
                             <span className="text-center font-display text-base font-semibold tabular-nums">
@@ -366,6 +378,7 @@ function ScheduleRow({
                             align="start"
                             advancing={awayAdvances}
                             advanceChip={officialDrawWinner && awayAdvances}
+                            showFullName={match.kind === 'knockout'}
                         />
                     </div>
                     {!comparison &&

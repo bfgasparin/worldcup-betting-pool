@@ -280,7 +280,9 @@ function MatchRow({
                                 homeClass,
                             )}
                         >
-                            <TeamMatchupName team={fixture.home} />
+                            <span className="truncate">
+                                {teamCode(fixture.home)}
+                            </span>
                             <Flag team={fixture.home} className="h-4 w-6" />
                         </span>
                         {settled ? (
@@ -299,7 +301,9 @@ function MatchRow({
                             )}
                         >
                             <Flag team={fixture.away} className="h-4 w-6" />
-                            <TeamMatchupName team={fixture.away} />
+                            <span className="truncate">
+                                {teamCode(fixture.away)}
+                            </span>
                         </span>
                     </div>
                     {fixture.prediction ? (
