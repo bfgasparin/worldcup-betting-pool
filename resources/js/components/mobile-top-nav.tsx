@@ -1,0 +1,218 @@
+import { Link, usePage } from '@inertiajs/react';
+import { Check, ChevronDown, LayoutGrid } from 'lucide-react';
+import { useState } from 'react';
+import { tournamentNavItems } from '@/components/nav-tournament';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+    Sheet,
+    SheetClose,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
+} from '@/components/ui/sheet';
+import { UserMenuContent } from '@/components/user-menu-content';
+import { useCurrentUrl } from '@/hooks/use-current-url';
+import { useInitials } from '@/hooks/use-initials';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { resolveAccent, sourceMonogram } from '@/lib/accents';
+import { cn } from '@/lib/utils';
+import { index as poolsIndex } from '@/routes/pools';
+import type { User } from '@/types';
+import type { Auth } from '@/types/auth';
+import type { JoinedPool, TournamentNavInfo } from '@/types/navigation';
+
+/**
+ * The mobile top chrome that replaces the off-canvas sidebar: two detached floating buttons — a pool
+ * switcher (left, opens a bottom sheet) and the user menu (right, a round avatar → dropdown). Hidden
+ * on desktop, where the sidebar still owns this. Switching pool keeps the current section.
+ */
+export function MobileTopNav() {
+    const isMobile = useIsMobile();
+    const { props } = usePage<{
+        pool?: TournamentNavInfo;
+        joinedPools: JoinedPool[];
+        auth: Auth;
+    }>();
+
+    if (!isMobile) {
+        return null;
+    }
+
+    return (
+        <div
+            className="pointer-events-none fixed inset-x-0 top-0 z-40 flex items-start justify-between gap-2 px-3 md:hidden"
+            style={{
+                paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))',
+            }}
+        >
+            <PoolSwitcher pool={props.pool} pools={props.joinedPools ?? []} />
+            <UserMenuButton user={props.auth.user} />
+        </div>
+    );
+}
+
+function PoolSwitcher({
+    pool,
+    pools,
+}: {
+    pool?: TournamentNavInfo;
+    pools: JoinedPool[];
+}) {
+    const [open, setOpen] = useState(false);
+    const { isCurrentUrl } = useCurrentUrl();
+
+    // Which in-pool section we're on, so a switch can land on the same section for the new pool.
+    const currentItems = pool ? tournamentNavItems(pool.slug) : null;
+    const activeIndex = currentItems
+        ? currentItems.findIndex((item) => isCurrentUrl(item.href))
+        : -1;
+    const hrefFor = (slug: string): string =>
+        tournamentNavItems(slug)[activeIndex >= 0 ? activeIndex : 0].href;
+
+    const anyAttention = pools.some((entry) => entry.needs_attention);
+    const accent = pool ? resolveAccent(pool.accent) : null;
+
+    return (
+        <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+                <button
+                    type="button"
+                    className="pointer-events-auto inline-flex max-w-[62vw] items-center gap-2 rounded-full border border-border bg-card/95 py-1.5 pr-3 pl-1.5 shadow-[var(--sh-md)] backdrop-blur"
+                >
+                    {pool && accent ? (
+                        <span
+                            className={cn(
+                                'flex size-7 shrink-0 items-center justify-center rounded-full font-display text-[0.65rem] leading-none font-bold',
+                                accent.railClass,
+                                accent.textClass,
+                            )}
+                        >
+                            {sourceMonogram(pool.source)}
+                        </span>
+                    ) : (
+                        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-secondary text-muted-foreground">
+                            <LayoutGrid className="size-4" />
+                        </span>
+                    )}
+                    <span className="truncate font-display text-sm font-semibold">
+                        {pool ? pool.name : 'Pools'}
+                    </span>
+                    <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+                    {anyAttention && (
+                        <span
+                            className="bg-gold-gradient size-2 shrink-0 rounded-full shadow-[var(--sh-sm)]"
+                            aria-hidden
+                        />
+                    )}
+                </button>
+            </SheetTrigger>
+            <SheetContent
+                side="bottom"
+                className="rounded-t-3xl px-4 pt-5 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
+            >
+                <SheetHeader className="p-0">
+                    <SheetTitle className="font-display text-base">
+                        Switch pool
+                    </SheetTitle>
+                </SheetHeader>
+                <ul className="flex flex-col gap-1">
+                    {pools.map((entry) => {
+                        const entryAccent = resolveAccent(entry.accent);
+                        const current = entry.slug === pool?.slug;
+
+                        return (
+                            <li key={entry.slug}>
+                                <SheetClose asChild>
+                                    <Link
+                                        href={hrefFor(entry.slug)}
+                                        prefetch
+                                        className={cn(
+                                            'flex items-center gap-3 rounded-2xl px-3 py-2.5 transition-colors',
+                                            current
+                                                ? 'bg-secondary'
+                                                : 'hover:bg-muted',
+                                        )}
+                                    >
+                                        <span
+                                            className={cn(
+                                                'flex size-8 shrink-0 items-center justify-center rounded-lg font-display text-xs font-bold',
+                                                entryAccent.railClass,
+                                                entryAccent.textClass,
+                                            )}
+                                        >
+                                            {sourceMonogram(entry.source)}
+                                        </span>
+                                        <span className="min-w-0 flex-1 truncate font-display font-semibold">
+                                            {entry.name}
+                                        </span>
+                                        {entry.needs_attention && (
+                                            <span
+                                                className="bg-gold-gradient size-2 shrink-0 rounded-full"
+                                                aria-hidden
+                                            />
+                                        )}
+                                        {current && (
+                                            <Check className="size-4 shrink-0 text-primary" />
+                                        )}
+                                    </Link>
+                                </SheetClose>
+                            </li>
+                        );
+                    })}
+                    <li className="mt-1 border-t border-border pt-1">
+                        <SheetClose asChild>
+                            <Link
+                                href={poolsIndex()}
+                                prefetch
+                                className="flex items-center gap-3 rounded-2xl px-3 py-2.5 transition-colors hover:bg-muted"
+                            >
+                                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
+                                    <LayoutGrid className="size-4" />
+                                </span>
+                                <span className="font-display font-semibold">
+                                    All pools
+                                </span>
+                            </Link>
+                        </SheetClose>
+                    </li>
+                </ul>
+            </SheetContent>
+        </Sheet>
+    );
+}
+
+function UserMenuButton({ user }: { user: User }) {
+    const getInitials = useInitials();
+
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <button
+                    type="button"
+                    aria-label="Account menu"
+                    className="pointer-events-auto rounded-full border border-border bg-card/95 p-0.5 shadow-[var(--sh-md)] backdrop-blur"
+                >
+                    <Avatar className="size-9 overflow-hidden rounded-full">
+                        <AvatarImage src={user.avatar} alt={user.name} />
+                        <AvatarFallback className="rounded-full bg-neutral-200 text-black dark:bg-neutral-700 dark:text-white">
+                            {getInitials(user.name)}
+                        </AvatarFallback>
+                    </Avatar>
+                </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+                align="end"
+                side="bottom"
+                className="min-w-56 rounded-lg"
+            >
+                <UserMenuContent user={user} />
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+}

@@ -3,6 +3,7 @@ import { AppContent } from '@/components/app-content';
 import { AppShell } from '@/components/app-shell';
 import { AppSidebar } from '@/components/app-sidebar';
 import { AppSidebarHeader } from '@/components/app-sidebar-header';
+import { MobileTopNav } from '@/components/mobile-top-nav';
 import { PoolTabBar } from '@/components/pool-tab-bar';
 import { cn } from '@/lib/utils';
 import type { AppLayoutProps } from '@/types';
@@ -22,12 +23,13 @@ export default function AppSidebarLayout({
             <AppContent
                 variant="sidebar"
                 className={cn(
-                    'overflow-x-hidden',
+                    'has-floating-nav overflow-x-hidden pt-[var(--top-nav-h)]',
                     inPool && 'has-pool-tab-bar pb-[var(--pool-tab-bar-h)]',
                 )}
             >
                 <AppSidebarHeader breadcrumbs={breadcrumbs} />
                 {children}
+                <MobileTopNav />
                 <PoolTabBar />
             </AppContent>
         </AppShell>
