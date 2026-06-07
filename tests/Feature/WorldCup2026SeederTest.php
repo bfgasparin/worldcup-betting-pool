@@ -233,9 +233,9 @@ class WorldCup2026SeederTest extends TestCase
         $this->assertSame(20, $pool->scoring_config['group']['exact_score']);
 
         // The buy-in, currency, house fee and 70/20/10 prize split.
-        $this->assertSame('50.00', $pool->entry_price);
+        $this->assertSame('30.00', $pool->entry_price);
         $this->assertSame('BRL', $pool->currency);
-        $this->assertSame('7.00', $pool->house_fee_percentage);
+        $this->assertSame('11.00', $pool->house_fee_percentage);
         $this->assertSame(
             [70, 20, 10],
             array_column($pool->prize_structure, 'percentage'),
@@ -262,7 +262,7 @@ class WorldCup2026SeederTest extends TestCase
 
         // A cheaper buy-in, no house fee (the whole pot goes to players), and a flatter 50/30/20
         // split so 2nd and 3rd are worth chasing.
-        $this->assertSame('40.00', $pool->entry_price);
+        $this->assertSame('20.00', $pool->entry_price);
         $this->assertSame('0.00', $pool->house_fee_percentage);
         $this->assertSame(
             [50, 30, 20],

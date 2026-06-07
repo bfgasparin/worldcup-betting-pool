@@ -118,7 +118,7 @@ class JoinPoolTest extends TestCase
         $this->assertStringContainsString('Ada Lovelace', $html);
         $this->assertStringContainsString($player->email, $html);
         $this->assertStringContainsString('+55 11 99999-0000', $html);
-        $this->assertStringContainsString('BRL 50.00', $html);
+        $this->assertStringContainsString('BRL 30.00', $html);
     }
 
     public function test_the_email_handles_a_free_pool_with_no_buy_in(): void
@@ -151,9 +151,9 @@ class JoinPoolTest extends TestCase
             ->get(route('pools.show', 'world-cup-2026-ffa'))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('pool.can_join', true)
-                ->where('pool.pricing.entry_price', 50)
+                ->where('pool.pricing.entry_price', 30)
                 ->where('pool.pricing.currency', 'BRL')
-                ->where('pool.pricing.house_fee_percentage', 7)
+                ->where('pool.pricing.house_fee_percentage', 11)
                 ->has('pool.pricing.prizes', 3)
                 ->where('pool.pricing.prizes.0.place', 1)
                 ->where('pool.pricing.prizes.0.percentage', 70)
@@ -162,7 +162,7 @@ class JoinPoolTest extends TestCase
 
     public function test_the_index_computes_prize_amounts_from_the_pool(): void
     {
-        // Three players in the FF&A pool: 3 × R$50 = R$150, less 7% fee = R$139.50 net.
+        // Three players in the FF&A pool: 3 × R$30 = R$90, less 11% fee = R$80.10 net.
         Entry::factory()->count(3)->for($this->pool)->create();
 
         $this->actingAs($this->user)
@@ -170,9 +170,9 @@ class JoinPoolTest extends TestCase
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('pools.data.0.slug', 'world-cup-2026-ffa')
                 ->where('pools.data.0.pricing.players', 3)
-                ->where('pools.data.0.pricing.pot', 150)
-                ->where('pools.data.0.pricing.net', 139.5)
-                ->where('pools.data.0.pricing.prizes.0.amount', 97.65)
+                ->where('pools.data.0.pricing.pot', 90)
+                ->where('pools.data.0.pricing.net', 80.1)
+                ->where('pools.data.0.pricing.prizes.0.amount', 56.07)
             );
     }
 
