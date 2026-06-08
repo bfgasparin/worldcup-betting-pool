@@ -4,7 +4,7 @@ namespace App\Http\Requests\Tournaments;
 
 use App\Enums\FixtureStatus;
 use App\Models\Fixture;
-use App\Models\Pool;
+use App\Models\Tournament;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -128,9 +128,9 @@ class RescheduleFixtureRequest extends FormRequest
      */
     private function venueTimezones(): array
     {
-        /** @var Pool $pool */
-        $pool = $this->route('pool');
+        /** @var Tournament $tournament */
+        $tournament = $this->route('tournament');
 
-        return $pool->tournament->venueTimezones();
+        return $tournament->venueTimezones();
     }
 }

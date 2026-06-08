@@ -2,14 +2,13 @@ import { Head, router } from '@inertiajs/react';
 import { ClipboardCheck, Trophy } from 'lucide-react';
 import { useState } from 'react';
 import { Flag } from '@/components/flag';
-import { PoolIdentity } from '@/components/pool-identity';
 import { StandingsTable } from '@/components/standings-table';
+import { TeamScoreRow } from '@/components/team-score-row';
 import { TieResolutionPanel } from '@/components/tie-resolution-panel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { poolTitle } from '@/lib/pool-title';
-import pools from '@/routes/pools';
+import manage from '@/routes/manage';
 import type { BreadcrumbItem } from '@/types/navigation';
 import type { StandingRow, TeamRef, TiedCluster } from '@/types/pools';
 
@@ -47,12 +46,10 @@ interface ThirdsTieData {
 }
 
 interface ReviewPageProps {
-    pool: {
+    tournament: {
         slug: string;
         name: string;
-        source: string;
-        accent?: string | null;
-        scoring_label?: string;
+        status: string;
     };
     rows: ReviewRowData[];
     tied_groups: TiedGroupData[];
@@ -80,7 +77,10 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
         setSaving(true);
         setSaved(false);
         router.patch(
-            pools.scores.proposal({ pool: slug, fixture: row.fixture_id }).url,
+            manage.scores.proposal({
+                tournament: slug,
+                fixture: row.fixture_id,
+            }).url,
             {
                 home_goals: toNumberOrNull(home),
                 away_goals: toNumberOrNull(away),
@@ -148,8 +148,8 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
             : 'Scheduled';
 
     return (
-        <div className="grid grid-cols-1 items-center gap-3 border-b border-border px-4 py-3 last:border-0 sm:grid-cols-[120px_1fr_auto]">
-            <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-3 border-b border-border p-4 last:border-0">
+            <div className="flex flex-wrap items-center gap-2">
                 <span className="font-display text-sm font-semibold">
                     Match {row.match_number}
                 </span>
@@ -161,45 +161,38 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
                 </span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-                <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold">
-                    <Flag team={row.home} className="h-4 w-6" />
-                    <span className="truncate">
-                        {row.home?.name ?? row.home_label}
-                    </span>
-                </span>
-                <Input
-                    type="number"
-                    min={0}
-                    max={99}
-                    value={home}
-                    onChange={(event) =>
-                        handleScore('home', event.target.value)
-                    }
-                    className="h-9 w-14 text-center"
-                    aria-label={`${row.home?.name ?? 'Home'} goals`}
-                />
-                <span className="text-muted-foreground">–</span>
-                <Input
-                    type="number"
-                    min={0}
-                    max={99}
-                    value={away}
-                    onChange={(event) =>
-                        handleScore('away', event.target.value)
-                    }
-                    className="h-9 w-14 text-center"
-                    aria-label={`${row.away?.name ?? 'Away'} goals`}
-                />
-                <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold">
-                    <Flag team={row.away} className="h-4 w-6" />
-                    <span className="truncate">
-                        {row.away?.name ?? row.away_label}
-                    </span>
-                </span>
+            <div>
+                <TeamScoreRow team={row.home} label={row.home_label}>
+                    <Input
+                        type="number"
+                        min={0}
+                        max={99}
+                        value={home}
+                        onChange={(event) =>
+                            handleScore('home', event.target.value)
+                        }
+                        className="h-9 w-14 text-center"
+                        aria-label={`${row.home?.name ?? 'Home'} goals`}
+                    />
+                </TeamScoreRow>
+                <TeamScoreRow team={row.away} label={row.away_label}>
+                    <Input
+                        type="number"
+                        min={0}
+                        max={99}
+                        value={away}
+                        onChange={(event) =>
+                            handleScore('away', event.target.value)
+                        }
+                        className="h-9 w-14 text-center"
+                        aria-label={`${row.away?.name ?? 'Away'} goals`}
+                    />
+                </TeamScoreRow>
+            </div>
 
-                {row.is_knockout &&
-                    (!teamsKnown ? (
+            {row.is_knockout && (
+                <div className="flex flex-wrap items-center gap-2">
+                    {!teamsKnown ? (
                         <span className="text-xs text-muted-foreground italic">
                             Teams not set yet.
                         </span>
@@ -208,7 +201,7 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
                             Enter the score to set who advances.
                         </span>
                     ) : isDraw ? (
-                        <div className="flex items-center gap-2">
+                        <>
                             <span className="text-[0.65rem] font-semibold tracking-wide text-muted-foreground uppercase">
                                 Advances
                             </span>
@@ -235,7 +228,7 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
                                     {row.away!.code ?? row.away!.name}
                                 </ToggleGroupItem>
                             </ToggleGroup>
-                        </div>
+                        </>
                     ) : (
                         <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-pitch-deep dark:text-primary">
                             <span className="text-[0.65rem] font-semibold tracking-wide text-muted-foreground uppercase">
@@ -244,10 +237,11 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
                             <Flag team={winnerTeam} className="h-4 w-6" />
                             {winnerTeam?.code ?? winnerTeam?.name}
                         </span>
-                    ))}
-            </div>
+                    )}
+                </div>
+            )}
 
-            <div className="flex items-center gap-2 justify-self-end">
+            <div className="flex flex-wrap items-center justify-end gap-2">
                 {saved && !rejected && (
                     <span className="text-xs font-semibold text-pitch-deep dark:text-primary">
                         Saved
@@ -292,7 +286,7 @@ function TieResolutionSection({
         return null;
     }
 
-    const orderingUrl = pools.scores.ordering(slug).url;
+    const orderingUrl = manage.scores.ordering(slug).url;
 
     return (
         <div className="flex flex-col gap-5 rounded-3xl border border-amber/40 bg-card p-5">
@@ -370,7 +364,7 @@ function TieResolutionSection({
 }
 
 export default function ScoreReview({
-    pool,
+    tournament,
     rows,
     tied_groups: tiedGroups,
     thirds_tie: thirdsTie,
@@ -381,7 +375,7 @@ export default function ScoreReview({
     const approve = () => {
         setApproving(true);
         router.post(
-            pools.scores.approve(pool.slug).url,
+            manage.scores.approve(tournament.slug).url,
             {},
             {
                 onError: (formErrors) => setErrors(formErrors),
@@ -392,7 +386,7 @@ export default function ScoreReview({
 
     return (
         <>
-            <Head title={poolTitle(pool.source, pool.name, 'Review scores')} />
+            <Head title={`Review scores · ${tournament.name}`} />
             <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
                 <header className="hero relative overflow-hidden rounded-3xl border border-border p-8">
                     <div className="hero-lines" />
@@ -403,13 +397,8 @@ export default function ScoreReview({
                                 Score review
                             </span>
                             <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-                                {pool.name}
+                                {tournament.name}
                             </h1>
-                            <PoolIdentity
-                                source={pool.source}
-                                scoringLabel={pool.scoring_label}
-                                accent={pool.accent}
-                            />
                             <p className="max-w-xl text-sm text-muted-foreground">
                                 Enter or correct each final score, set the
                                 advancing team for knockout matches, then
@@ -431,7 +420,7 @@ export default function ScoreReview({
                 )}
 
                 <TieResolutionSection
-                    slug={pool.slug}
+                    slug={tournament.slug}
                     tiedGroups={tiedGroups}
                     thirdsTie={thirdsTie}
                 />
@@ -442,7 +431,7 @@ export default function ScoreReview({
                             <ReviewRow
                                 key={row.fixture_id}
                                 row={row}
-                                slug={pool.slug}
+                                slug={tournament.slug}
                             />
                         ))}
                     </div>
@@ -463,6 +452,8 @@ export default function ScoreReview({
     );
 }
 
-const breadcrumbs: BreadcrumbItem[] = [{ title: 'Pools', href: pools.index() }];
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Manage', href: manage.index() },
+];
 
 ScoreReview.layout = { breadcrumbs };

@@ -133,6 +133,8 @@ export interface GroupFixture {
     away: TeamRef | null;
     home_goals: number | null;
     away_goals: number | null;
+    /** Whether the match is being played live right now (drives the in-play marker). */
+    is_live: boolean;
     kicks_off_at: string | null;
     venue: string | null;
     venue_timezone: string | null;
@@ -175,6 +177,8 @@ export interface BracketFixture {
     away_penalties: number | null;
     /** The official advancing team once the match is settled. */
     winner_team_id: number | null;
+    /** Whether the match is being played live right now (drives the in-play marker). */
+    is_live: boolean;
     kicks_off_at: string | null;
     venue: string | null;
     venue_timezone: string | null;
@@ -211,8 +215,6 @@ export interface PoolDetail extends PoolSummary {
     scoring_config: Record<string, Record<string, number>>;
     /** When the group-stage predictions lock (ISO 8601): derived from the first group kickoff (minus the buffer) or an explicit override; null when there is no schedule to derive from. */
     predictions_lock_at: string | null;
-    /** Whether the viewer may open the admin score-review screen. */
-    can_review_scores: boolean;
     /** Whether the viewer may still join the pool (the join window closes with the prediction lock). */
     can_join: boolean;
     /** Whether this viewer has already seen the "how it works" briefing, so it only auto-opens on their first visit. */
@@ -317,16 +319,26 @@ export interface MatchdayStat {
 }
 
 /**
+ * A tie-aware matchday card: up to three tied leaders (for the avatar stack) plus the true count of
+ * everyone who shares the top value/delta. A unique leader has `count === 1`; all leaders share the
+ * same `value`.
+ */
+export interface MatchdayCard {
+    leaders: MatchdayStat[];
+    count: number;
+}
+
+/**
  * The per-matchday cards for the selected matchday on the active board. `you`/`top`/`lowest` carry
  * the metric earned; `biggest_climber`/`biggest_faller` carry places moved on the board (their
- * `value` is the number of places).
+ * `value` is the number of places). `you` is the single viewer stat; the rest are tie-aware cards.
  */
 export interface MatchdayCards {
     you: MatchdayStat | null;
-    top: MatchdayStat | null;
-    lowest: MatchdayStat | null;
-    biggest_climber: MatchdayStat | null;
-    biggest_faller: MatchdayStat | null;
+    top: MatchdayCard | null;
+    lowest: MatchdayCard | null;
+    biggest_climber: MatchdayCard | null;
+    biggest_faller: MatchdayCard | null;
 }
 
 export interface LeaderboardBoard {

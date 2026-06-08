@@ -1,11 +1,9 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import {
     ArrowRight,
-    CalendarClock,
     CalendarDays,
     Check,
     ChevronDown,
-    ClipboardCheck,
     GitCompare,
     PencilLine,
     Plus,
@@ -104,13 +102,11 @@ interface PoolShowProps {
 function DashboardBanner({
     pool,
     standings,
-    isAdmin,
     canCompare,
     onCompare,
 }: {
     pool: PoolDetail;
     standings: PoolStandings;
-    isAdmin: boolean;
     canCompare: boolean;
     onCompare: () => void;
 }) {
@@ -122,14 +118,9 @@ function DashboardBanner({
 
     const tz = useDisplayTimeZone();
     const hasEntry = standings.me !== null;
-    // The actions row holds the primary CTA (edit when joined, join when not) plus the compare and
-    // admin tools, sitting directly under the countdown strip.
-    const hasActions =
-        hasEntry ||
-        pool.can_join ||
-        canCompare ||
-        pool.can_review_scores ||
-        isAdmin;
+    // The actions row holds the primary CTA (edit when joined, join when not) plus the compare
+    // control, sitting directly under the countdown strip.
+    const hasActions = hasEntry || pool.can_join || canCompare;
 
     return (
         <header className="hero relative overflow-hidden rounded-3xl border border-border p-5 sm:p-8">
@@ -217,38 +208,6 @@ function DashboardBanner({
                                     >
                                         <GitCompare className="size-4" />
                                         Compare players
-                                    </Button>
-                                )}
-                                {pool.can_review_scores && (
-                                    <Button
-                                        asChild
-                                        variant="outline"
-                                        className="w-full sm:w-auto"
-                                    >
-                                        <Link
-                                            href={pools.scores.review(
-                                                pool.slug,
-                                            )}
-                                        >
-                                            <ClipboardCheck className="size-4" />
-                                            Review scores
-                                        </Link>
-                                    </Button>
-                                )}
-                                {isAdmin && (
-                                    <Button
-                                        asChild
-                                        variant="outline"
-                                        className="w-full sm:w-auto"
-                                    >
-                                        <Link
-                                            href={pools.schedule.index(
-                                                pool.slug,
-                                            )}
-                                        >
-                                            <CalendarClock className="size-4" />
-                                            Manage schedule
-                                        </Link>
                                     </Button>
                                 )}
                             </div>
@@ -1282,8 +1241,6 @@ export default function PoolShow({
     comparison,
     attention,
 }: PoolShowProps) {
-    const { auth } = usePage().props;
-
     const [selecting, setSelecting] = useState(false);
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [pickerOpen, setPickerOpen] = useState(false);
@@ -1369,7 +1326,6 @@ export default function PoolShow({
                 <DashboardBanner
                     pool={pool}
                     standings={standings}
-                    isAdmin={auth.isAdmin}
                     canCompare={
                         !compareActive &&
                         !selecting &&

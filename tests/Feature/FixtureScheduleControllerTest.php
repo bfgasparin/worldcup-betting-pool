@@ -48,10 +48,10 @@ class FixtureScheduleControllerTest extends TestCase
         $expectedVenues = count($this->tournament->venueTimezones());
 
         $this->actingAs($this->admin())
-            ->get(route('pools.schedule.index', $this->pool))
+            ->get(route('manage.schedule.index', $this->tournament))
             ->assertInertia(fn (AssertableInertia $page) => $page
-                ->component('pools/schedule/index')
-                ->where('pool.slug', $this->pool->slug)
+                ->component('manage/schedule')
+                ->where('tournament.slug', $this->tournament->slug)
                 ->has('rows', $expectedFixtures)
                 ->has('venues', $expectedVenues)
                 ->where('rows', fn (Collection $rows): bool => $rows->firstWhere('id', $earliest->id)['governs_prediction_lock'] === true)
@@ -61,7 +61,7 @@ class FixtureScheduleControllerTest extends TestCase
     public function test_a_non_admin_cannot_manage_the_schedule(): void
     {
         $this->actingAs(User::factory()->create())
-            ->get(route('pools.schedule.index', $this->pool))
+            ->get(route('manage.schedule.index', $this->tournament))
             ->assertForbidden();
     }
 }

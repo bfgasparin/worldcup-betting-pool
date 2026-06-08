@@ -5,13 +5,11 @@ namespace App\Http\Controllers;
 use App\Enums\BatchStatus;
 use App\Enums\OrderingScope;
 use App\Enums\ProposalStatus;
-use App\Http\Controllers\Concerns\BuildsPoolIdentity;
 use App\Http\Controllers\Concerns\PersistsTieOrdering;
 use App\Http\Requests\Tournaments\ApproveScoreBatchRequest;
 use App\Http\Requests\Tournaments\UpdateGroupOrderingRequest;
 use App\Http\Requests\Tournaments\UpdateScoreProposalRequest;
 use App\Models\Fixture;
-use App\Models\Pool;
 use App\Models\ScoreBatch;
 use App\Models\ScoreProposal;
 use App\Models\Team;
@@ -28,15 +26,13 @@ use Inertia\Response;
 
 class ScoreReviewController extends Controller
 {
-    use BuildsPoolIdentity;
     use PersistsTieOrdering;
 
     /**
      * The admin screen for reviewing, editing and approving a batch of proposed official scores.
      */
-    public function review(Pool $pool): Response
+    public function review(Tournament $tournament): Response
     {
-        $tournament = $pool->tournament;
         $batch = $this->currentOpenBatch($tournament);
         $proposals = $batch?->proposals()->get()->keyBy('fixture_id') ?? collect();
 
@@ -66,8 +62,8 @@ class ScoreReviewController extends Controller
             $thirdsTie = $this->mapThirdsTie($tieState, $teamsById);
         }
 
-        return Inertia::render('pools/scores/review', [
-            'pool' => $this->poolIdentity($pool),
+        return Inertia::render('manage/scores', [
+            'tournament' => $this->tournamentIdentity($tournament),
             'tied_groups' => $tiedGroups,
             'thirds_tie' => $thirdsTie,
             'rows' => $fixtures->map(function (Fixture $fixture) use ($proposals): array {
@@ -102,11 +98,11 @@ class ScoreReviewController extends Controller
     /**
      * Create or update the proposed score for one fixture in the tournament's open batch.
      */
-    public function updateProposal(UpdateScoreProposalRequest $request, Pool $pool, Fixture $fixture): RedirectResponse
+    public function updateProposal(UpdateScoreProposalRequest $request, Tournament $tournament, Fixture $fixture): RedirectResponse
     {
-        abort_unless($fixture->tournament_id === $pool->tournament->id, 404);
+        abort_unless($fixture->tournament_id === $tournament->id, 404);
 
-        $batch = $this->ensureOpenBatch($pool->tournament);
+        $batch = $this->ensureOpenBatch($tournament);
         $validated = $request->validated();
 
         ScoreProposal::updateOrCreate(
@@ -127,7 +123,7 @@ class ScoreReviewController extends Controller
     /**
      * Approve the open batch: write the scores, project the bracket, score everyone and rank.
      */
-    public function approve(ApproveScoreBatchRequest $request, Pool $pool, ApproveScoreBatch $action): RedirectResponse
+    public function approve(ApproveScoreBatchRequest $request, Tournament $tournament, ApproveScoreBatch $action): RedirectResponse
     {
         $action->approve($request->openBatch(), $request->user());
 
@@ -135,7 +131,7 @@ class ScoreReviewController extends Controller
 
         // Stay on the review screen and re-render it: the approved batch is now closed, so the page
         // refreshes to the post-approval state (its proposals and resolved ties clear) in place.
-        return to_route('pools.scores.review', $pool);
+        return to_route('manage.scores.review', $tournament);
     }
 
     /**
@@ -143,9 +139,8 @@ class ScoreReviewController extends Controller
      * cluster or the thirds cut), then re-project so a now-resolved tie fills its bracket slots and
      * can open phased prediction windows.
      */
-    public function updateOrdering(UpdateGroupOrderingRequest $request, Pool $pool, OfficialBracketProjector $projector): RedirectResponse
+    public function updateOrdering(UpdateGroupOrderingRequest $request, Tournament $tournament, OfficialBracketProjector $projector): RedirectResponse
     {
-        $tournament = $pool->tournament;
         $scope = OrderingScope::from($request->string('scope')->value());
         $cluster = array_map('intval', $request->input('ordered_team_ids'));
 
@@ -245,12 +240,21 @@ class ScoreReviewController extends Controller
             ->first();
     }
 
+    /**
+     * @return array{name: string, slug: string, status: string}
+     */
+    private function tournamentIdentity(Tournament $tournament): array
+    {
+        return [
+            'name' => $tournament->name,
+            'slug' => $tournament->slug,
+            'status' => $tournament->status->value,
+        ];
+    }
+
     private function ensureOpenBatch(Tournament $tournament): ScoreBatch
     {
-        return $tournament->scoreBatches()->firstOrCreate(
-            ['status' => BatchStatus::Open],
-            ['source' => 'manual', 'fetched_at' => now()],
-        );
+        return ScoreBatch::openFor($tournament);
     }
 
     /**

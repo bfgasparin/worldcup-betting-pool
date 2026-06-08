@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\BatchStatus;
 use App\Enums\FeederOutcome;
 use App\Enums\FixtureStatus;
+use App\Enums\LiveStatus;
 use App\Enums\PhaseType;
 use Carbon\CarbonInterface;
 use Database\Factories\FixtureFactory;
@@ -14,6 +15,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use RuntimeException;
 
 #[Fillable([
@@ -155,6 +157,43 @@ class Fixture extends Model
     }
 
     /**
+     * The live scoreboard for this fixture (created when an admin marks it live), held entirely
+     * apart from the official result columns.
+     *
+     * @return HasOne<FixtureLiveState, $this>
+     */
+    public function liveState(): HasOne
+    {
+        return $this->hasOne(FixtureLiveState::class);
+    }
+
+    /**
+     * Limit the query to fixtures with an in-progress live scoreboard (the Live Center set).
+     *
+     * @param  Builder<Fixture>  $query
+     */
+    public function scopeHasLiveState(Builder $query): void
+    {
+        $query->whereHas('liveState', fn (Builder $state) => $state->where('status', LiveStatus::Live));
+    }
+
+    /**
+     * Whether an admin may mark this fixture live now. Only a scheduled match qualifies, and only
+     * once it is within the go-live buffer of kickoff (or already past kickoff). This is the gate
+     * that replaces the old time-based auto-advance — going live is admin-driven.
+     *
+     * @see config('scoring.go_live_buffer_minutes')
+     */
+    public function canGoLive(): bool
+    {
+        if ($this->status !== FixtureStatus::Scheduled || $this->kicks_off_at === null) {
+            return false;
+        }
+
+        return now()->gte($this->kicks_off_at->subMinutes($this->goLiveBufferMinutes()));
+    }
+
+    /**
      * Move this fixture to a new kickoff and venue. Only a not-yet-finished match can move: its
      * result is not yet official, so shifting it is safe. A live match reverts to Scheduled (it
      * will now happen in the future), and any pending proposed result for it in an open,
@@ -172,6 +211,10 @@ class Fixture extends Model
         $this->scoreProposals()
             ->whereRelation('batch', 'status', BatchStatus::Open)
             ->delete();
+
+        // Drop any live scoreboard: a rescheduled match will be played afresh in the future, so it
+        // must leave the Live Center (a new live state is created if it goes live again).
+        $this->liveState()->delete();
 
         $this->update([
             'kicks_off_at' => $kickoff,
@@ -230,5 +273,10 @@ class Fixture extends Model
     private function matchDurationMinutes(): int
     {
         return (int) config('scoring.match_duration_minutes');
+    }
+
+    private function goLiveBufferMinutes(): int
+    {
+        return (int) config('scoring.go_live_buffer_minutes');
     }
 }

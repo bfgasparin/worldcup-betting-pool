@@ -1,0 +1,680 @@
+import { Head, usePage } from '@inertiajs/react';
+import { ArrowDown, ArrowUp, Crown, Radio, TrendingDown } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { useState } from 'react';
+import { AvatarStack } from '@/components/avatar-stack';
+import { Flag } from '@/components/flag';
+import type { LeaderboardEntry } from '@/components/leaderboard-row';
+import { LiveBadge, LivePulse } from '@/components/live-badge';
+import { PersonalMovement } from '@/components/personal-movement';
+import PlayerAvatar from '@/components/player-avatar';
+import { PoolIdentity } from '@/components/pool-identity';
+import { StandingsList } from '@/components/standings-list';
+import { SegmentedTabs } from '@/components/ui/segmented-tabs';
+import { useLivePoll } from '@/hooks/use-live-poll';
+import { resolveAccent, sourceMonogram } from '@/lib/accents';
+import { formatMoney } from '@/lib/money';
+import { cn } from '@/lib/utils';
+import live from '@/routes/live';
+import type {
+    LiveBoardDescriptor,
+    LiveFixture,
+    LivePool,
+    ProjectedRow,
+} from '@/types/live';
+
+interface LiveShowProps {
+    tournament: { name: string; slug: string };
+    boards: LiveBoardDescriptor[];
+    pools: LivePool[];
+    liveFixtures: LiveFixture[];
+    poll_interval_ms: number;
+}
+
+// Stable reference: only the live-changing props are re-fetched each poll.
+const LIVE_ONLY = ['liveFixtures', 'pools'];
+
+/** "2 – 1", or a dash placeholder before a score is entered. */
+function score(value: number | null): string {
+    return value === null ? '–' : String(value);
+}
+
+function TeamSide({
+    name,
+    label,
+    flagTeam,
+    align,
+}: {
+    name: string | null;
+    label: string | null;
+    flagTeam: LiveFixture['home_team'];
+    align: 'start' | 'end';
+}) {
+    return (
+        <div
+            className={cn(
+                'flex min-w-0 flex-1 items-center gap-2',
+                align === 'end' && 'flex-row-reverse text-right',
+            )}
+        >
+            <Flag team={flagTeam} className="size-5" />
+            <span className="truncate font-display text-sm font-semibold sm:text-base">
+                {name ?? label ?? 'TBD'}
+            </span>
+        </div>
+    );
+}
+
+/** One live match: big scoreline, flags, and a pulsing LIVE / muted FT marker. */
+function LiveFixtureCard({ fixture }: { fixture: LiveFixture }) {
+    const ended = fixture.status === 'ended';
+
+    return (
+        <div
+            className={cn(
+                'card-elevated flex flex-col gap-3 rounded-2xl border border-border p-4',
+                !ended && 'ring-1 ring-red-500/20',
+            )}
+        >
+            <div className="flex items-center justify-between">
+                {ended ? (
+                    <LiveBadge label="Full time" tone="ft" />
+                ) : (
+                    <LiveBadge />
+                )}
+                {fixture.is_knockout && (
+                    <span className="font-display text-[0.65rem] font-bold tracking-[0.14em] text-muted-foreground uppercase">
+                        Knockout
+                    </span>
+                )}
+            </div>
+
+            <div className="flex items-center gap-3">
+                <TeamSide
+                    name={fixture.home_team?.name ?? null}
+                    label={fixture.home_label}
+                    flagTeam={fixture.home_team}
+                    align="start"
+                />
+                <div className="flex shrink-0 items-center gap-2 font-display text-2xl font-bold tabular-nums">
+                    <span>{score(fixture.home_goals)}</span>
+                    <span className="text-muted-foreground">:</span>
+                    <span>{score(fixture.away_goals)}</span>
+                </div>
+                <TeamSide
+                    name={fixture.away_team?.name ?? null}
+                    label={fixture.away_label}
+                    flagTeam={fixture.away_team}
+                    align="end"
+                />
+            </div>
+
+            {ended && (
+                <p className="text-center text-xs text-muted-foreground">
+                    Awaiting official confirmation
+                </p>
+            )}
+        </div>
+    );
+}
+
+function LiveScoreboard({ fixtures }: { fixtures: LiveFixture[] }) {
+    if (fixtures.length === 0) {
+        return (
+            <div className="card-elevated flex flex-col items-center gap-2 rounded-2xl border border-border p-10 text-center">
+                <Radio className="size-8 text-muted-foreground" />
+                <p className="font-display font-semibold">
+                    No matches are live right now
+                </p>
+                <p className="text-sm text-muted-foreground">
+                    This page lights up the moment a match kicks off.
+                </p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {fixtures.map((fixture) => (
+                <LiveFixtureCard key={fixture.id} fixture={fixture} />
+            ))}
+        </div>
+    );
+}
+
+/** The "+N" / "—" the viewer is gaining from the current live scores (raw signed when negative). */
+function formatLiveGain(gain: number): string {
+    if (gain > 0) {
+        return `+${gain.toLocaleString()}`;
+    }
+
+    return gain === 0 ? '—' : gain.toLocaleString();
+}
+
+/** One labelled stat in the viewer card's grid. */
+function StatCell({
+    label,
+    value,
+    valueClassName,
+}: {
+    label: string;
+    value: string;
+    valueClassName?: string;
+}) {
+    return (
+        <div>
+            <div className="truncate text-[11px] font-bold tracking-[0.1em] text-white/70 uppercase">
+                {label}
+            </div>
+            <div
+                className={cn(
+                    'font-display text-lg font-semibold tabular-nums',
+                    valueClassName,
+                )}
+            >
+                {value}
+            </div>
+        </div>
+    );
+}
+
+/**
+ * The viewer's own projected line — the focal "what would happen to me" card. Mirrors the leaderboard
+ * page's branded "Your standing" card (gradient + glow, big rank, fixed stat grid) so the live and
+ * official surfaces read as one family, and leads with what they're earning from the live scores. On
+ * mobile the prize moves up beside the rank so the stat grid stays a tidy two columns.
+ */
+function ViewerProjection({
+    row,
+    pool,
+    primaryLabel,
+    className,
+}: {
+    row: ProjectedRow;
+    pool: LivePool;
+    primaryLabel: string;
+    className?: string;
+}) {
+    const prizeText =
+        pool.is_paid && row.projected_prize != null
+            ? formatMoney(row.projected_prize, pool.currency)
+            : null;
+
+    return (
+        <div
+            className={cn(
+                'bg-brand-gradient shadow-glow relative flex flex-col overflow-hidden rounded-2xl p-5 text-white',
+                className,
+            )}
+        >
+            <div className="text-xs font-bold tracking-[0.12em] text-white/80 uppercase">
+                Your projected spot
+            </div>
+
+            <div className="flex flex-1 items-center gap-4 py-4">
+                <PlayerAvatar
+                    name={row.name}
+                    initials={row.initials}
+                    src={row.avatar}
+                    fallbackClassName="bg-white/15 text-white"
+                    ringClassName="ring-2 ring-white/40"
+                    className="size-14"
+                />
+                <div className="flex items-baseline gap-2">
+                    <span className="font-display text-5xl leading-none font-semibold tabular-nums">
+                        #{row.rank}
+                    </span>
+                    <PersonalMovement
+                        movement={row.movement}
+                        delta={row.movement_delta}
+                    />
+                </div>
+
+                {prizeText && (
+                    <span className="bg-gold-gradient ml-auto rounded-full px-3 py-1 font-display text-sm font-bold text-[#3a2600] tabular-nums lg:hidden">
+                        {prizeText}
+                    </span>
+                )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 border-t border-white/15 pt-3">
+                <StatCell
+                    label={`Projected ${primaryLabel.toLowerCase()}`}
+                    value={row.primary_value.toLocaleString()}
+                />
+                <StatCell
+                    label="Earning now"
+                    value={formatLiveGain(row.live_gain)}
+                />
+
+                {prizeText && (
+                    <div className="hidden lg:block">
+                        <div className="text-[11px] font-bold tracking-[0.1em] text-white/70 uppercase">
+                            Projected prize
+                        </div>
+                        <div className="mt-0.5">
+                            <span className="bg-gold-gradient inline-block rounded-full px-2.5 py-0.5 font-display text-sm font-bold text-[#3a2600] tabular-nums">
+                                {prizeText}
+                            </span>
+                        </div>
+                    </div>
+                )}
+
+                {row.pending_bonus > 0 && (
+                    <StatCell
+                        label="If it holds"
+                        value={`+${row.pending_bonus}`}
+                        valueClassName="text-amber-300"
+                    />
+                )}
+            </div>
+        </div>
+    );
+}
+
+/**
+ * The set of rows sharing the extreme qualifying metric (the tie), or null when none qualify.
+ * `prefer` picks the highest value (top earner / biggest mover) or the lowest (quietest earner).
+ */
+function pickLeaders(
+    rows: ProjectedRow[],
+    metric: (row: ProjectedRow) => number,
+    qualifies: (row: ProjectedRow) => boolean,
+    prefer: 'high' | 'low',
+): { leaders: ProjectedRow[]; value: number } | null {
+    let value = 0;
+    let leaders: ProjectedRow[] = [];
+
+    for (const row of rows) {
+        if (!qualifies(row)) {
+            continue;
+        }
+
+        const candidate = metric(row);
+        const isBetter =
+            leaders.length === 0 ||
+            (prefer === 'high' ? candidate > value : candidate < value);
+
+        if (isBetter) {
+            value = candidate;
+            leaders = [row];
+        } else if (candidate === value) {
+            leaders.push(row);
+        }
+    }
+
+    return leaders.length > 0 ? { leaders, value } : null;
+}
+
+/** "place" / "places" for a movement delta. */
+function places(delta: number): string {
+    return delta === 1 ? 'place' : 'places';
+}
+
+/**
+ * One live-mover stat card: a tinted lead, then the standout player (or stacked avatars + "K players"
+ * on a tie) and the headline delta. A "No movement yet" resting state keeps the card present — and
+ * the layout balanced — before anyone has moved (e.g. until the first official results are approved).
+ */
+function MoverCard({
+    title,
+    icon: Icon,
+    toneClassName,
+    result,
+    format,
+    emptyLabel = 'No movement yet',
+    meId,
+}: {
+    title: string;
+    icon: LucideIcon;
+    toneClassName: string;
+    result: { leaders: ProjectedRow[]; value: number } | null;
+    format: (value: number) => string;
+    emptyLabel?: string;
+    meId: number;
+}) {
+    return (
+        <div className="card-elevated flex flex-col gap-3 rounded-2xl border border-border bg-card p-4">
+            <span className="inline-flex items-center gap-1.5 text-[0.7rem] font-bold tracking-[0.12em] text-muted-foreground uppercase">
+                <Icon className={cn('size-3.5', toneClassName)} />
+                {title}
+            </span>
+
+            {result ? (
+                <div className="flex items-center gap-3">
+                    <AvatarStack
+                        players={result.leaders.map((row) => ({
+                            id: row.entry_id,
+                            name: row.name,
+                            initials: row.initials,
+                            avatar: row.avatar,
+                            isMe: row.user_id === meId,
+                        }))}
+                    />
+                    <div className="min-w-0">
+                        <p className="truncate font-display font-semibold">
+                            {result.leaders.length === 1
+                                ? result.leaders[0].user_id === meId
+                                    ? 'You'
+                                    : result.leaders[0].name
+                                : `${result.leaders.length} players`}
+                        </p>
+                        <p
+                            className={cn(
+                                'font-display text-sm font-semibold tabular-nums',
+                                toneClassName,
+                            )}
+                        >
+                            {format(result.value)}
+                        </p>
+                    </div>
+                </div>
+            ) : (
+                <p className="text-sm text-muted-foreground">{emptyLabel}</p>
+            )}
+        </div>
+    );
+}
+
+/**
+ * The pool's live movers — who's earning the most/least from the live scores (Top earner / Quietest,
+ * among players actually gaining) and who's climbing/falling the most (movement vs the banked official
+ * rank). All four cards always render so the row beside the viewer card stays balanced; earner cards
+ * rest until someone gains, climber/faller until the first official results are approved.
+ */
+function LiveMovers({
+    rows,
+    primaryLabel,
+    meId,
+    className,
+}: {
+    rows: ProjectedRow[];
+    primaryLabel: string;
+    meId: number;
+    className?: string;
+}) {
+    const label = primaryLabel.toLowerCase();
+    const gain = (row: ProjectedRow): number => row.live_gain;
+    const isGainer = (row: ProjectedRow): boolean => row.live_gain > 0;
+    const delta = (row: ProjectedRow): number => row.movement_delta ?? 0;
+
+    const topEarner = pickLeaders(rows, gain, isGainer, 'high');
+    const quietest = pickLeaders(rows, gain, isGainer, 'low');
+    const climber = pickLeaders(
+        rows,
+        delta,
+        (row) => row.movement === 'up',
+        'high',
+    );
+    const faller = pickLeaders(
+        rows,
+        delta,
+        (row) => row.movement === 'down',
+        'high',
+    );
+
+    return (
+        <div className={cn('grid grid-cols-2 gap-3', className)}>
+            <MoverCard
+                title="Top earner"
+                icon={Crown}
+                toneClassName="text-accent"
+                result={topEarner}
+                format={(value) => `+${value} ${label}`}
+                emptyLabel="No earnings yet"
+                meId={meId}
+            />
+            <MoverCard
+                title="Quietest"
+                icon={TrendingDown}
+                toneClassName="text-muted-foreground"
+                result={quietest}
+                format={(value) => `+${value} ${label}`}
+                emptyLabel="No earnings yet"
+                meId={meId}
+            />
+            <MoverCard
+                title="Climber"
+                icon={ArrowUp}
+                toneClassName="text-primary"
+                result={climber}
+                format={(value) => `▲${value} ${places(value)}`}
+                meId={meId}
+            />
+            <MoverCard
+                title="Faller"
+                icon={ArrowDown}
+                toneClassName="text-destructive"
+                result={faller}
+                format={(value) => `▼${value} ${places(value)}`}
+                meId={meId}
+            />
+        </div>
+    );
+}
+
+function ProjectedBoard({
+    pool,
+    board,
+    meId,
+}: {
+    pool: LivePool;
+    board: LiveBoardDescriptor;
+    meId: number;
+}) {
+    const rows = pool.boards[board.key] ?? [];
+    const mine = rows.find((row) => row.user_id === meId);
+
+    const toEntry = (row: ProjectedRow): LeaderboardEntry => ({
+        rank: row.rank,
+        name: row.user_id === meId ? 'You' : row.name,
+        initials: row.initials,
+        avatar: row.avatar,
+        primary: row.primary_value,
+        secondary:
+            board.secondary_stat_label && row.secondary_value != null
+                ? `${row.secondary_value} ${board.secondary_stat_label}`
+                : null,
+        isMe: row.user_id === meId,
+        movement: row.movement,
+        movementDelta: row.movement_delta,
+        liveGain: row.live_gain,
+        prize:
+            board.awards_prizes && pool.is_paid && row.projected_prize != null
+                ? formatMoney(row.projected_prize, pool.currency)
+                : null,
+    });
+
+    return (
+        <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
+                {mine && (
+                    <ViewerProjection
+                        row={mine}
+                        pool={pool}
+                        primaryLabel={board.primary_stat_label}
+                        className="lg:w-80 lg:shrink-0"
+                    />
+                )}
+
+                <LiveMovers
+                    rows={rows}
+                    primaryLabel={board.primary_stat_label}
+                    meId={meId}
+                    className="lg:flex-1"
+                />
+            </div>
+
+            <p className="text-sm text-muted-foreground">{board.description}</p>
+
+            {rows.length > 0 ? (
+                <StandingsList
+                    key={board.key}
+                    entries={rows.map(toEntry)}
+                    primaryStatLabel={board.primary_stat_label}
+                    stickyOffsetClassName="bottom-3 sm:bottom-6"
+                />
+            ) : (
+                <p className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+                    No players to project yet.
+                </p>
+            )}
+        </div>
+    );
+}
+
+function PoolLiveSection({
+    pool,
+    boards,
+    meId,
+}: {
+    pool: LivePool;
+    boards: LiveBoardDescriptor[];
+    meId: number;
+}) {
+    const [boardKey, setBoardKey] = useState(boards[0]?.key ?? 'overall');
+    const board = boards.find((item) => item.key === boardKey) ?? boards[0];
+
+    return (
+        <section className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <PoolIdentity
+                    source={pool.source}
+                    name={pool.name}
+                    scoringLabel={pool.scoring_label}
+                    accent={pool.accent}
+                    variant="banner"
+                />
+                <span className="font-display text-xs font-semibold text-muted-foreground">
+                    Projected · if scores hold
+                </span>
+            </div>
+
+            <SegmentedTabs
+                aria-label="Projected leaderboard"
+                items={boards.map((item) => ({
+                    value: item.key,
+                    label: item.label,
+                }))}
+                value={board.key}
+                onChange={setBoardKey}
+                size="sm"
+            />
+
+            <ProjectedBoard pool={pool} board={board} meId={meId} />
+        </section>
+    );
+}
+
+export default function LiveShow({
+    tournament,
+    boards,
+    pools,
+    liveFixtures,
+    poll_interval_ms,
+}: LiveShowProps) {
+    const page = usePage();
+    const meId = page.props.auth.user?.id ?? 0;
+    const [poolSlug, setPoolSlug] = useState(pools[0]?.slug ?? '');
+    const selectedPool =
+        pools.find((pool) => pool.slug === poolSlug) ?? pools[0] ?? null;
+
+    useLivePoll({
+        intervalMs: poll_interval_ms,
+        active: liveFixtures.length > 0,
+        only: LIVE_ONLY,
+    });
+
+    const liveCount = liveFixtures.filter(
+        (fixture) => fixture.status === 'live',
+    ).length;
+
+    return (
+        <>
+            <Head title={`${tournament.name} · Live`} />
+            <div className="relative min-h-full bg-background">
+                <div className="w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-10">
+                    <header className="hero relative mb-6 overflow-hidden rounded-3xl border border-border p-5 sm:mb-8 sm:p-8">
+                        <div className="hero-lines" />
+                        <div className="relative flex flex-wrap items-end justify-between gap-4">
+                            <div className="flex flex-col gap-3">
+                                <span className="inline-flex w-fit items-center gap-2 text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">
+                                    <LivePulse />
+                                    Live Center
+                                </span>
+                                <h1 className="text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl">
+                                    {tournament.name}
+                                </h1>
+                                <span className="bg-gold-gradient mt-1 h-1 w-12 rounded-full" />
+                                <p className="text-sm font-semibold text-muted-foreground">
+                                    {liveCount > 0
+                                        ? `${liveCount} match${liveCount === 1 ? '' : 'es'} live now — watch your standings move in real time.`
+                                        : 'No matches live at the moment.'}
+                                </p>
+                            </div>
+                        </div>
+                    </header>
+
+                    <div className="flex flex-col gap-8">
+                        <section className="flex flex-col gap-4">
+                            <h2 className="font-display text-lg font-semibold">
+                                Live scores
+                            </h2>
+                            <LiveScoreboard fixtures={liveFixtures} />
+                        </section>
+
+                        {pools.length > 1 && (
+                            <SegmentedTabs
+                                aria-label="Your pools"
+                                items={pools.map((pool) => {
+                                    const kit = resolveAccent(pool.accent);
+
+                                    return {
+                                        value: pool.slug,
+                                        label: (
+                                            <span className="inline-flex items-center gap-1.5">
+                                                <span
+                                                    className={cn(
+                                                        'flex size-4 shrink-0 items-center justify-center rounded font-display text-[0.5rem] leading-none font-bold',
+                                                        kit.railClass,
+                                                        kit.textClass,
+                                                    )}
+                                                    aria-hidden
+                                                >
+                                                    {sourceMonogram(
+                                                        pool.source,
+                                                    )}
+                                                </span>
+                                                {pool.name}
+                                            </span>
+                                        ),
+                                    };
+                                })}
+                                value={selectedPool?.slug ?? ''}
+                                onChange={setPoolSlug}
+                            />
+                        )}
+
+                        {selectedPool ? (
+                            <PoolLiveSection
+                                key={selectedPool.slug}
+                                pool={selectedPool}
+                                boards={boards}
+                                meId={meId}
+                            />
+                        ) : (
+                            <p className="text-sm text-muted-foreground">
+                                Join a pool over this tournament to follow your
+                                live standings.
+                            </p>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </>
+    );
+}
+
+LiveShow.layout = {
+    breadcrumbs: [{ title: 'Live', href: live.index() }],
+};

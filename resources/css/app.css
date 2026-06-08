@@ -383,7 +383,8 @@
        row (all app pages). Both include the iOS safe-area insets so nothing hides behind the notch or
        home indicator. */
     @media (max-width: 767px) {
-        .has-pool-tab-bar {
+        .has-pool-tab-bar,
+        .has-manage-tab-bar {
             --pool-tab-bar-h: calc(4.5rem + env(safe-area-inset-bottom, 0px));
         }
 

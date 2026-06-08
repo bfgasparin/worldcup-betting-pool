@@ -1,6 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
-import { Check, ChevronDown, LayoutGrid } from 'lucide-react';
+import { Check, ChevronDown, LayoutGrid, Radio } from 'lucide-react';
 import { useState } from 'react';
+import { LivePulse } from '@/components/live-badge';
 import { tournamentNavItems } from '@/components/nav-tournament';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -23,6 +24,7 @@ import { useInitials } from '@/hooks/use-initials';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { resolveAccent, sourceMonogram } from '@/lib/accents';
 import { cn } from '@/lib/utils';
+import live from '@/routes/live';
 import { index as poolsIndex } from '@/routes/pools';
 import type { User } from '@/types';
 import type { Auth } from '@/types/auth';
@@ -39,6 +41,7 @@ export function MobileTopNav() {
         pool?: TournamentNavInfo;
         joinedPools: JoinedPool[];
         auth: Auth;
+        hasLiveMatches?: boolean;
     }>();
 
     if (!isMobile) {
@@ -52,9 +55,30 @@ export function MobileTopNav() {
                 paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))',
             }}
         >
+            <LiveButton hasLive={Boolean(props.hasLiveMatches)} />
             <PoolSwitcher pool={props.pool} pools={props.joinedPools ?? []} />
             <UserMenuButton user={props.auth.user} />
         </div>
+    );
+}
+
+/**
+ * The floating live affordance: a small round button that pulses red while a match is live and
+ * sits neutral otherwise, tapping through to the Live Center.
+ */
+function LiveButton({ hasLive }: { hasLive: boolean }) {
+    return (
+        <Link
+            href={live.index()}
+            aria-label="Live Center"
+            className="pointer-events-auto flex size-9 items-center justify-center rounded-full border border-border bg-card/95 shadow-[var(--sh-md)] backdrop-blur"
+        >
+            {hasLive ? (
+                <LivePulse />
+            ) : (
+                <Radio className="size-4 text-muted-foreground" />
+            )}
+        </Link>
     );
 }
 
@@ -84,7 +108,7 @@ function PoolSwitcher({
             <SheetTrigger asChild>
                 <button
                     type="button"
-                    className="pointer-events-auto inline-flex max-w-[62vw] items-center gap-2 rounded-full border border-border bg-card/95 py-1.5 pr-3 pl-1.5 shadow-[var(--sh-md)] backdrop-blur"
+                    className="pointer-events-auto inline-flex max-w-[52vw] items-center gap-2 rounded-full border border-border bg-card/95 py-1.5 pr-3 pl-1.5 shadow-[var(--sh-md)] backdrop-blur"
                 >
                     {pool && accent ? (
                         <span

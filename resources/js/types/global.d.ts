@@ -16,6 +16,7 @@ declare module '@inertiajs/core' {
             timezone: string | null;
             sidebarOpen: boolean;
             joinedPools: JoinedPool[];
+            hasLiveMatches: boolean;
             [key: string]: unknown;
         };
     }

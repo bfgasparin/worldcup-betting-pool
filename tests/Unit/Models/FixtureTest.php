@@ -4,6 +4,7 @@ namespace Tests\Unit\Models;
 
 use App\Enums\FixtureStatus;
 use App\Models\Fixture;
+use App\Models\FixtureLiveState;
 use App\Models\ScoreBatch;
 use App\Models\ScoreProposal;
 use Carbon\CarbonImmutable;
@@ -152,6 +153,16 @@ class FixtureTest extends TestCase
         $this->assertDatabaseMissing('score_proposals', ['id' => $openProposal->id]);
         $this->assertDatabaseHas('score_proposals', ['id' => $publishedProposal->id]);
         $this->assertDatabaseHas('score_batches', ['id' => $openProposal->score_batch_id]);
+    }
+
+    public function test_reschedule_clears_the_live_state(): void
+    {
+        $fixture = Fixture::factory()->ended()->create();
+        FixtureLiveState::factory()->for($fixture)->withScore(1, 0)->create();
+
+        $fixture->reschedule(CarbonImmutable::parse('2026-06-20 18:00:00'), 'Miami Stadium', 'America/New_York');
+
+        $this->assertNull($fixture->fresh()->liveState);
     }
 
     public function test_reschedule_rejects_a_finished_fixture(): void

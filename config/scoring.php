@@ -34,6 +34,33 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Go-live buffer (minutes)
+    |--------------------------------------------------------------------------
+    |
+    | How early before kickoff an admin may mark a fixture live in the Live
+    | Center (see App\Models\Fixture::canGoLive). Going live is admin-driven —
+    | the system no longer flips a fixture to live automatically when its
+    | kickoff passes — but a match still cannot be started long before kickoff.
+    |
+    */
+
+    'go_live_buffer_minutes' => (int) env('SCORING_GO_LIVE_BUFFER_MINUTES', 15),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Live Center poll interval (milliseconds)
+    |--------------------------------------------------------------------------
+    |
+    | How often the player-facing Live Center re-fetches the live scores and
+    | projected leaderboards while a match is in play. The server caches the
+    | projection per live-state change, so all viewers share one computation.
+    |
+    */
+
+    'live_poll_interval_ms' => (int) env('SCORING_LIVE_POLL_INTERVAL_MS', 10000),
+
+    /*
+    |--------------------------------------------------------------------------
     | Simulated score provider
     |--------------------------------------------------------------------------
     |

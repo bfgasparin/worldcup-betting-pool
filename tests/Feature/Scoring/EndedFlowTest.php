@@ -4,9 +4,11 @@ namespace Tests\Feature\Scoring;
 
 use App\Enums\BatchStatus;
 use App\Enums\FixtureStatus;
+use App\Models\Fixture;
 use App\Models\Pool;
 use App\Models\Tournament;
 use App\Models\User;
+use App\Services\Live\GoLive;
 use Carbon\CarbonImmutable;
 use Database\Seeders\WorldCup2026Seeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -44,9 +46,17 @@ class EndedFlowTest extends TestCase
         // Players predict; no results yet, every fixture still scheduled.
         $this->artisan('tournament:simulate', ['--players' => 4, '--predict-only' => true])->assertSuccessful();
 
-        // The clock reaches the middle of the group stage; kicked-off matches go live.
+        // The clock reaches the middle of the group stage; an admin (or automated process) marks the
+        // kicked-off matches live — going live is admin-driven now, so this uses GoLive::force.
         $this->travelTo(CarbonImmutable::parse('2026-06-13 23:59:00', 'UTC'));
-        $this->artisan('fixtures:tick')->assertSuccessful();
+
+        $goLive = app(GoLive::class);
+        $this->tournament->fixtures()
+            ->where('status', FixtureStatus::Scheduled)
+            ->whereNotNull('kicks_off_at')
+            ->where('kicks_off_at', '<=', now())
+            ->get()
+            ->each(fn (Fixture $fixture) => $goLive->force($fixture));
 
         $endedCount = $this->tournament->fixtures()->ended()->whereNull('home_goals')->count();
         $this->assertGreaterThan(0, $endedCount);
@@ -62,7 +72,7 @@ class EndedFlowTest extends TestCase
         config()->set('admin.emails', [$admin->email]);
 
         $this->actingAs($admin)
-            ->post(route('pools.scores.approve', $this->pool))
+            ->post(route('manage.scores.approve', $this->tournament))
             ->assertRedirect();
 
         $this->assertSame(

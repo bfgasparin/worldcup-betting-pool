@@ -1,0 +1,125 @@
+import { Head, Link } from '@inertiajs/react';
+import { CalendarClock, ClipboardCheck, Radio, Trophy } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import manage from '@/routes/manage';
+import type { BreadcrumbItem } from '@/types/navigation';
+
+interface ManageTournament {
+    name: string;
+    slug: string;
+    status: string;
+    status_label: string;
+}
+
+interface ManageIndexProps {
+    tournaments: ManageTournament[];
+}
+
+function AdminAction({
+    href,
+    icon: Icon,
+    label,
+}: {
+    href: string;
+    icon: LucideIcon;
+    label: string;
+}) {
+    return (
+        <Button asChild variant="outline" className="justify-start">
+            <Link href={href}>
+                <Icon className="size-4 text-primary" />
+                {label}
+            </Link>
+        </Button>
+    );
+}
+
+export default function ManageIndex({ tournaments }: ManageIndexProps) {
+    return (
+        <>
+            <Head title="Manage" />
+            <div className="relative min-h-full bg-background">
+                <div className="w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-10">
+                    <header className="hero relative mb-6 overflow-hidden rounded-3xl border border-border p-5 sm:mb-8 sm:p-8">
+                        <div className="hero-lines" />
+                        <div className="relative flex flex-col gap-3">
+                            <span className="inline-flex w-fit items-center gap-2 text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">
+                                <Trophy className="size-4 text-primary" />
+                                Admin
+                            </span>
+                            <h1 className="text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl">
+                                Manage tournaments
+                            </h1>
+                            <span className="bg-gold-gradient mt-1 h-1 w-12 rounded-full" />
+                            <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
+                                Run a tournament from here — start matches in
+                                Live Control, review and approve scores, and
+                                reschedule fixtures. No pool membership needed.
+                            </p>
+                        </div>
+                    </header>
+
+                    {tournaments.length > 0 ? (
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            {tournaments.map((tournament) => (
+                                <div
+                                    key={tournament.slug}
+                                    className="card-elevated flex flex-col gap-5 rounded-3xl border border-border p-6"
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <h2 className="text-xl font-semibold tracking-tight text-balance text-foreground">
+                                            {tournament.name}
+                                        </h2>
+                                        <span className="shrink-0 rounded-full bg-secondary px-3 py-1 font-display text-xs font-semibold text-secondary-foreground">
+                                            {tournament.status_label}
+                                        </span>
+                                    </div>
+                                    <div className="mt-auto flex flex-col gap-2">
+                                        <AdminAction
+                                            href={
+                                                manage.live.index(
+                                                    tournament.slug,
+                                                ).url
+                                            }
+                                            icon={Radio}
+                                            label="Live control"
+                                        />
+                                        <AdminAction
+                                            href={
+                                                manage.scores.review(
+                                                    tournament.slug,
+                                                ).url
+                                            }
+                                            icon={ClipboardCheck}
+                                            label="Review scores"
+                                        />
+                                        <AdminAction
+                                            href={
+                                                manage.schedule.index(
+                                                    tournament.slug,
+                                                ).url
+                                            }
+                                            icon={CalendarClock}
+                                            label="Schedule"
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-sm text-muted-foreground">
+                            No tournaments yet.
+                        </p>
+                    )}
+                </div>
+            </div>
+        </>
+    );
+}
+
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Manage', href: manage.index() },
+];
+
+ManageIndex.layout = { breadcrumbs };

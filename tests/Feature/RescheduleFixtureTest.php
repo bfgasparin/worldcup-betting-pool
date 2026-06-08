@@ -58,11 +58,11 @@ class RescheduleFixtureTest extends TestCase
         $fixture = $this->groupFixture();
 
         $this->actingAs($this->admin())
-            ->patch(route('pools.fixtures.reschedule', [$this->pool, $fixture]), [
+            ->patch(route('manage.fixtures.reschedule', [$this->tournament, $fixture]), [
                 'kicks_off_at' => '2026-07-01T21:30',
                 'venue' => 'Los Angeles Stadium',
             ])
-            ->assertRedirect(route('pools.schedule.index', $this->pool));
+            ->assertRedirect(route('manage.schedule.index', $this->tournament));
 
         $fresh = $fixture->fresh();
         // The time is read in the admin's timezone (New York); the venue still carries its own zone.
@@ -80,11 +80,11 @@ class RescheduleFixtureTest extends TestCase
         // must reflect São Paulo, proving the venue's zone never drives the kickoff.
         $this->actingAs($this->admin())
             ->withUnencryptedCookie('timezone', 'America/Sao_Paulo')
-            ->patch(route('pools.fixtures.reschedule', [$this->pool, $fixture]), [
+            ->patch(route('manage.fixtures.reschedule', [$this->tournament, $fixture]), [
                 'kicks_off_at' => '2026-07-01T18:00',
                 'venue' => 'Los Angeles Stadium',
             ])
-            ->assertRedirect(route('pools.schedule.index', $this->pool));
+            ->assertRedirect(route('manage.schedule.index', $this->tournament));
 
         $this->assertTrue(
             $fixture->fresh()->kicks_off_at->equalTo(
@@ -99,11 +99,11 @@ class RescheduleFixtureTest extends TestCase
         $this->assertSame(FixtureStatus::Live, $fixture->status);
 
         $this->actingAs($this->admin())
-            ->patch(route('pools.fixtures.reschedule', [$this->pool, $fixture]), [
+            ->patch(route('manage.fixtures.reschedule', [$this->tournament, $fixture]), [
                 'kicks_off_at' => '2026-07-01T21:30',
                 'venue' => 'Miami Stadium',
             ])
-            ->assertRedirect(route('pools.schedule.index', $this->pool));
+            ->assertRedirect(route('manage.schedule.index', $this->tournament));
 
         $this->assertSame(FixtureStatus::Scheduled, $fixture->fresh()->status);
     }
@@ -115,11 +115,11 @@ class RescheduleFixtureTest extends TestCase
         $this->assertSame(TournamentStatus::InProgress, $this->tournament->fresh()->status);
 
         $this->actingAs($this->admin())
-            ->patch(route('pools.fixtures.reschedule', [$this->pool, $fixture]), [
+            ->patch(route('manage.fixtures.reschedule', [$this->tournament, $fixture]), [
                 'kicks_off_at' => '2026-07-01T21:30',
                 'venue' => 'Miami Stadium',
             ])
-            ->assertRedirect(route('pools.schedule.index', $this->pool));
+            ->assertRedirect(route('manage.schedule.index', $this->tournament));
 
         // Nothing is live or played anymore, so the tournament is no longer underway.
         $this->assertSame(TournamentStatus::Upcoming, $this->tournament->fresh()->status);
@@ -135,11 +135,11 @@ class RescheduleFixtureTest extends TestCase
         ]);
 
         $this->actingAs($this->admin())
-            ->patch(route('pools.fixtures.reschedule', [$this->pool, $fixture]), [
+            ->patch(route('manage.fixtures.reschedule', [$this->tournament, $fixture]), [
                 'kicks_off_at' => '2026-07-01T21:30',
                 'venue' => 'Miami Stadium',
             ])
-            ->assertRedirect(route('pools.schedule.index', $this->pool));
+            ->assertRedirect(route('manage.schedule.index', $this->tournament));
 
         $this->assertDatabaseMissing('score_proposals', ['id' => $proposal->id]);
         // Only the proposal is removed; the shared open batch survives for other fixtures.
@@ -153,7 +153,7 @@ class RescheduleFixtureTest extends TestCase
         $fixture->update(['status' => FixtureStatus::Finished]);
 
         $this->actingAs($this->admin())
-            ->patch(route('pools.fixtures.reschedule', [$this->pool, $fixture]), [
+            ->patch(route('manage.fixtures.reschedule', [$this->tournament, $fixture]), [
                 'kicks_off_at' => '2026-07-01T21:30',
                 'venue' => 'Miami Stadium',
             ])
@@ -169,7 +169,7 @@ class RescheduleFixtureTest extends TestCase
         $fixture = $this->groupFixture();
 
         $this->actingAs($this->admin())
-            ->patch(route('pools.fixtures.reschedule', [$this->pool, $fixture]), [
+            ->patch(route('manage.fixtures.reschedule', [$this->tournament, $fixture]), [
                 'kicks_off_at' => '2020-01-01T12:00',
                 'venue' => 'Miami Stadium',
             ])
@@ -181,7 +181,7 @@ class RescheduleFixtureTest extends TestCase
         $fixture = $this->groupFixture();
 
         $this->actingAs($this->admin())
-            ->patch(route('pools.fixtures.reschedule', [$this->pool, $fixture]), [
+            ->patch(route('manage.fixtures.reschedule', [$this->tournament, $fixture]), [
                 'kicks_off_at' => '2026-07-01T21:30',
                 'venue' => 'Wembley Stadium',
             ])
@@ -193,7 +193,7 @@ class RescheduleFixtureTest extends TestCase
         $fixture = $this->groupFixture();
 
         $this->actingAs($this->admin())
-            ->patch(route('pools.fixtures.reschedule', [$this->pool, $fixture]), [
+            ->patch(route('manage.fixtures.reschedule', [$this->tournament, $fixture]), [
                 'venue' => 'Miami Stadium',
             ])
             ->assertSessionHasErrors('kicks_off_at');
@@ -204,7 +204,7 @@ class RescheduleFixtureTest extends TestCase
         $fixture = $this->groupFixture();
 
         $this->actingAs(User::factory()->create())
-            ->patch(route('pools.fixtures.reschedule', [$this->pool, $fixture]), [
+            ->patch(route('manage.fixtures.reschedule', [$this->tournament, $fixture]), [
                 'kicks_off_at' => '2026-07-01T21:30',
                 'venue' => 'Miami Stadium',
             ])
@@ -215,7 +215,7 @@ class RescheduleFixtureTest extends TestCase
     {
         $fixture = $this->groupFixture();
 
-        $this->patch(route('pools.fixtures.reschedule', [$this->pool, $fixture]), [
+        $this->patch(route('manage.fixtures.reschedule', [$this->tournament, $fixture]), [
             'kicks_off_at' => '2026-07-01T21:30',
             'venue' => 'Miami Stadium',
         ])->assertRedirect(route('login'));
@@ -226,7 +226,7 @@ class RescheduleFixtureTest extends TestCase
         $otherFixture = Fixture::factory()->create();
 
         $this->actingAs($this->admin())
-            ->patch(route('pools.fixtures.reschedule', [$this->pool, $otherFixture]), [
+            ->patch(route('manage.fixtures.reschedule', [$this->tournament, $otherFixture]), [
                 'kicks_off_at' => '2026-07-01T21:30',
                 'venue' => 'Miami Stadium',
             ])
@@ -243,11 +243,11 @@ class RescheduleFixtureTest extends TestCase
 
         // Move it even earlier (but still future) so it remains the tournament's first kickoff.
         $this->actingAs($this->admin())
-            ->patch(route('pools.fixtures.reschedule', [$this->pool, $earliest]), [
+            ->patch(route('manage.fixtures.reschedule', [$this->tournament, $earliest]), [
                 'kicks_off_at' => '2026-06-05T18:00',
                 'venue' => $earliest->venue,
             ])
-            ->assertRedirect(route('pools.schedule.index', $this->pool));
+            ->assertRedirect(route('manage.schedule.index', $this->tournament));
 
         $buffer = (int) config('scoring.prediction_lock_buffer_minutes');
         // The kickoff is read in the admin's timezone (New York), then the buffer is applied.

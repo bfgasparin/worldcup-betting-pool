@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\Live\HasLiveMatches;
 use App\Services\Pools\JoinedPools;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -48,6 +49,9 @@ class HandleInertiaRequests extends Middleware
             // Resolved from the container so the per-request {@see PredictionAttention} is shared
             // with the pool page and a player's bracket is never resolved twice in one request.
             'joinedPools' => app(JoinedPools::class)->forUser($request->user()),
+            // Drives the navigation's animated "Live" indicator: true when the user has a live match
+            // to follow in a tournament they've joined.
+            'hasLiveMatches' => app(HasLiveMatches::class)->forUser($request->user()),
         ];
     }
 }
