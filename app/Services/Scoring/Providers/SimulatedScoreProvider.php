@@ -3,8 +3,10 @@
 namespace App\Services\Scoring\Providers;
 
 use App\Contracts\ScoreProvider;
+use App\Enums\FixtureStatus;
 use App\Models\Fixture;
 use App\Models\Tournament;
+use App\Services\Scoring\LiveScore;
 use App\Services\Scoring\ProposedScore;
 use App\Support\DeterministicScores;
 
@@ -28,14 +30,81 @@ class SimulatedScoreProvider implements ScoreProvider
             ->get();
 
         foreach ($fixtures as $fixture) {
-            $proposed = $fixture->isKnockout()
-                ? $this->knockoutScore($fixture, $scores)
-                : $this->groupScore($fixture, $scores);
+            $proposed = $this->regulationScore($fixture, $scores);
 
             if ($proposed !== null) {
                 yield $proposed;
             }
         }
+    }
+
+    /**
+     * The live scoreline of every in-play fixture (gone live, no official result yet), revealed
+     * progressively toward the same regulation result {@see fetch()} will settle, so the live board
+     * converges to the proposed final. Penalties/winner are never shown live — they belong to the
+     * final, settled through the proposal/approval pipeline.
+     */
+    public function live(Tournament $tournament): iterable
+    {
+        $scores = new DeterministicScores;
+        $duration = (int) config('scoring.match_duration_minutes') * 60;
+
+        $fixtures = $tournament->fixtures()
+            ->where('status', FixtureStatus::Live)
+            ->whereNull('home_goals')
+            ->whereNotNull('kicks_off_at')
+            ->with(['phase', 'group.teams'])
+            ->get();
+
+        foreach ($fixtures as $fixture) {
+            $target = $this->regulationScore($fixture, $scores);
+
+            if ($target === null) {
+                // A knockout whose participants aren't projected yet — nothing to reveal.
+                continue;
+            }
+
+            $elapsed = now()->getTimestamp() - $fixture->kicks_off_at->getTimestamp();
+            $fraction = $duration === 0 ? 1.0 : max(0.0, min(1.0, $elapsed / $duration));
+
+            yield new LiveScore(
+                matchNumber: $fixture->match_number,
+                homeGoals: $this->goalsRevealed($scores, $fixture->match_number, 'h', $target->homeGoals, $fraction),
+                awayGoals: $this->goalsRevealed($scores, $fixture->match_number, 'a', $target->awayGoals, $fraction),
+            );
+        }
+    }
+
+    /**
+     * Route a fixture to its deterministic regulation result — the single source shared by the
+     * {@see fetch()} final and the {@see live()} target, so the two can never diverge.
+     */
+    private function regulationScore(Fixture $fixture, DeterministicScores $scores): ?ProposedScore
+    {
+        return $fixture->isKnockout()
+            ? $this->knockoutScore($fixture, $scores)
+            : $this->groupScore($fixture, $scores);
+    }
+
+    /**
+     * How many of a side's regulation goals have been scored by elapsed fraction `$fraction`. Each
+     * goal gets a stable threshold in [0.05, 0.95): the floor keeps a goal off the board at the
+     * whistle, and the ceiling guarantees every goal is revealed by full time (f=1) — so the count
+     * is deterministic, monotonic, and lands exactly on the regulation total.
+     */
+    private function goalsRevealed(DeterministicScores $scores, int $matchNumber, string $side, int $targetGoals, float $fraction): int
+    {
+        $revealed = 0;
+
+        for ($i = 0; $i < $targetGoals; $i++) {
+            $threshold = $scores->noise($matchNumber, $side, 'g', $i) * 0.9 + 0.05;
+
+            if ($fraction >= $threshold) {
+                $revealed++;
+            }
+        }
+
+        return $revealed;
     }
 
     private function groupScore(Fixture $fixture, DeterministicScores $scores): ProposedScore

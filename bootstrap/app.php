@@ -28,8 +28,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // which a production schedule (e.g. a fixtures-derived window) becomes worth its wake-ups.
         // Covered by tests/Feature/Console/ScheduleConfigurationTest.php.
         if (! app()->isProduction()) {
-            // Non-production only: drive the simulated score feed off the dev clock. It runs
-            // frequently so a local simulation advances match by match as the clock moves.
+            // Non-production only: drive the simulated live feed off the dev clock. It runs
+            // frequently so a local simulation advances match by match as the clock moves —
+            // live:advance takes due fixtures live, ticks their live scores, and closes ended
+            // boards; scores:fetch proposes the complete finals of ended fixtures for admin review.
+            $schedule->command('live:advance')->everyMinute()->withoutOverlapping();
             $schedule->command('scores:fetch')->everyMinute()->withoutOverlapping();
         }
     })

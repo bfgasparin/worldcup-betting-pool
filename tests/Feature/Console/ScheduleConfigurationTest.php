@@ -45,6 +45,14 @@ class ScheduleConfigurationTest extends TestCase
         $this->assertSame('* * * * *', $events[0]->expression);
     }
 
+    public function test_live_advance_runs_frequently_outside_production(): void
+    {
+        $events = $this->events('live:advance');
+
+        $this->assertCount(1, $events, 'Expected live:advance to be scheduled outside production.');
+        $this->assertSame('* * * * *', $events[0]->expression);
+    }
+
     /**
      * @return list<Event>
      */

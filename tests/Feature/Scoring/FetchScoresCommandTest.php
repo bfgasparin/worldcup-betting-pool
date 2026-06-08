@@ -139,6 +139,11 @@ class FetchScoresCommandTest extends TestCase
             {
                 return $this->scores;
             }
+
+            public function live(Tournament $tournament): iterable
+            {
+                return [];
+            }
         });
     }
 }
