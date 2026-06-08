@@ -16,4 +16,9 @@ class ManualScoreProvider implements ScoreProvider
     {
         return [];
     }
+
+    public function live(Tournament $tournament): iterable
+    {
+        return [];
+    }
 }
