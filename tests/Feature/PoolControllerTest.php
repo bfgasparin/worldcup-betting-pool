@@ -310,26 +310,18 @@ class PoolControllerTest extends TestCase
             );
     }
 
-    public function test_show_exposes_the_admin_review_flag_and_settled_card_fields(): void
+    public function test_show_exposes_the_settled_card_fields(): void
     {
+        // Score review moved to the pool-agnostic admin area, so the pool page no longer carries an
+        // admin flag — but the knockout fixtures still expose the fields a settled card needs.
         $this->seed(WorldCup2026Seeder::class);
-        $admin = User::factory()->create();
-        config()->set('admin.emails', [$admin->email]);
-
-        $this->actingAs($admin)
-            ->get(route('pools.show', 'world-cup-2026-ffa'))
-            ->assertInertia(fn (AssertableInertia $page) => $page
-                ->where('pool.can_review_scores', true)
-                // The knockout fixtures expose the fields a settled card needs.
-                ->where('bracket.0.fixtures.0.winner_team_id', null)
-                ->where('bracket.0.fixtures.0.home_penalties', null)
-                ->where('bracket.0.fixtures.0.prediction', null)
-            );
 
         $this->actingAs(User::factory()->create())
             ->get(route('pools.show', 'world-cup-2026-ffa'))
             ->assertInertia(fn (AssertableInertia $page) => $page
-                ->where('pool.can_review_scores', false)
+                ->where('bracket.0.fixtures.0.winner_team_id', null)
+                ->where('bracket.0.fixtures.0.home_penalties', null)
+                ->where('bracket.0.fixtures.0.prediction', null)
             );
     }
 

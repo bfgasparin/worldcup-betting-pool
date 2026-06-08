@@ -72,7 +72,7 @@ class EndedFlowTest extends TestCase
         config()->set('admin.emails', [$admin->email]);
 
         $this->actingAs($admin)
-            ->post(route('pools.scores.approve', $this->pool))
+            ->post(route('manage.scores.approve', $this->tournament))
             ->assertRedirect();
 
         $this->assertSame(

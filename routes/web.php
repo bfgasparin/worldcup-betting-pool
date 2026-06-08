@@ -11,4 +11,5 @@ Route::post('login/code', [LoginCodeController::class, 'store'])
 
 require __DIR__.'/onboarding.php';
 require __DIR__.'/pools.php';
+require __DIR__.'/manage.php';
 require __DIR__.'/settings.php';

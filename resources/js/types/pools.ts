@@ -215,8 +215,6 @@ export interface PoolDetail extends PoolSummary {
     scoring_config: Record<string, Record<string, number>>;
     /** When the group-stage predictions lock (ISO 8601): derived from the first group kickoff (minus the buffer) or an explicit override; null when there is no schedule to derive from. */
     predictions_lock_at: string | null;
-    /** Whether the viewer may open the admin score-review screen. */
-    can_review_scores: boolean;
     /** Whether the viewer may still join the pool (the join window closes with the prediction lock). */
     can_join: boolean;
     /** Whether this viewer has already seen the "how it works" briefing, so it only auto-opens on their first visit. */

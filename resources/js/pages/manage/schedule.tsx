@@ -2,7 +2,6 @@ import { Head, router } from '@inertiajs/react';
 import { AlertTriangle, CalendarClock } from 'lucide-react';
 import { useState } from 'react';
 import { Flag } from '@/components/flag';
-import { PoolIdentity } from '@/components/pool-identity';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -22,18 +21,15 @@ import {
 } from '@/components/ui/select';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
 import { toZonedInputValue } from '@/lib/datetime';
-import { poolTitle } from '@/lib/pool-title';
-import pools from '@/routes/pools';
+import manage from '@/routes/manage';
 import type { BreadcrumbItem } from '@/types/navigation';
 import type { ScheduleFixtureRow, VenueOption } from '@/types/pools';
 
 interface SchedulePageProps {
-    pool: {
+    tournament: {
         slug: string;
         name: string;
-        source: string;
-        accent?: string | null;
-        scoring_label?: string;
+        status: string;
     };
     venues: VenueOption[];
     rows: ScheduleFixtureRow[];
@@ -60,12 +56,12 @@ function formatLocal(iso: string, timeZone: string): string {
 function RescheduleRow({
     row,
     venues,
-    poolSlug,
+    slug,
     viewerTz,
 }: {
     row: ScheduleFixtureRow;
     venues: VenueOption[];
-    poolSlug: string;
+    slug: string;
     viewerTz: string;
 }) {
     const isFinished = row.status === 'finished';
@@ -83,7 +79,8 @@ function RescheduleRow({
         // `kickoff` is a wall-clock value in the admin's own timezone; the server re-reads it in
         // that zone (from the shared timezone cookie) and stores UTC — no client-side shifting.
         router.patch(
-            pools.fixtures.reschedule({ pool: poolSlug, fixture: row.id }).url,
+            manage.fixtures.reschedule({ tournament: slug, fixture: row.id })
+                .url,
             { kicks_off_at: kickoff, venue },
             {
                 preserveScroll: true,
@@ -235,7 +232,7 @@ function RescheduleRow({
 }
 
 export default function ScheduleIndex({
-    pool,
+    tournament,
     venues,
     rows,
 }: SchedulePageProps) {
@@ -256,9 +253,7 @@ export default function ScheduleIndex({
 
     return (
         <>
-            <Head
-                title={poolTitle(pool.source, pool.name, 'Manage schedule')}
-            />
+            <Head title={`Manage schedule · ${tournament.name}`} />
             <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
                 <header className="hero relative overflow-hidden rounded-3xl border border-border p-8">
                     <div className="hero-lines" />
@@ -268,13 +263,8 @@ export default function ScheduleIndex({
                             Manage schedule
                         </span>
                         <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-                            {pool.name}
+                            {tournament.name}
                         </h1>
-                        <PoolIdentity
-                            source={pool.source}
-                            scoringLabel={pool.scoring_label}
-                            accent={pool.accent}
-                        />
                         <p className="max-w-xl text-sm text-muted-foreground">
                             Move a delayed match to a new kickoff and venue.
                             Only matches that haven&apos;t finished can be
@@ -295,7 +285,7 @@ export default function ScheduleIndex({
                                     key={row.id}
                                     row={row}
                                     venues={venues}
-                                    poolSlug={pool.slug}
+                                    slug={tournament.slug}
                                     viewerTz={viewerTz}
                                 />
                             ))}
@@ -307,6 +297,8 @@ export default function ScheduleIndex({
     );
 }
 
-const breadcrumbs: BreadcrumbItem[] = [{ title: 'Pools', href: pools.index() }];
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Manage', href: manage.index() },
+];
 
 ScheduleIndex.layout = { breadcrumbs };

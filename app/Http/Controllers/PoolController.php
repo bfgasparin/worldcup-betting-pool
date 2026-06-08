@@ -169,7 +169,6 @@ class PoolController extends Controller
                 'how_to_play' => $pool->scoring_strategy->howToPlay(),
                 'scoring_config' => $pool->scoring_config,
                 'predictions_lock_at' => $pool->predictionsLockAt()?->toIso8601String(),
-                'can_review_scores' => (bool) $request->user()?->can('manage-tournament'),
                 // Whether the player may still join (and pay in): the join window closes with the
                 // group-stage prediction lock, mirroring can_edit on the predict screen.
                 'can_join' => $pool->acceptsPredictions(),

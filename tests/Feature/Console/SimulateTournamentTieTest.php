@@ -46,7 +46,7 @@ class SimulateTournamentTieTest extends TestCase
 
         // Approval is blocked until the admin orders the tied thirds.
         $this->actingAs($this->admin())
-            ->post(route('pools.scores.approve', $this->pool))
+            ->post(route('manage.scores.approve', $this->tournament))
             ->assertSessionHasErrors('ties');
     }
 

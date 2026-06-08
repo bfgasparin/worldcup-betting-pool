@@ -289,7 +289,7 @@ class SimulateTournament extends Command
             }
         }
 
-        $this->components->info('Next: log in at /login as '.($me !== '' ? $me : 'an admin').' (the 6-digit code is written to the log — `php artisan pail`), open '.route('pools.scores.review', $pool).' — the "Resolve tied teams" section lists the tied teams. Drag them into order, then Approve & publish; the bracket projects and the board updates.');
+        $this->components->info('Next: log in at /login as '.($me !== '' ? $me : 'an admin').' (the 6-digit code is written to the log — `php artisan pail`), open '.route('manage.scores.review', $pool->tournament).' — the "Resolve tied teams" section lists the tied teams. Drag them into order, then Approve & publish; the bracket projects and the board updates.');
     }
 
     /**

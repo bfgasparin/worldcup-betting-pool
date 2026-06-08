@@ -2,14 +2,12 @@ import { Head, router } from '@inertiajs/react';
 import { ClipboardCheck, Trophy } from 'lucide-react';
 import { useState } from 'react';
 import { Flag } from '@/components/flag';
-import { PoolIdentity } from '@/components/pool-identity';
 import { StandingsTable } from '@/components/standings-table';
 import { TieResolutionPanel } from '@/components/tie-resolution-panel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { poolTitle } from '@/lib/pool-title';
-import pools from '@/routes/pools';
+import manage from '@/routes/manage';
 import type { BreadcrumbItem } from '@/types/navigation';
 import type { StandingRow, TeamRef, TiedCluster } from '@/types/pools';
 
@@ -47,12 +45,10 @@ interface ThirdsTieData {
 }
 
 interface ReviewPageProps {
-    pool: {
+    tournament: {
         slug: string;
         name: string;
-        source: string;
-        accent?: string | null;
-        scoring_label?: string;
+        status: string;
     };
     rows: ReviewRowData[];
     tied_groups: TiedGroupData[];
@@ -80,7 +76,10 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
         setSaving(true);
         setSaved(false);
         router.patch(
-            pools.scores.proposal({ pool: slug, fixture: row.fixture_id }).url,
+            manage.scores.proposal({
+                tournament: slug,
+                fixture: row.fixture_id,
+            }).url,
             {
                 home_goals: toNumberOrNull(home),
                 away_goals: toNumberOrNull(away),
@@ -292,7 +291,7 @@ function TieResolutionSection({
         return null;
     }
 
-    const orderingUrl = pools.scores.ordering(slug).url;
+    const orderingUrl = manage.scores.ordering(slug).url;
 
     return (
         <div className="flex flex-col gap-5 rounded-3xl border border-amber/40 bg-card p-5">
@@ -370,7 +369,7 @@ function TieResolutionSection({
 }
 
 export default function ScoreReview({
-    pool,
+    tournament,
     rows,
     tied_groups: tiedGroups,
     thirds_tie: thirdsTie,
@@ -381,7 +380,7 @@ export default function ScoreReview({
     const approve = () => {
         setApproving(true);
         router.post(
-            pools.scores.approve(pool.slug).url,
+            manage.scores.approve(tournament.slug).url,
             {},
             {
                 onError: (formErrors) => setErrors(formErrors),
@@ -392,7 +391,7 @@ export default function ScoreReview({
 
     return (
         <>
-            <Head title={poolTitle(pool.source, pool.name, 'Review scores')} />
+            <Head title={`Review scores · ${tournament.name}`} />
             <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
                 <header className="hero relative overflow-hidden rounded-3xl border border-border p-8">
                     <div className="hero-lines" />
@@ -403,13 +402,8 @@ export default function ScoreReview({
                                 Score review
                             </span>
                             <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-                                {pool.name}
+                                {tournament.name}
                             </h1>
-                            <PoolIdentity
-                                source={pool.source}
-                                scoringLabel={pool.scoring_label}
-                                accent={pool.accent}
-                            />
                             <p className="max-w-xl text-sm text-muted-foreground">
                                 Enter or correct each final score, set the
                                 advancing team for knockout matches, then
@@ -431,7 +425,7 @@ export default function ScoreReview({
                 )}
 
                 <TieResolutionSection
-                    slug={pool.slug}
+                    slug={tournament.slug}
                     tiedGroups={tiedGroups}
                     thirdsTie={thirdsTie}
                 />
@@ -442,7 +436,7 @@ export default function ScoreReview({
                             <ReviewRow
                                 key={row.fixture_id}
                                 row={row}
-                                slug={pool.slug}
+                                slug={tournament.slug}
                             />
                         ))}
                     </div>
@@ -463,6 +457,8 @@ export default function ScoreReview({
     );
 }
 
-const breadcrumbs: BreadcrumbItem[] = [{ title: 'Pools', href: pools.index() }];
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Manage', href: manage.index() },
+];
 
 ScoreReview.layout = { breadcrumbs };

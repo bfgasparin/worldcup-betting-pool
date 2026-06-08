@@ -1,11 +1,9 @@
 <?php
 
-use App\Http\Controllers\FixtureScheduleController;
 use App\Http\Controllers\LiveControlController;
 use App\Http\Controllers\LiveController;
 use App\Http\Controllers\PoolController;
 use App\Http\Controllers\PredictionController;
-use App\Http\Controllers\ScoreReviewController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth'])->group(function () {
@@ -25,18 +23,9 @@ Route::middleware(['auth'])->group(function () {
     Route::put('pools/{pool:slug}/predict/ordering', [PredictionController::class, 'updateOrdering'])->name('pools.predict.ordering');
     Route::post('pools/{pool:slug}/predict/import', [PredictionController::class, 'import'])->name('pools.predict.import');
 
-    // Admin-only score review & approval.
+    // Admin-only Live Center control: go live, keep the live score, end the match. (Score review and
+    // the fixture schedule are tournament-scoped under the admin area — see routes/manage.php.)
     Route::middleware('can:manage-tournament')->group(function () {
-        Route::get('pools/{pool:slug}/scores', [ScoreReviewController::class, 'review'])->name('pools.scores.review');
-        Route::patch('pools/{pool:slug}/scores/fixtures/{fixture}', [ScoreReviewController::class, 'updateProposal'])->name('pools.scores.proposal');
-        Route::put('pools/{pool:slug}/scores/ordering', [ScoreReviewController::class, 'updateOrdering'])->name('pools.scores.ordering');
-        Route::post('pools/{pool:slug}/scores/approve', [ScoreReviewController::class, 'approve'])->name('pools.scores.approve');
-
-        // Admin-only fixture rescheduling (delays, venue moves).
-        Route::get('pools/{pool:slug}/schedule', [FixtureScheduleController::class, 'index'])->name('pools.schedule.index');
-        Route::patch('pools/{pool:slug}/fixtures/{fixture}/reschedule', [FixtureScheduleController::class, 'reschedule'])->name('pools.fixtures.reschedule');
-
-        // Admin-only Live Center control: go live, keep the live score, end the match.
         Route::get('live/{tournament:slug}/control', [LiveControlController::class, 'index'])->name('live.control.index');
         Route::post('live/{tournament:slug}/fixtures/{fixture}/go-live', [LiveControlController::class, 'goLive'])->name('live.control.go-live');
         Route::patch('live/{tournament:slug}/fixtures/{fixture}/score', [LiveControlController::class, 'updateScore'])->name('live.control.score');

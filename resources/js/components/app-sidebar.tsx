@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { LayoutGrid, Radio } from 'lucide-react';
+import { LayoutGrid, Radio, Wrench } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { LivePulse } from '@/components/live-badge';
 import { tournamentNavItems } from '@/components/nav-tournament';
@@ -23,7 +23,9 @@ import { useCurrentUrl } from '@/hooks/use-current-url';
 import { resolveAccent, sourceMonogram } from '@/lib/accents';
 import { cn } from '@/lib/utils';
 import live from '@/routes/live';
+import manage from '@/routes/manage';
 import poolsRoutes, { index as pools } from '@/routes/pools';
+import type { Auth } from '@/types/auth';
 import type { JoinedPool, TournamentNavInfo } from '@/types/navigation';
 
 /** A row in the "Your pools" list — a joined pool, or the pool currently in context. */
@@ -39,11 +41,14 @@ export function AppSidebar() {
         pool?: TournamentNavInfo;
         joinedPools?: JoinedPool[];
         hasLiveMatches?: boolean;
+        auth: Auth;
     }>();
     const { props } = page;
     const activePool = props.pool;
     const joined = props.joinedPools ?? [];
     const onLive = page.url.startsWith('/live');
+    const onManage = page.url.startsWith('/manage');
+    const isAdmin = props.auth.isAdmin;
 
     // The pool in context that the player hasn't joined still gets its row + sub-nav, so the
     // sidebar never dead-ends on a pool you're only previewing. Prepend it when it isn't listed.
@@ -106,6 +111,20 @@ export function AppSidebar() {
                                 </SidebarMenuBadge>
                             )}
                         </SidebarMenuItem>
+                        {isAdmin && (
+                            <SidebarMenuItem>
+                                <SidebarMenuButton
+                                    asChild
+                                    isActive={onManage}
+                                    tooltip={{ children: 'Manage' }}
+                                >
+                                    <Link href={manage.index()}>
+                                        <Wrench />
+                                        <span>Manage</span>
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                        )}
                     </SidebarMenu>
                 </SidebarGroup>
 

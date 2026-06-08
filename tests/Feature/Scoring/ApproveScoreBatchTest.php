@@ -57,8 +57,8 @@ class ApproveScoreBatchTest extends TestCase
 
         // Approval keeps the admin on the review screen (re-rendered to its post-approval state).
         $this->actingAs($this->admin())
-            ->post(route('pools.scores.approve', $this->pool))
-            ->assertRedirect(route('pools.scores.review', $this->pool));
+            ->post(route('manage.scores.approve', $this->tournament))
+            ->assertRedirect(route('manage.scores.review', $this->tournament));
 
         // Official scores are written onto the fixtures.
         $firstGroupFixture = $this->tournament->groupFixtures()->orderBy('match_number')->first();
@@ -94,7 +94,7 @@ class ApproveScoreBatchTest extends TestCase
 
         $this->assertSame(TournamentStatus::Upcoming, $this->tournament->fresh()->status);
 
-        $this->actingAs($this->admin())->post(route('pools.scores.approve', $this->pool));
+        $this->actingAs($this->admin())->post(route('manage.scores.approve', $this->tournament));
 
         // The group results are in, but the knockout fixtures are still scheduled — the tournament
         // is underway, not finished.
@@ -110,7 +110,7 @@ class ApproveScoreBatchTest extends TestCase
         $this->resolveProjectedTies($this->tournament, $batch);
 
         $this->actingAs($this->admin())
-            ->post(route('pools.scores.approve', $this->pool));
+            ->post(route('manage.scores.approve', $this->tournament));
 
         // The only entry becomes #1, so its owner receives the milestone email.
         Notification::assertSentTo($this->entry->user, TopOfLeaderboardNotification::class);
@@ -127,7 +127,7 @@ class ApproveScoreBatchTest extends TestCase
         $this->proposeAllGroupResults($batch);
         $this->resolveProjectedTies($this->tournament, $batch);
 
-        $this->actingAs($this->admin())->post(route('pools.scores.approve', $this->pool));
+        $this->actingAs($this->admin())->post(route('manage.scores.approve', $this->tournament));
 
         $roundName = $this->tournament->phases()->where('key', PhaseKey::RoundOf32->value)->value('name');
 
@@ -155,7 +155,7 @@ class ApproveScoreBatchTest extends TestCase
         $batch = $this->openBatch();
         $this->proposeAllGroupResults($batch);
         $this->resolveProjectedTies($this->tournament, $batch);
-        $this->actingAs($this->admin())->post(route('pools.scores.approve', $this->pool));
+        $this->actingAs($this->admin())->post(route('manage.scores.approve', $this->tournament));
 
         // Re-approve a correction while the Round of 32 is still open: it must not email again.
         $fixture = $this->tournament->groupFixtures()->orderBy('match_number')->first();
@@ -169,7 +169,7 @@ class ApproveScoreBatchTest extends TestCase
             'status' => ProposalStatus::Pending,
         ]);
         $this->resolveProjectedTies($this->tournament, $newBatch);
-        $this->actingAs($this->admin())->post(route('pools.scores.approve', $this->pool));
+        $this->actingAs($this->admin())->post(route('manage.scores.approve', $this->tournament));
 
         foreach ($entrants as $user) {
             Notification::assertSentToTimes($user, PredictionWindowOpenedNotification::class, 1);
@@ -210,7 +210,7 @@ class ApproveScoreBatchTest extends TestCase
         $batch = $this->openBatch();
         $this->proposeAllGroupResults($batch);
         $this->resolveProjectedTies($this->tournament, $batch);
-        $this->actingAs($this->admin())->post(route('pools.scores.approve', $this->pool));
+        $this->actingAs($this->admin())->post(route('manage.scores.approve', $this->tournament));
 
         foreach ($entrants as $user) {
             Notification::assertNotSentTo($user, PredictionWindowOpenedNotification::class);
@@ -223,7 +223,7 @@ class ApproveScoreBatchTest extends TestCase
         $this->proposeAllGroupResults($batch);
         $this->resolveProjectedTies($this->tournament, $batch);
 
-        $this->actingAs($this->admin())->post(route('pools.scores.approve', $this->pool));
+        $this->actingAs($this->admin())->post(route('manage.scores.approve', $this->tournament));
         $firstTotal = $this->entry->fresh()->total_points;
 
         // Correct one group result in a new batch and re-approve.
@@ -238,7 +238,7 @@ class ApproveScoreBatchTest extends TestCase
         ]);
         $this->resolveProjectedTies($this->tournament, $newBatch);
 
-        $this->actingAs($this->admin())->post(route('pools.scores.approve', $this->pool));
+        $this->actingAs($this->admin())->post(route('manage.scores.approve', $this->tournament));
 
         $this->assertSame(5, $fixture->fresh()->home_goals);
         // The total is recomputed (not doubled): it changes by at most one fixture's points.
@@ -264,7 +264,7 @@ class ApproveScoreBatchTest extends TestCase
         ]);
 
         $this->actingAs($this->admin())
-            ->post(route('pools.scores.approve', $this->pool))
+            ->post(route('manage.scores.approve', $this->tournament))
             ->assertSessionHasErrors('proposals');
 
         $this->assertNotSame(FixtureStatus::Finished, $knockout->fresh()->status);
@@ -276,13 +276,13 @@ class ApproveScoreBatchTest extends TestCase
         $this->proposeAllGroupResults($this->openBatch());
 
         $this->actingAs(User::factory()->create())
-            ->post(route('pools.scores.approve', $this->pool))
+            ->post(route('manage.scores.approve', $this->tournament))
             ->assertForbidden();
     }
 
     public function test_a_guest_is_redirected_to_login(): void
     {
-        $this->post(route('pools.scores.approve', $this->pool))
+        $this->post(route('manage.scores.approve', $this->tournament))
             ->assertRedirect(route('login'));
     }
 
