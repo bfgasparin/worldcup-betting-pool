@@ -1,6 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
-import { LayoutGrid } from 'lucide-react';
+import { LayoutGrid, Radio } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
+import { LivePulse } from '@/components/live-badge';
 import { tournamentNavItems } from '@/components/nav-tournament';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -21,6 +22,7 @@ import {
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { resolveAccent, sourceMonogram } from '@/lib/accents';
 import { cn } from '@/lib/utils';
+import live from '@/routes/live';
 import poolsRoutes, { index as pools } from '@/routes/pools';
 import type { JoinedPool, TournamentNavInfo } from '@/types/navigation';
 
@@ -33,12 +35,15 @@ type PoolRow = Pick<
 };
 
 export function AppSidebar() {
-    const { props } = usePage<{
+    const page = usePage<{
         pool?: TournamentNavInfo;
         joinedPools?: JoinedPool[];
+        hasLiveMatches?: boolean;
     }>();
+    const { props } = page;
     const activePool = props.pool;
     const joined = props.joinedPools ?? [];
+    const onLive = page.url.startsWith('/live');
 
     // The pool in context that the player hasn't joined still gets its row + sub-nav, so the
     // sidebar never dead-ends on a pool you're only previewing. Prepend it when it isn't listed.
@@ -72,7 +77,7 @@ export function AppSidebar() {
                         <SidebarMenuItem>
                             <SidebarMenuButton
                                 asChild
-                                isActive={!activePool}
+                                isActive={!activePool && !onLive}
                                 tooltip={{ children: 'All pools' }}
                             >
                                 <Link href={pools()} prefetch>
@@ -80,6 +85,26 @@ export function AppSidebar() {
                                     <span>All pools</span>
                                 </Link>
                             </SidebarMenuButton>
+                        </SidebarMenuItem>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton
+                                asChild
+                                isActive={onLive}
+                                tooltip={{ children: 'Live' }}
+                            >
+                                <Link href={live.index()}>
+                                    <Radio />
+                                    <span>Live</span>
+                                </Link>
+                            </SidebarMenuButton>
+                            {props.hasLiveMatches && (
+                                <SidebarMenuBadge>
+                                    <LivePulse />
+                                    <span className="sr-only">
+                                        Matches are live
+                                    </span>
+                                </SidebarMenuBadge>
+                            )}
                         </SidebarMenuItem>
                     </SidebarMenu>
                 </SidebarGroup>

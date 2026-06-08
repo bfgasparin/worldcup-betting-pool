@@ -3,7 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Contracts\ScoreProvider;
-use App\Enums\BatchStatus;
 use App\Models\Fixture;
 use App\Models\ScoreBatch;
 use App\Models\ScoreProposal;
@@ -96,9 +95,6 @@ class FetchScores extends Command
 
     private function openBatch(Tournament $tournament): ScoreBatch
     {
-        return ScoreBatch::firstOrCreate(
-            ['tournament_id' => $tournament->id, 'status' => BatchStatus::Open],
-            ['source' => 'fetch', 'fetched_at' => now()],
-        );
+        return ScoreBatch::openFor($tournament, 'fetch');
     }
 }

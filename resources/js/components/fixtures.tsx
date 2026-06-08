@@ -2,6 +2,7 @@ import { ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Flag } from '@/components/flag';
+import { LiveBadge, LivePulse } from '@/components/live-badge';
 import { MatchdayChip, MatchdayStripe } from '@/components/matchday-marker';
 import { StandingsTable } from '@/components/standings-table';
 import {
@@ -289,6 +290,8 @@ function MatchRow({
                             <span className="text-center font-display text-base font-semibold tabular-nums">
                                 {homeGoals}–{awayGoals}
                             </span>
+                        ) : fixture.is_live ? (
+                            <LivePulse className="mx-auto" />
                         ) : (
                             <span className="text-center font-display text-xs text-muted-foreground">
                                 v
@@ -764,9 +767,13 @@ function KnockoutCardHeader({ fixture }: { fixture: BracketFixture }) {
 
     return (
         <div className="mb-2 flex items-start justify-between gap-2">
-            <span className="font-display text-xs font-semibold text-muted-foreground">
-                Match {fixture.match_number}
-            </span>
+            {fixture.is_live ? (
+                <LiveBadge />
+            ) : (
+                <span className="font-display text-xs font-semibold text-muted-foreground">
+                    Match {fixture.match_number}
+                </span>
+            )}
             {fixture.kicks_off_at && (
                 <span className="text-right text-[11px] font-semibold text-muted-foreground">
                     <span className="font-bold tracking-wide uppercase">

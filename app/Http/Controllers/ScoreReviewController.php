@@ -247,10 +247,7 @@ class ScoreReviewController extends Controller
 
     private function ensureOpenBatch(Tournament $tournament): ScoreBatch
     {
-        return $tournament->scoreBatches()->firstOrCreate(
-            ['status' => BatchStatus::Open],
-            ['source' => 'manual', 'fetched_at' => now()],
-        );
+        return ScoreBatch::openFor($tournament);
     }
 
     /**

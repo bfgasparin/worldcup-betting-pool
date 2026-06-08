@@ -17,32 +17,21 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withSchedule(function (Schedule $schedule): void {
-        // SCALE-TO-ZERO WINDOW — hardcoded to World Cup 2026 (11 Jun – 19 Jul 2026), the only
-        // live tournament for now. The window lives in the CRON EXPRESSION (not ->between()) on
-        // purpose: Laravel Cloud reads `schedule:list` (i.e. the cron expression) to decide when
-        // to wake the app, so a cron-encoded window lets the app/DB hibernate outside match hours.
-        // ->between() is only a post-boot filter — it would leave the cron at "* * * * *" and the
-        // app would still wake every minute, defeating scale-to-zero and costing us money.
+        // PRODUCTION SCHEDULES NOTHING — on purpose. Going live and entering results are
+        // admin-driven via the Live Center, and the only score source today is the local
+        // SimulatedScoreProvider (ManualScoreProvider is a no-op in production). An empty
+        // production schedule means Laravel Cloud keeps the app/DB hibernated (scale-to-zero):
+        // it reads `schedule:list` to decide when to wake, so registering nothing avoids waking
+        // the app for work it wouldn't do, and the cost that comes with it.
         //
-        // `*/20 15-23,0-8 * 6,7 *` = every 20 min, 15:00–08:40 UTC, June & July only.
-        //   • WC2026 kickoffs span 16:00–04:59 UTC (North-American kickoffs wrap past UTC midnight).
-        //   • +150 min (config('scoring.match_duration_minutes')) → last match ends ~07:29 UTC.
-        //   • 15:00 start / 08:40 end is the safety margin. Hibernates daily 09:00–14:59 UTC and
-        //     entirely outside June/July. App timezone is UTC, so the cron is evaluated in UTC.
-        //
-        // TODO: revisit when the platform hosts more pools/tournaments. Other tournaments with a
-        // different schedule (or running outside June/July) will NOT have fixtures ticked or
-        // scores fetched until this window is widened — or, better, derived from the fixtures
-        // table. Covered by tests/Feature/Console/ScheduleConfigurationTest.php.
-        $window = '*/20 15-23,0-8 * 6,7 *';
-
-        // Move fixtures from scheduled to live as their kickoff passes, so the "match has
-        // ended" gate (live + past full time) can open for score entry.
-        $schedule->command('fixtures:tick')->cron($window)->withoutOverlapping();
-
-        // Pull fresh match scores into a pending review batch. Real results only exist once a
-        // match has ended, so this is a cheap no-op outside live windows.
-        $schedule->command('scores:fetch')->cron($window)->withoutOverlapping();
+        // REVISIT when a real results provider replaces the simulated one — that's the point at
+        // which a production schedule (e.g. a fixtures-derived window) becomes worth its wake-ups.
+        // Covered by tests/Feature/Console/ScheduleConfigurationTest.php.
+        if (! app()->isProduction()) {
+            // Non-production only: drive the simulated score feed off the dev clock. It runs
+            // frequently so a local simulation advances match by match as the clock moves.
+            $schedule->command('scores:fetch')->everyMinute()->withoutOverlapping();
+        }
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state', 'timezone']);

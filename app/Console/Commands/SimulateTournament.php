@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Enums\BatchStatus;
 use App\Enums\FixtureStatus;
 use App\Enums\PhaseKey;
 use App\Enums\ProposalStatus;
@@ -14,9 +13,11 @@ use App\Models\KnockoutPrediction;
 use App\Models\LeaderboardStanding;
 use App\Models\Phase;
 use App\Models\Pool;
+use App\Models\ScoreBatch;
 use App\Models\ScoreProposal;
 use App\Models\Tournament;
 use App\Models\User;
+use App\Services\Live\GoLive;
 use App\Services\Predictions\BracketResolver;
 use App\Services\Predictions\DefaultTieOrdering;
 use App\Services\Predictions\OfficialBracketProjector;
@@ -235,10 +236,7 @@ class SimulateTournament extends Command
     {
         $rule = $this->tieRule($tie);
 
-        $batch = $tournament->scoreBatches()->firstOrCreate(
-            ['status' => BatchStatus::Open],
-            ['source' => 'manual', 'fetched_at' => now()],
-        );
+        $batch = ScoreBatch::openFor($tournament);
 
         $proposals = 0;
 
@@ -709,11 +707,16 @@ class SimulateTournament extends Command
      */
     private function advanceTo(Tournament $tournament, CarbonImmutable $until): void
     {
+        $goLive = app(GoLive::class);
+
+        // Drive each due fixture live through the same action the admin uses, so the simulated
+        // world also gets live scoreboards to demo the Live Center (force bypasses the buffer gate).
         $tournament->fixtures()
             ->where('status', FixtureStatus::Scheduled)
             ->whereNotNull('kicks_off_at')
             ->where('kicks_off_at', '<=', $until)
-            ->update(['status' => FixtureStatus::Live]);
+            ->get()
+            ->each(fn (Fixture $fixture) => $goLive->force($fixture));
 
         if ($this->getLaravel()->environment('local')) {
             DevClock::travelTo($until);
@@ -762,7 +765,7 @@ class SimulateTournament extends Command
         if ($predictOnly) {
             $this->components->info($until !== null
                 ? "Clock moved to {$until->toDayDateTimeString()} UTC; matches finished by then are awaiting scores. Run `php artisan scores:fetch` (set SCORING_SIMULATED_PROVIDER=true) or use the review screen to enter them."
-                : 'Advance time and let results land: `php artisan dev:clock --travel="2026-06-11 12:00"`, then `fixtures:tick` + `scores:fetch` as the clock moves (set SCORING_SIMULATED_PROVIDER=true to have the fetch propose).');
+                : 'Play matches out by re-running with `--until` (advances the clock and runs matches live), e.g. `php artisan tournament:simulate --until="2026-06-13"` — or mark them live in the Live Center, then `php artisan scores:fetch` (set SCORING_SIMULATED_PROVIDER=true) or the review screen.');
         } else {
             $this->components->info('View it: run `composer dev`, then open a pool — settled cards + points, the standings table (rank arrows), and "Compare players" on the pool.');
         }

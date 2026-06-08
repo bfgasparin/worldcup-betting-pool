@@ -43,6 +43,20 @@ class ScoreBatch extends Model
     }
 
     /**
+     * The tournament's single open review batch, creating it with the given source when none
+     * exists. There is at most one open batch per tournament; an existing open batch is reused
+     * verbatim (its original source is kept), so any contributor — manual entry, the fetch
+     * command, or an ended live match — fills the same batch the admin reviews.
+     */
+    public static function openFor(Tournament $tournament, string $source = 'manual'): self
+    {
+        return $tournament->scoreBatches()->firstOrCreate(
+            ['status' => BatchStatus::Open],
+            ['source' => $source, 'fetched_at' => now()],
+        );
+    }
+
+    /**
      * @return BelongsTo<Tournament, $this>
      */
     public function tournament(): BelongsTo

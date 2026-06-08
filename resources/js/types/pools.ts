@@ -133,6 +133,8 @@ export interface GroupFixture {
     away: TeamRef | null;
     home_goals: number | null;
     away_goals: number | null;
+    /** Whether the match is being played live right now (drives the in-play marker). */
+    is_live: boolean;
     kicks_off_at: string | null;
     venue: string | null;
     venue_timezone: string | null;
@@ -175,6 +177,8 @@ export interface BracketFixture {
     away_penalties: number | null;
     /** The official advancing team once the match is settled. */
     winner_team_id: number | null;
+    /** Whether the match is being played live right now (drives the in-play marker). */
+    is_live: boolean;
     kicks_off_at: string | null;
     venue: string | null;
     venue_timezone: string | null;

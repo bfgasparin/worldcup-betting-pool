@@ -121,11 +121,13 @@ class PoolController extends Controller
             'groups.fixtures' => fn ($query) => $query->orderBy('match_number'),
             'groups.fixtures.homeTeam',
             'groups.fixtures.awayTeam',
+            'groups.fixtures.liveState',
             'knockoutFixtures' => fn ($query) => $query->orderBy('match_number'),
             'knockoutFixtures.phase',
             'knockoutFixtures.homeTeam',
             'knockoutFixtures.awayTeam',
             'knockoutFixtures.winner',
+            'knockoutFixtures.liveState',
         ]);
 
         // The viewer's own picks, so each fixture can show its predicted scoreline alongside the
@@ -637,6 +639,7 @@ class PoolController extends Controller
                     'away' => $this->teamRef($fixture->awayTeam),
                     'home_goals' => $fixture->home_goals,
                     'away_goals' => $fixture->away_goals,
+                    'is_live' => $fixture->liveState?->isLive() ?? false,
                     'kicks_off_at' => $fixture->kicks_off_at?->toIso8601String(),
                     'venue' => $fixture->venue,
                     'venue_timezone' => $fixture->venue_timezone,
@@ -747,6 +750,7 @@ class PoolController extends Controller
                         'home_penalties' => $fixture->home_penalties,
                         'away_penalties' => $fixture->away_penalties,
                         'winner_team_id' => $fixture->winner_team_id,
+                        'is_live' => $fixture->liveState?->isLive() ?? false,
                         'kicks_off_at' => $fixture->kicks_off_at?->toIso8601String(),
                         'venue' => $fixture->venue,
                         'venue_timezone' => $fixture->venue_timezone,
