@@ -75,6 +75,7 @@ class LiveController extends Controller
                 'source' => $pool->source,
                 'accent' => $pool->accent?->value,
                 'scoring_strategy' => $pool->scoring_strategy->value,
+                'scoring_label' => $pool->scoring_strategy->label(),
                 'is_paid' => (float) $pool->entry_price > 0,
                 'currency' => $pool->currency,
                 'boards' => $this->projection->cachedFor($pool)->boards,

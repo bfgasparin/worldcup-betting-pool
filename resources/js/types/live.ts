@@ -55,6 +55,7 @@ export interface LivePool {
     source: string;
     accent: string | null;
     scoring_strategy: string;
+    scoring_label: string;
     is_paid: boolean;
     currency: string;
     boards: Record<string, ProjectedRow[]>;

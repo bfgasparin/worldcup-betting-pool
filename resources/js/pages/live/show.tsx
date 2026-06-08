@@ -6,9 +6,10 @@ import { LeaderboardRow } from '@/components/leaderboard-row';
 import type { LeaderboardEntry } from '@/components/leaderboard-row';
 import { LiveBadge, LivePulse } from '@/components/live-badge';
 import { MovementArrow } from '@/components/movement-arrow';
+import { PoolIdentity } from '@/components/pool-identity';
 import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { useLivePoll } from '@/hooks/use-live-poll';
-import { resolveAccent } from '@/lib/accents';
+import { resolveAccent, sourceMonogram } from '@/lib/accents';
 import { formatMoney } from '@/lib/money';
 import { cn } from '@/lib/utils';
 import live from '@/routes/live';
@@ -278,26 +279,20 @@ function PoolLiveSection({
 }) {
     const [boardKey, setBoardKey] = useState(boards[0]?.key ?? 'overall');
     const board = boards.find((item) => item.key === boardKey) ?? boards[0];
-    const accent = resolveAccent(pool.accent);
 
     return (
         <section className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                    <span
-                        className={cn(
-                            'size-2.5 rounded-full',
-                            accent.railClass,
-                        )}
-                        aria-hidden
-                    />
-                    <h2 className="font-display text-lg font-semibold">
-                        {pool.name}
-                    </h2>
-                    <span className="font-display text-xs font-semibold text-muted-foreground">
-                        Projected · if scores hold
-                    </span>
-                </div>
+                <PoolIdentity
+                    source={pool.source}
+                    name={pool.name}
+                    scoringLabel={pool.scoring_label}
+                    accent={pool.accent}
+                    variant="banner"
+                />
+                <span className="font-display text-xs font-semibold text-muted-foreground">
+                    Projected · if scores hold
+                </span>
             </div>
 
             <SegmentedTabs
@@ -376,10 +371,30 @@ export default function LiveShow({
                         {pools.length > 1 && (
                             <SegmentedTabs
                                 aria-label="Your pools"
-                                items={pools.map((pool) => ({
-                                    value: pool.slug,
-                                    label: pool.name,
-                                }))}
+                                items={pools.map((pool) => {
+                                    const kit = resolveAccent(pool.accent);
+
+                                    return {
+                                        value: pool.slug,
+                                        label: (
+                                            <span className="inline-flex items-center gap-1.5">
+                                                <span
+                                                    className={cn(
+                                                        'flex size-4 shrink-0 items-center justify-center rounded font-display text-[0.5rem] leading-none font-bold',
+                                                        kit.railClass,
+                                                        kit.textClass,
+                                                    )}
+                                                    aria-hidden
+                                                >
+                                                    {sourceMonogram(
+                                                        pool.source,
+                                                    )}
+                                                </span>
+                                                {pool.name}
+                                            </span>
+                                        ),
+                                    };
+                                })}
                                 value={selectedPool?.slug ?? ''}
                                 onChange={setPoolSlug}
                             />
