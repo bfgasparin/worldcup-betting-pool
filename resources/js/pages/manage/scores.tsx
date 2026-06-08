@@ -3,6 +3,7 @@ import { ClipboardCheck, Trophy } from 'lucide-react';
 import { useState } from 'react';
 import { Flag } from '@/components/flag';
 import { StandingsTable } from '@/components/standings-table';
+import { TeamScoreRow } from '@/components/team-score-row';
 import { TieResolutionPanel } from '@/components/tie-resolution-panel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -147,8 +148,8 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
             : 'Scheduled';
 
     return (
-        <div className="grid grid-cols-1 items-center gap-3 border-b border-border px-4 py-3 last:border-0 sm:grid-cols-[120px_1fr_auto]">
-            <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-3 border-b border-border p-4 last:border-0">
+            <div className="flex flex-wrap items-center gap-2">
                 <span className="font-display text-sm font-semibold">
                     Match {row.match_number}
                 </span>
@@ -160,45 +161,38 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
                 </span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-                <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold">
-                    <Flag team={row.home} className="h-4 w-6" />
-                    <span className="truncate">
-                        {row.home?.name ?? row.home_label}
-                    </span>
-                </span>
-                <Input
-                    type="number"
-                    min={0}
-                    max={99}
-                    value={home}
-                    onChange={(event) =>
-                        handleScore('home', event.target.value)
-                    }
-                    className="h-9 w-14 text-center"
-                    aria-label={`${row.home?.name ?? 'Home'} goals`}
-                />
-                <span className="text-muted-foreground">–</span>
-                <Input
-                    type="number"
-                    min={0}
-                    max={99}
-                    value={away}
-                    onChange={(event) =>
-                        handleScore('away', event.target.value)
-                    }
-                    className="h-9 w-14 text-center"
-                    aria-label={`${row.away?.name ?? 'Away'} goals`}
-                />
-                <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold">
-                    <Flag team={row.away} className="h-4 w-6" />
-                    <span className="truncate">
-                        {row.away?.name ?? row.away_label}
-                    </span>
-                </span>
+            <div>
+                <TeamScoreRow team={row.home} label={row.home_label}>
+                    <Input
+                        type="number"
+                        min={0}
+                        max={99}
+                        value={home}
+                        onChange={(event) =>
+                            handleScore('home', event.target.value)
+                        }
+                        className="h-9 w-14 text-center"
+                        aria-label={`${row.home?.name ?? 'Home'} goals`}
+                    />
+                </TeamScoreRow>
+                <TeamScoreRow team={row.away} label={row.away_label}>
+                    <Input
+                        type="number"
+                        min={0}
+                        max={99}
+                        value={away}
+                        onChange={(event) =>
+                            handleScore('away', event.target.value)
+                        }
+                        className="h-9 w-14 text-center"
+                        aria-label={`${row.away?.name ?? 'Away'} goals`}
+                    />
+                </TeamScoreRow>
+            </div>
 
-                {row.is_knockout &&
-                    (!teamsKnown ? (
+            {row.is_knockout && (
+                <div className="flex flex-wrap items-center gap-2">
+                    {!teamsKnown ? (
                         <span className="text-xs text-muted-foreground italic">
                             Teams not set yet.
                         </span>
@@ -207,7 +201,7 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
                             Enter the score to set who advances.
                         </span>
                     ) : isDraw ? (
-                        <div className="flex items-center gap-2">
+                        <>
                             <span className="text-[0.65rem] font-semibold tracking-wide text-muted-foreground uppercase">
                                 Advances
                             </span>
@@ -234,7 +228,7 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
                                     {row.away!.code ?? row.away!.name}
                                 </ToggleGroupItem>
                             </ToggleGroup>
-                        </div>
+                        </>
                     ) : (
                         <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-pitch-deep dark:text-primary">
                             <span className="text-[0.65rem] font-semibold tracking-wide text-muted-foreground uppercase">
@@ -243,10 +237,11 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
                             <Flag team={winnerTeam} className="h-4 w-6" />
                             {winnerTeam?.code ?? winnerTeam?.name}
                         </span>
-                    ))}
-            </div>
+                    )}
+                </div>
+            )}
 
-            <div className="flex items-center gap-2 justify-self-end">
+            <div className="flex flex-wrap items-center justify-end gap-2">
                 {saved && !rejected && (
                     <span className="text-xs font-semibold text-pitch-deep dark:text-primary">
                         Saved

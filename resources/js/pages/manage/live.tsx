@@ -1,8 +1,8 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { Minus, Plus, Radio } from 'lucide-react';
 import { useState } from 'react';
-import { Flag } from '@/components/flag';
 import { LiveBadge } from '@/components/live-badge';
+import { TeamScoreRow } from '@/components/team-score-row';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import manage from '@/routes/manage';
@@ -60,25 +60,6 @@ function Stepper({
     );
 }
 
-function FixtureName({
-    name,
-    label,
-    flagTeam,
-}: {
-    name: string | null;
-    label: string | null;
-    flagTeam: LiveControlFixture['home_team'];
-}) {
-    return (
-        <span className="flex items-center gap-2">
-            <Flag team={flagTeam} className="size-5" />
-            <span className="truncate font-display font-semibold">
-                {name ?? label ?? 'TBD'}
-            </span>
-        </span>
-    );
-}
-
 function LiveControlRow({
     fixture,
     slug,
@@ -118,72 +99,89 @@ function LiveControlRow({
             { preserveScroll: true },
         );
 
+    // The score control for one team, beside its name: a stepper while live, the final number once
+    // ended, a muted dash before kick-off.
+    const scoreControl = (
+        value: number,
+        onChange: (next: number) => void,
+        label: string,
+    ) => {
+        if (isLive) {
+            return <Stepper value={value} onChange={onChange} label={label} />;
+        }
+
+        if (isEnded) {
+            return (
+                <span className="font-display text-lg font-semibold tabular-nums">
+                    {value}
+                </span>
+            );
+        }
+
+        return <span className="text-base text-muted-foreground">—</span>;
+    };
+
     return (
         <div
             className={cn(
-                'flex flex-col gap-3 border-b border-border p-4 last:border-0 sm:flex-row sm:items-center sm:justify-between',
+                'flex flex-col gap-3 border-b border-border p-4 last:border-0',
                 isLive && 'bg-red-500/[0.03]',
             )}
         >
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <div className="flex flex-wrap items-center gap-2">
-                    {isLive && <LiveBadge />}
-                    {isEnded && <LiveBadge label="Ended" tone="ft" />}
-                    {fixture.is_knockout && (
-                        <span className="font-display text-[0.65rem] font-bold tracking-[0.14em] text-muted-foreground uppercase">
-                            Knockout
-                        </span>
+            <div className="flex flex-wrap items-center gap-2">
+                {isLive && <LiveBadge />}
+                {isEnded && <LiveBadge label="Ended" tone="ft" />}
+                {fixture.is_knockout && (
+                    <span className="font-display text-[0.65rem] font-bold tracking-[0.14em] text-muted-foreground uppercase">
+                        Knockout
+                    </span>
+                )}
+                <span className="text-xs text-muted-foreground">
+                    {formatKickoff(fixture.kicks_off_at, timezone)}
+                </span>
+            </div>
+
+            <div>
+                <TeamScoreRow team={fixture.home_team} label={fixture.home_label}>
+                    {scoreControl(
+                        home,
+                        (next) => saveScore(next, away),
+                        'home goals',
                     )}
-                    <span className="text-xs text-muted-foreground">
-                        {formatKickoff(fixture.kicks_off_at, timezone)}
-                    </span>
-                </div>
-                <div className="grid grid-cols-1 gap-0.5 sm:max-w-xs">
-                    <FixtureName
-                        name={fixture.home_team?.name ?? null}
-                        label={fixture.home_label}
-                        flagTeam={fixture.home_team}
-                    />
-                    <FixtureName
-                        name={fixture.away_team?.name ?? null}
-                        label={fixture.away_label}
-                        flagTeam={fixture.away_team}
-                    />
-                </div>
+                </TeamScoreRow>
+                <TeamScoreRow team={fixture.away_team} label={fixture.away_label}>
+                    {scoreControl(
+                        away,
+                        (next) => saveScore(home, next),
+                        'away goals',
+                    )}
+                </TeamScoreRow>
             </div>
 
-            <div className="flex shrink-0 items-center gap-4">
-                {isLive && (
-                    <>
-                        <div className="flex items-center gap-4">
-                            <Stepper
-                                value={home}
-                                onChange={(next) => saveScore(next, away)}
-                                label="home goals"
-                            />
-                            <span className="text-muted-foreground">:</span>
-                            <Stepper
-                                value={away}
-                                onChange={(next) => saveScore(home, next)}
-                                label="away goals"
-                            />
-                        </div>
-                        <Button variant="outline" onClick={endMatch}>
-                            End match
-                        </Button>
-                    </>
-                )}
+            {isLive && (
+                <Button
+                    variant="outline"
+                    onClick={endMatch}
+                    className="w-full sm:w-auto sm:self-end"
+                >
+                    End match
+                </Button>
+            )}
 
-                {fixture.live_status === null && fixture.can_go_live && (
-                    <Button onClick={goLive}>Go live</Button>
-                )}
+            {fixture.live_status === null && fixture.can_go_live && (
+                <Button
+                    onClick={goLive}
+                    className="w-full sm:w-auto sm:self-end"
+                >
+                    Go live
+                </Button>
+            )}
 
-                {isEnded && (
-                    <span className="text-sm text-muted-foreground">
-                        Sent for approval
-                    </span>
-                )}
-            </div>
+            {isEnded && (
+                <span className="text-sm text-muted-foreground">
+                    Final score sent for approval.
+                </span>
+            )}
         </div>
     );
 }
