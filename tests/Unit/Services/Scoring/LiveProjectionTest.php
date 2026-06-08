@@ -73,6 +73,32 @@ class LiveProjectionTest extends TestCase
         $this->assertNull($fixture->fresh()->home_goals);
     }
 
+    public function test_live_gain_is_the_projected_value_minus_the_banked_official_value(): void
+    {
+        $entry = $this->entryFor($this->upfront);
+
+        $fixture = $this->firstGroupFixture();
+        GroupPrediction::create(['entry_id' => $entry->id, 'fixture_id' => $fixture->id, 'home_goals' => 2, 'away_goals' => 0]);
+        $this->markFixtureLive($fixture, 2, 0);
+
+        // No official results banked yet, so the live gain is the whole projected value — on every board.
+        $result = app(LiveProjection::class)->project($this->upfront);
+        foreach ($result->boards as $board) {
+            $row = collect($board)->firstWhere('entry_id', $entry->id);
+            $this->assertSame($row['primary_value'], $row['live_gain']);
+        }
+
+        $overall = collect($result->boards['overall'])->firstWhere('entry_id', $entry->id);
+        $this->assertGreaterThan(0, $overall['live_gain']);
+
+        // Once points are on the books, the gain is only what the live result adds on top of them.
+        $entry->update(['total_points' => 3]);
+        $overall = collect(app(LiveProjection::class)->project($this->upfront)->boards['overall'])
+            ->firstWhere('entry_id', $entry->id);
+
+        $this->assertSame($overall['primary_value'] - 3, $overall['live_gain']);
+    }
+
     public function test_a_live_group_result_cascades_into_the_upfront_knockout_bracket(): void
     {
         $user = User::factory()->create();

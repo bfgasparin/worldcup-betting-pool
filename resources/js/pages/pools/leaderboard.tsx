@@ -12,8 +12,10 @@ import {
     Users,
 } from 'lucide-react';
 import { useState } from 'react';
+import { AvatarStack } from '@/components/avatar-stack';
 import { formatMatchDate } from '@/components/fixtures';
 import { LeaderboardStandings } from '@/components/leaderboard-standings';
+import { PersonalMovement } from '@/components/personal-movement';
 import PlayerAvatar from '@/components/player-avatar';
 import { PoolIdentity } from '@/components/pool-identity';
 import { SegmentedTabs } from '@/components/ui/segmented-tabs';
@@ -29,8 +31,7 @@ import type {
     LeaderboardCategoryKey,
     LeaderboardMatchday,
     LeaderboardPageProps,
-    MatchdayStat,
-    RankMovement,
+    MatchdayCard,
 } from '@/types/pools';
 
 /** Pill tabs for switching boards — the shared adaptive segmented strip. */
@@ -129,43 +130,35 @@ function StepButton({
     );
 }
 
-/** A small avatar bubble: the player's photo, or their initials on a brand gradient. */
-function AvatarBubble({ stat }: { stat: MatchdayStat }) {
-    if (stat.avatar) {
-        return (
-            <img
-                src={stat.avatar}
-                alt=""
-                className="size-9 shrink-0 rounded-full object-cover"
-            />
-        );
-    }
-
-    return (
-        <span
-            className={cn(
-                'grid size-9 shrink-0 place-items-center rounded-full font-display text-xs font-semibold text-white',
-                stat.is_me ? 'bg-pitch-deep' : 'bg-brand-gradient',
-            )}
-        >
-            {stat.initials}
-        </span>
-    );
+/** The leaders of a tie-card as avatar-stack players. */
+function stackPlayers(card: MatchdayCard) {
+    return card.leaders.map((leader) => ({
+        id: leader.entry_id,
+        name: leader.name,
+        initials: leader.initials,
+        avatar: leader.avatar,
+        isMe: leader.is_me,
+    }));
 }
 
-/** One of the three per-matchday cards (you earned / top earner / lowest earner). */
+/** The single leader's name, or "6 players" when several tie. */
+function playersLabel(card: MatchdayCard): string {
+    return card.count === 1 ? card.leaders[0].name : `${card.count} players`;
+}
+
+/** One of the three per-matchday cards (you earned / top earner / lowest earner). Tie-aware. */
 function MatchdayStatCard({
     title,
     icon: Icon,
     tone,
-    stat,
+    card,
     statLabel,
     showName,
 }: {
     title: string;
     icon: typeof Crown;
     tone: 'gold' | 'green' | 'muted';
-    stat: MatchdayStat | null;
+    card: MatchdayCard | null;
     statLabel: string;
     showName: boolean;
 }) {
@@ -183,15 +176,17 @@ function MatchdayStatCard({
                 {title}
             </div>
 
-            {stat ? (
+            {card ? (
                 <div className="mt-3 flex items-center gap-3">
-                    <AvatarBubble stat={stat} />
+                    <AvatarStack players={stackPlayers(card)} />
                     <div className="min-w-0">
                         <div className="font-display text-2xl leading-none font-semibold text-foreground tabular-nums">
-                            +{stat.value}
+                            +{card.leaders[0].value}
                         </div>
                         <div className="mt-1 truncate text-xs text-muted-foreground">
-                            {showName ? stat.name : statLabel.toLowerCase()}
+                            {showName
+                                ? playersLabel(card)
+                                : statLabel.toLowerCase()}
                         </div>
                     </div>
                 </div>
@@ -205,17 +200,17 @@ function MatchdayStatCard({
 }
 
 /**
- * A compact movement card (biggest climber / faller) — the player and how many places they moved on
- * the board this matchday. `stat.value` is the number of places.
+ * A compact movement card (biggest climber / faller) — the player(s) and how many places they moved
+ * on the board this matchday. `value` is the number of places; tie-aware.
  */
 function MoverCard({
     title,
     direction,
-    stat,
+    card,
 }: {
     title: string;
     direction: 'up' | 'down';
-    stat: MatchdayStat | null;
+    card: MatchdayCard | null;
 }) {
     const up = direction === 'up';
     const Icon = up ? ArrowUp : ArrowDown;
@@ -232,12 +227,12 @@ function MoverCard({
                 {title}
             </div>
 
-            {stat ? (
+            {card ? (
                 <div className="mt-3 flex items-center gap-2.5">
-                    <AvatarBubble stat={stat} />
+                    <AvatarStack players={stackPlayers(card)} />
                     <div className="min-w-0">
                         <div className="truncate text-sm font-semibold text-foreground">
-                            {stat.name}
+                            {playersLabel(card)}
                         </div>
                         <div
                             className={cn(
@@ -246,7 +241,8 @@ function MoverCard({
                             )}
                         >
                             <Icon className="size-3.5" />
-                            {stat.value} {stat.value === 1 ? 'place' : 'places'}
+                            {card.leaders[0].value}{' '}
+                            {card.leaders[0].value === 1 ? 'place' : 'places'}
                         </div>
                     </div>
                 </div>
@@ -277,37 +273,6 @@ function matchdayDateRange(
     const end = formatMatchDate(matchday.ends_at, tz);
 
     return start === end ? start : `${start} – ${end}`;
-}
-
-/** A white movement indicator that stays legible on the branded personal card. */
-function PersonalMovement({
-    movement,
-    delta,
-}: {
-    movement: RankMovement | null;
-    delta: number | null;
-}) {
-    if (movement === null || movement === 'same') {
-        return null;
-    }
-
-    if (movement === 'new') {
-        return (
-            <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase">
-                New
-            </span>
-        );
-    }
-
-    const up = movement === 'up';
-    const Icon = up ? ArrowUp : ArrowDown;
-
-    return (
-        <span className="inline-flex items-center gap-0.5 rounded-full bg-white/15 px-2 py-0.5 font-display text-xs font-semibold tabular-nums">
-            <Icon className="size-3.5" />
-            {delta}
-        </span>
-    );
 }
 
 /**
@@ -500,7 +465,7 @@ export default function Leaderboard({
                                 title="Top of the matchday"
                                 icon={Crown}
                                 tone="gold"
-                                stat={cards.top}
+                                card={cards.top}
                                 statLabel={board.primary_stat_label}
                                 showName
                             />
@@ -508,19 +473,19 @@ export default function Leaderboard({
                                 title="Quietest matchday"
                                 icon={TrendingDown}
                                 tone="muted"
-                                stat={cards.lowest}
+                                card={cards.lowest}
                                 statLabel={board.primary_stat_label}
                                 showName
                             />
                             <MoverCard
                                 title="Climber"
                                 direction="up"
-                                stat={cards.biggest_climber}
+                                card={cards.biggest_climber}
                             />
                             <MoverCard
                                 title="Faller"
                                 direction="down"
-                                stat={cards.biggest_faller}
+                                card={cards.biggest_faller}
                             />
                         </div>
                     </div>

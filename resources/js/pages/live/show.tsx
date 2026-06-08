@@ -1,12 +1,15 @@
 import { Head, usePage } from '@inertiajs/react';
-import { Radio } from 'lucide-react';
+import { ArrowDown, ArrowUp, Crown, Radio, TrendingDown } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useState } from 'react';
+import { AvatarStack } from '@/components/avatar-stack';
 import { Flag } from '@/components/flag';
-import { LeaderboardRow } from '@/components/leaderboard-row';
 import type { LeaderboardEntry } from '@/components/leaderboard-row';
 import { LiveBadge, LivePulse } from '@/components/live-badge';
-import { MovementArrow } from '@/components/movement-arrow';
+import { PersonalMovement } from '@/components/personal-movement';
+import PlayerAvatar from '@/components/player-avatar';
 import { PoolIdentity } from '@/components/pool-identity';
+import { StandingsList } from '@/components/standings-list';
 import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { useLivePoll } from '@/hooks/use-live-poll';
 import { resolveAccent, sourceMonogram } from '@/lib/accents';
@@ -139,70 +142,313 @@ function LiveScoreboard({ fixtures }: { fixtures: LiveFixture[] }) {
     );
 }
 
-/** The viewer's own projected line — the focal "what would happen to me" card. */
+/** The "+N" / "—" the viewer is gaining from the current live scores (raw signed when negative). */
+function formatLiveGain(gain: number): string {
+    if (gain > 0) {
+        return `+${gain.toLocaleString()}`;
+    }
+
+    return gain === 0 ? '—' : gain.toLocaleString();
+}
+
+/** One labelled stat in the viewer card's grid. */
+function StatCell({
+    label,
+    value,
+    valueClassName,
+}: {
+    label: string;
+    value: string;
+    valueClassName?: string;
+}) {
+    return (
+        <div>
+            <div className="truncate text-[11px] font-bold tracking-[0.1em] text-white/70 uppercase">
+                {label}
+            </div>
+            <div
+                className={cn(
+                    'font-display text-lg font-semibold tabular-nums',
+                    valueClassName,
+                )}
+            >
+                {value}
+            </div>
+        </div>
+    );
+}
+
+/**
+ * The viewer's own projected line — the focal "what would happen to me" card. Mirrors the leaderboard
+ * page's branded "Your standing" card (gradient + glow, big rank, fixed stat grid) so the live and
+ * official surfaces read as one family, and leads with what they're earning from the live scores. On
+ * mobile the prize moves up beside the rank so the stat grid stays a tidy two columns.
+ */
 function ViewerProjection({
     row,
     pool,
     primaryLabel,
+    className,
 }: {
     row: ProjectedRow;
     pool: LivePool;
     primaryLabel: string;
+    className?: string;
 }) {
+    const prizeText =
+        pool.is_paid && row.projected_prize != null
+            ? formatMoney(row.projected_prize, pool.currency)
+            : null;
+
     return (
-        <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-pitch-deep p-5 text-white">
-            <div className="flex items-center gap-4">
-                <div className="flex flex-col">
-                    <span className="text-[0.7rem] font-bold tracking-[0.14em] text-white/60 uppercase">
-                        Your projected spot
-                    </span>
-                    <div className="flex items-center gap-2">
-                        <span className="font-display text-3xl font-bold tabular-nums">
-                            #{row.rank}
-                        </span>
-                        {row.movement != null && (
-                            <MovementArrow
-                                movement={row.movement}
-                                delta={row.movement_delta}
-                                size="md"
-                            />
-                        )}
-                    </div>
-                </div>
+        <div
+            className={cn(
+                'bg-brand-gradient shadow-glow relative flex flex-col overflow-hidden rounded-2xl p-5 text-white',
+                className,
+            )}
+        >
+            <div className="text-xs font-bold tracking-[0.12em] text-white/80 uppercase">
+                Your projected spot
             </div>
 
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-                <div className="flex flex-col">
-                    <span className="text-[0.7rem] font-bold tracking-[0.14em] text-white/60 uppercase">
-                        {primaryLabel}
+            <div className="flex flex-1 items-center gap-4 py-4">
+                <PlayerAvatar
+                    name={row.name}
+                    initials={row.initials}
+                    src={row.avatar}
+                    fallbackClassName="bg-white/15 text-white"
+                    ringClassName="ring-2 ring-white/40"
+                    className="size-14"
+                />
+                <div className="flex items-baseline gap-2">
+                    <span className="font-display text-5xl leading-none font-semibold tabular-nums">
+                        #{row.rank}
                     </span>
-                    <span className="font-display text-xl font-bold tabular-nums">
-                        {row.primary_value.toLocaleString()}
-                    </span>
+                    <PersonalMovement
+                        movement={row.movement}
+                        delta={row.movement_delta}
+                    />
                 </div>
 
-                {pool.is_paid && row.projected_prize != null && (
-                    <div className="flex flex-col">
-                        <span className="text-[0.7rem] font-bold tracking-[0.14em] text-white/60 uppercase">
+                {prizeText && (
+                    <span className="bg-gold-gradient ml-auto rounded-full px-3 py-1 font-display text-sm font-bold text-[#3a2600] tabular-nums lg:hidden">
+                        {prizeText}
+                    </span>
+                )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 border-t border-white/15 pt-3">
+                <StatCell
+                    label={`Projected ${primaryLabel.toLowerCase()}`}
+                    value={row.primary_value.toLocaleString()}
+                />
+                <StatCell
+                    label="Earning now"
+                    value={formatLiveGain(row.live_gain)}
+                />
+
+                {prizeText && (
+                    <div className="hidden lg:block">
+                        <div className="text-[11px] font-bold tracking-[0.1em] text-white/70 uppercase">
                             Projected prize
-                        </span>
-                        <span className="bg-gold-gradient w-fit rounded-full px-2.5 py-0.5 font-display text-sm font-bold text-[#3a2600] tabular-nums">
-                            {formatMoney(row.projected_prize, pool.currency)}
-                        </span>
+                        </div>
+                        <div className="mt-0.5">
+                            <span className="bg-gold-gradient inline-block rounded-full px-2.5 py-0.5 font-display text-sm font-bold text-[#3a2600] tabular-nums">
+                                {prizeText}
+                            </span>
+                        </div>
                     </div>
                 )}
 
                 {row.pending_bonus > 0 && (
-                    <div className="flex flex-col">
-                        <span className="text-[0.7rem] font-bold tracking-[0.14em] text-white/60 uppercase">
-                            If it holds
-                        </span>
-                        <span className="font-display text-sm font-bold text-amber-300 tabular-nums">
-                            +{row.pending_bonus} pending
-                        </span>
-                    </div>
+                    <StatCell
+                        label="If it holds"
+                        value={`+${row.pending_bonus}`}
+                        valueClassName="text-amber-300"
+                    />
                 )}
             </div>
+        </div>
+    );
+}
+
+/**
+ * The set of rows sharing the extreme qualifying metric (the tie), or null when none qualify.
+ * `prefer` picks the highest value (top earner / biggest mover) or the lowest (quietest earner).
+ */
+function pickLeaders(
+    rows: ProjectedRow[],
+    metric: (row: ProjectedRow) => number,
+    qualifies: (row: ProjectedRow) => boolean,
+    prefer: 'high' | 'low',
+): { leaders: ProjectedRow[]; value: number } | null {
+    let value = 0;
+    let leaders: ProjectedRow[] = [];
+
+    for (const row of rows) {
+        if (!qualifies(row)) {
+            continue;
+        }
+
+        const candidate = metric(row);
+        const isBetter =
+            leaders.length === 0 ||
+            (prefer === 'high' ? candidate > value : candidate < value);
+
+        if (isBetter) {
+            value = candidate;
+            leaders = [row];
+        } else if (candidate === value) {
+            leaders.push(row);
+        }
+    }
+
+    return leaders.length > 0 ? { leaders, value } : null;
+}
+
+/** "place" / "places" for a movement delta. */
+function places(delta: number): string {
+    return delta === 1 ? 'place' : 'places';
+}
+
+/**
+ * One live-mover stat card: a tinted lead, then the standout player (or stacked avatars + "K players"
+ * on a tie) and the headline delta. A "No movement yet" resting state keeps the card present — and
+ * the layout balanced — before anyone has moved (e.g. until the first official results are approved).
+ */
+function MoverCard({
+    title,
+    icon: Icon,
+    toneClassName,
+    result,
+    format,
+    emptyLabel = 'No movement yet',
+    meId,
+}: {
+    title: string;
+    icon: LucideIcon;
+    toneClassName: string;
+    result: { leaders: ProjectedRow[]; value: number } | null;
+    format: (value: number) => string;
+    emptyLabel?: string;
+    meId: number;
+}) {
+    return (
+        <div className="card-elevated flex flex-col gap-3 rounded-2xl border border-border bg-card p-4">
+            <span className="inline-flex items-center gap-1.5 text-[0.7rem] font-bold tracking-[0.12em] text-muted-foreground uppercase">
+                <Icon className={cn('size-3.5', toneClassName)} />
+                {title}
+            </span>
+
+            {result ? (
+                <div className="flex items-center gap-3">
+                    <AvatarStack
+                        players={result.leaders.map((row) => ({
+                            id: row.entry_id,
+                            name: row.name,
+                            initials: row.initials,
+                            avatar: row.avatar,
+                            isMe: row.user_id === meId,
+                        }))}
+                    />
+                    <div className="min-w-0">
+                        <p className="truncate font-display font-semibold">
+                            {result.leaders.length === 1
+                                ? result.leaders[0].user_id === meId
+                                    ? 'You'
+                                    : result.leaders[0].name
+                                : `${result.leaders.length} players`}
+                        </p>
+                        <p
+                            className={cn(
+                                'font-display text-sm font-semibold tabular-nums',
+                                toneClassName,
+                            )}
+                        >
+                            {format(result.value)}
+                        </p>
+                    </div>
+                </div>
+            ) : (
+                <p className="text-sm text-muted-foreground">{emptyLabel}</p>
+            )}
+        </div>
+    );
+}
+
+/**
+ * The pool's live movers — who's earning the most/least from the live scores (Top earner / Quietest,
+ * among players actually gaining) and who's climbing/falling the most (movement vs the banked official
+ * rank). All four cards always render so the row beside the viewer card stays balanced; earner cards
+ * rest until someone gains, climber/faller until the first official results are approved.
+ */
+function LiveMovers({
+    rows,
+    primaryLabel,
+    meId,
+    className,
+}: {
+    rows: ProjectedRow[];
+    primaryLabel: string;
+    meId: number;
+    className?: string;
+}) {
+    const label = primaryLabel.toLowerCase();
+    const gain = (row: ProjectedRow): number => row.live_gain;
+    const isGainer = (row: ProjectedRow): boolean => row.live_gain > 0;
+    const delta = (row: ProjectedRow): number => row.movement_delta ?? 0;
+
+    const topEarner = pickLeaders(rows, gain, isGainer, 'high');
+    const quietest = pickLeaders(rows, gain, isGainer, 'low');
+    const climber = pickLeaders(
+        rows,
+        delta,
+        (row) => row.movement === 'up',
+        'high',
+    );
+    const faller = pickLeaders(
+        rows,
+        delta,
+        (row) => row.movement === 'down',
+        'high',
+    );
+
+    return (
+        <div className={cn('grid grid-cols-2 gap-3', className)}>
+            <MoverCard
+                title="Top earner"
+                icon={Crown}
+                toneClassName="text-accent"
+                result={topEarner}
+                format={(value) => `+${value} ${label}`}
+                emptyLabel="No earnings yet"
+                meId={meId}
+            />
+            <MoverCard
+                title="Quietest"
+                icon={TrendingDown}
+                toneClassName="text-muted-foreground"
+                result={quietest}
+                format={(value) => `+${value} ${label}`}
+                emptyLabel="No earnings yet"
+                meId={meId}
+            />
+            <MoverCard
+                title="Climber"
+                icon={ArrowUp}
+                toneClassName="text-primary"
+                result={climber}
+                format={(value) => `▲${value} ${places(value)}`}
+                meId={meId}
+            />
+            <MoverCard
+                title="Faller"
+                icon={ArrowDown}
+                toneClassName="text-destructive"
+                result={faller}
+                format={(value) => `▼${value} ${places(value)}`}
+                meId={meId}
+            />
         </div>
     );
 }
@@ -232,6 +478,7 @@ function ProjectedBoard({
         isMe: row.user_id === meId,
         movement: row.movement,
         movementDelta: row.movement_delta,
+        liveGain: row.live_gain,
         prize:
             board.awards_prizes && pool.is_paid && row.projected_prize != null
                 ? formatMoney(row.projected_prize, pool.currency)
@@ -240,25 +487,33 @@ function ProjectedBoard({
 
     return (
         <div className="flex flex-col gap-4">
-            {mine && (
-                <ViewerProjection
-                    row={mine}
-                    pool={pool}
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
+                {mine && (
+                    <ViewerProjection
+                        row={mine}
+                        pool={pool}
+                        primaryLabel={board.primary_stat_label}
+                        className="lg:w-80 lg:shrink-0"
+                    />
+                )}
+
+                <LiveMovers
+                    rows={rows}
                     primaryLabel={board.primary_stat_label}
+                    meId={meId}
+                    className="lg:flex-1"
                 />
-            )}
+            </div>
 
             <p className="text-sm text-muted-foreground">{board.description}</p>
 
             {rows.length > 0 ? (
-                <div className="card-elevated overflow-hidden rounded-2xl border border-border">
-                    {rows.map((row) => (
-                        <LeaderboardRow
-                            key={row.entry_id}
-                            entry={toEntry(row)}
-                        />
-                    ))}
-                </div>
+                <StandingsList
+                    key={board.key}
+                    entries={rows.map(toEntry)}
+                    primaryStatLabel={board.primary_stat_label}
+                    stickyOffsetClassName="bottom-3 sm:bottom-6"
+                />
             ) : (
                 <p className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
                     No players to project yet.

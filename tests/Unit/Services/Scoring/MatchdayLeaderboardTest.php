@@ -69,10 +69,36 @@ class MatchdayLeaderboardTest extends TestCase
         // Cards for matchday 1, expressed in Overall points.
         $stats = $overall['matchday_stats'];
         $this->assertSame($this->me->id, $stats['you']['entry_id']);
-        $this->assertSame($this->me->id, $stats['top']['entry_id']);
-        $this->assertSame($this->rival->id, $stats['lowest']['entry_id']);
-        $this->assertGreaterThan($stats['lowest']['value'], $stats['top']['value']);
-        $this->assertSame($stats['top']['value'], $stats['you']['value']);
+        $this->assertSame($this->me->id, $stats['top']['leaders'][0]['entry_id']);
+        $this->assertSame($this->rival->id, $stats['lowest']['leaders'][0]['entry_id']);
+        $this->assertGreaterThan($stats['lowest']['leaders'][0]['value'], $stats['top']['leaders'][0]['value']);
+        $this->assertSame($stats['top']['leaders'][0]['value'], $stats['you']['value']);
+    }
+
+    public function test_tied_matchday_leaders_are_all_reported_with_a_count(): void
+    {
+        // A twin who predicts the same as Me ties them for the matchday's top score; Rival is alone
+        // at the bottom.
+        $twin = Entry::factory()->for($this->pool)->for(User::factory()->create(['name' => 'Twin']))->create();
+        $this->predictAllGroups($twin, $this->tournament, $this->seedOrderScores());
+
+        $this->recordMatchdayResults($this->tournament, 'group-1', $this->seedOrderScores());
+        (new ScoreEngine)->recompute($this->pool);
+
+        $stats = $this->board(
+            $this->builder->build($this->pool, $this->me->user_id, null),
+            'overall',
+        )['matchday_stats'];
+
+        // Top is a two-way tie: both Me and Twin are reported, with the true count.
+        $this->assertSame(2, $stats['top']['count']);
+        $topIds = array_column($stats['top']['leaders'], 'entry_id');
+        $this->assertContains($this->me->id, $topIds);
+        $this->assertContains($twin->id, $topIds);
+
+        // Lowest is a clear standout: a single leader and a count of one.
+        $this->assertSame(1, $stats['lowest']['count']);
+        $this->assertSame($this->rival->id, $stats['lowest']['leaders'][0]['entry_id']);
     }
 
     public function test_a_past_matchday_is_frozen_at_its_own_end(): void
@@ -135,10 +161,10 @@ class MatchdayLeaderboardTest extends TestCase
             'overall',
         )['matchday_stats'];
 
-        $this->assertSame($climber->id, $stats['biggest_climber']['entry_id']);
-        $this->assertSame(1, $stats['biggest_climber']['value']);
-        $this->assertSame($faller->id, $stats['biggest_faller']['entry_id']);
-        $this->assertSame(1, $stats['biggest_faller']['value']);
+        $this->assertSame($climber->id, $stats['biggest_climber']['leaders'][0]['entry_id']);
+        $this->assertSame(1, $stats['biggest_climber']['leaders'][0]['value']);
+        $this->assertSame($faller->id, $stats['biggest_faller']['leaders'][0]['entry_id']);
+        $this->assertSame(1, $stats['biggest_faller']['leaders'][0]['value']);
     }
 
     public function test_current_matchday_movement_is_measured_against_the_previous_matchday(): void

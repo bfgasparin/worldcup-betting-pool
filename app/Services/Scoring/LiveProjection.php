@@ -44,7 +44,7 @@ class LiveProjection
     public function cachedFor(Pool $pool): LiveProjectionResult
     {
         $version = $this->version($pool->tournament);
-        $key = "live-projection:1:pool:{$pool->id}:v:{$version}";
+        $key = "live-projection:2:pool:{$pool->id}:v:{$version}";
 
         // Cache plain data, never the DTO itself: a serialising store (redis/file) would round-trip
         // a cached object into __PHP_Incomplete_Class. The boards are nested scalars and the version
@@ -302,6 +302,7 @@ class LiveProjection
                     'rank' => $rank,
                     'primary_value' => $category->valueFor($metrics),
                     'secondary_value' => $category === LeaderboardCategory::Overall ? null : $category->tiebreakerFor($metrics),
+                    'live_gain' => $category->valueFor($metrics) - $this->officialValue($entry, $category),
                     'official_rank' => $officialRank,
                     'movement' => RankMovement::direction($rank, $officialRank),
                     'movement_delta' => RankMovement::delta($rank, $officialRank),
@@ -319,6 +320,19 @@ class LiveProjection
         }
 
         return $entry->standings->firstWhere('category', $category)?->rank;
+    }
+
+    /**
+     * The entry's banked official value for this board — the baseline the projected value is gained
+     * over. Mirrors {@see officialRank()}; an unscored entry (no points/standing yet) reads as 0.
+     */
+    private function officialValue(Entry $entry, LeaderboardCategory $category): int
+    {
+        if ($category === LeaderboardCategory::Overall) {
+            return $entry->total_points ?? 0;
+        }
+
+        return $entry->standings->firstWhere('category', $category)?->value ?? 0;
     }
 
     private function initials(string $name): string

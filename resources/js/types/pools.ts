@@ -319,16 +319,26 @@ export interface MatchdayStat {
 }
 
 /**
+ * A tie-aware matchday card: up to three tied leaders (for the avatar stack) plus the true count of
+ * everyone who shares the top value/delta. A unique leader has `count === 1`; all leaders share the
+ * same `value`.
+ */
+export interface MatchdayCard {
+    leaders: MatchdayStat[];
+    count: number;
+}
+
+/**
  * The per-matchday cards for the selected matchday on the active board. `you`/`top`/`lowest` carry
  * the metric earned; `biggest_climber`/`biggest_faller` carry places moved on the board (their
- * `value` is the number of places).
+ * `value` is the number of places). `you` is the single viewer stat; the rest are tie-aware cards.
  */
 export interface MatchdayCards {
     you: MatchdayStat | null;
-    top: MatchdayStat | null;
-    lowest: MatchdayStat | null;
-    biggest_climber: MatchdayStat | null;
-    biggest_faller: MatchdayStat | null;
+    top: MatchdayCard | null;
+    lowest: MatchdayCard | null;
+    biggest_climber: MatchdayCard | null;
+    biggest_faller: MatchdayCard | null;
 }
 
 export interface LeaderboardBoard {

@@ -28,6 +28,8 @@ export interface ProjectedRow {
     rank: number;
     primary_value: number;
     secondary_value: number | null;
+    /** Primary-stat units gained from the current live scores vs. the banked official value. */
+    live_gain: number;
     /** The entry's current official rank on this board, the baseline movement is measured against. */
     official_rank: number | null;
     movement: RankMovement | null;

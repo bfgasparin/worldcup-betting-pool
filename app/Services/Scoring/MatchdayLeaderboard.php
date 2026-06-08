@@ -238,34 +238,71 @@ class MatchdayLeaderboard
     }
 
     /**
-     * The two movement cards for the selected matchday, read off the board's own rows: the row that
-     * climbed the most and the one that fell the most (largest `movement_delta` in each direction).
-     * Null when nobody moved that way (e.g. the first matchday, where every row is "new"). The
-     * `value` is places moved.
+     * The two movement cards for the selected matchday, read off the board's own rows: the rows that
+     * climbed the most and the ones that fell the most (largest `movement_delta` in each direction).
+     * Each is tie-aware (every row at the top delta), or null when nobody moved that way (e.g. the
+     * first matchday, where every row is "new"). The `value` is places moved.
      *
      * @param  list<array<string, mixed>>  $rows
      * @return array{biggest_climber: ?array<string, mixed>, biggest_faller: ?array<string, mixed>}
      */
     private function movers(array $rows): array
     {
-        $climber = null;
-        $faller = null;
+        $maxUp = null;
+        $maxDown = null;
 
         foreach ($rows as $row) {
             if ($row['movement_delta'] === null) {
                 continue;
             }
 
-            if ($row['movement'] === 'up' && ($climber === null || $row['movement_delta'] > $climber['movement_delta'])) {
-                $climber = $row;
-            } elseif ($row['movement'] === 'down' && ($faller === null || $row['movement_delta'] > $faller['movement_delta'])) {
-                $faller = $row;
+            if ($row['movement'] === 'up') {
+                $maxUp = $maxUp === null ? $row['movement_delta'] : max($maxUp, $row['movement_delta']);
+            } elseif ($row['movement'] === 'down') {
+                $maxDown = $maxDown === null ? $row['movement_delta'] : max($maxDown, $row['movement_delta']);
             }
         }
 
         return [
-            'biggest_climber' => $climber !== null ? $this->moverStat($climber) : null,
-            'biggest_faller' => $faller !== null ? $this->moverStat($faller) : null,
+            'biggest_climber' => $this->moverCard($rows, 'up', $maxUp),
+            'biggest_faller' => $this->moverCard($rows, 'down', $maxDown),
+        ];
+    }
+
+    /**
+     * The tie-aware movement card: every row that moved `$direction` by the top `$delta`, or null
+     * when nobody did.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @return array{leaders: list<array<string, mixed>>, count: int}|null
+     */
+    private function moverCard(array $rows, string $direction, ?int $delta): ?array
+    {
+        if ($delta === null) {
+            return null;
+        }
+
+        return $this->card(
+            collect($rows)
+                ->filter(fn (array $row): bool => $row['movement'] === $direction && $row['movement_delta'] === $delta)
+                ->map(fn (array $row): array => $this->moverStat($row))
+                ->values()
+                ->all(),
+        );
+    }
+
+    /**
+     * A tie-aware card: up to three leaders for the avatar stack plus the true count of everyone who
+     * shares the top value/delta.
+     *
+     * @param  list<array<string, mixed>>  $leaders  built stat dicts, in display order
+     * @return array{leaders: list<array<string, mixed>>, count: int}
+     */
+    private function card(array $leaders): array
+    {
+        return [
+            'leaders' => array_slice($leaders, 0, 3),
+            'count' => count($leaders),
         ];
     }
 
@@ -467,10 +504,19 @@ class MatchdayLeaderboard
 
         $mine = collect($participants)->first(fn (array $p): bool => $p['entry']->user_id === $userId);
 
+        $topValue = $sorted->first()['value'];
+        $lowestValue = $sorted->last()['value'];
+
+        $leadersAt = fn (int $value): array => $sorted
+            ->filter(fn (array $p): bool => $p['value'] === $value)
+            ->map(fn (array $p): array => $this->stat($p, $userId))
+            ->values()
+            ->all();
+
         return [
             'you' => $mine !== null ? $this->stat($mine, $userId) : null,
-            'top' => $this->stat($sorted->first(), $userId),
-            'lowest' => $this->stat($sorted->last(), $userId),
+            'top' => $this->card($leadersAt($topValue)),
+            'lowest' => $this->card($leadersAt($lowestValue)),
         ];
     }
 

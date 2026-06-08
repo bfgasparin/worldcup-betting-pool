@@ -87,6 +87,7 @@ class LiveControllerTest extends TestCase
                 ->where('tournament.slug', $tournament->slug)
                 ->has('pools', 1)
                 ->has('pools.0.boards.overall', 1)
+                ->has('pools.0.boards.overall.0.live_gain')
                 ->has('liveFixtures', 1));
     }
 

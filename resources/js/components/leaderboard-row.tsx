@@ -20,6 +20,11 @@ export interface LeaderboardEntry {
     /** How many places the entry moved since the last results, shown in the movement pill. */
     movementDelta?: number | null;
     /**
+     * Units gained from the current live scores, shown as a green "+N" pill (live projected boards
+     * only). Null/undefined or 0 hides it, so the official leaderboard shows nothing.
+     */
+    liveGain?: number | null;
+    /**
      * The prize this place wins, already formatted (e.g. "R$ 400,00"), shown as a gold pill just
      * left of the points on the prize board. Null/undefined hides it — so non-paying places and
      * every board except the Overall prize board show nothing.
@@ -127,6 +132,11 @@ export function LeaderboardRow({
             )}
 
             <div className="flex items-center justify-end gap-2">
+                {entry.liveGain != null && entry.liveGain > 0 && (
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 font-display text-xs font-semibold whitespace-nowrap text-pitch-deep tabular-nums dark:bg-primary/15 dark:text-primary">
+                        +{entry.liveGain}
+                    </span>
+                )}
                 {entry.prize && (
                     <span className="rounded-full bg-accent/15 px-2 py-0.5 font-display text-xs font-semibold whitespace-nowrap text-[#8a5a00] tabular-nums dark:text-amber-300">
                         {entry.prize}
