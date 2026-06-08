@@ -41,8 +41,8 @@ class LiveControlControllerTest extends TestCase
         ]);
 
         $this->actingAs($this->admin())
-            ->get(route('live.control.index', $tournament))
-            ->assertInertia(fn ($page) => $page->component('live/control', false)->has('fixtures', 1));
+            ->get(route('manage.live.index', $tournament))
+            ->assertInertia(fn ($page) => $page->component('manage/live', false)->has('fixtures', 1));
     }
 
     public function test_non_admins_cannot_access_the_console(): void
@@ -50,7 +50,7 @@ class LiveControlControllerTest extends TestCase
         $tournament = Tournament::factory()->create();
 
         $this->actingAs(User::factory()->create())
-            ->get(route('live.control.index', $tournament))
+            ->get(route('manage.live.index', $tournament))
             ->assertForbidden();
     }
 
@@ -63,7 +63,7 @@ class LiveControlControllerTest extends TestCase
         ]);
 
         $this->actingAs($this->admin())
-            ->post(route('live.control.go-live', [$tournament, $fixture]))
+            ->post(route('manage.live.go-live', [$tournament, $fixture]))
             ->assertRedirect();
 
         $this->assertSame(FixtureStatus::Live, $fixture->fresh()->status);
@@ -79,7 +79,7 @@ class LiveControlControllerTest extends TestCase
         ]);
 
         $this->actingAs($this->admin())
-            ->post(route('live.control.go-live', [$tournament, $fixture]))
+            ->post(route('manage.live.go-live', [$tournament, $fixture]))
             ->assertStatus(422);
 
         $this->assertSame(FixtureStatus::Scheduled, $fixture->fresh()->status);
@@ -92,7 +92,7 @@ class LiveControlControllerTest extends TestCase
         FixtureLiveState::factory()->for($fixture)->create(['status' => LiveStatus::Live]);
 
         $this->actingAs($this->admin())
-            ->patch(route('live.control.score', [$tournament, $fixture]), ['home_goals' => 2, 'away_goals' => 1])
+            ->patch(route('manage.live.score', [$tournament, $fixture]), ['home_goals' => 2, 'away_goals' => 1])
             ->assertRedirect();
 
         $this->assertSame(2, $fixture->fresh()->liveState->home_goals);
@@ -106,7 +106,7 @@ class LiveControlControllerTest extends TestCase
         FixtureLiveState::factory()->for($fixture)->withScore(2, 0)->create();
 
         $this->actingAs($this->admin())
-            ->post(route('live.control.end', [$tournament, $fixture]))
+            ->post(route('manage.live.end', [$tournament, $fixture]))
             ->assertRedirect();
 
         $this->assertSame(LiveStatus::Ended, $fixture->fresh()->liveState->status);
@@ -128,7 +128,7 @@ class LiveControlControllerTest extends TestCase
         ]);
 
         $this->actingAs($this->admin())
-            ->post(route('live.control.go-live', [$tournament, $otherFixture]))
+            ->post(route('manage.live.go-live', [$tournament, $otherFixture]))
             ->assertNotFound();
     }
 }

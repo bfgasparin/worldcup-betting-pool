@@ -68,7 +68,6 @@ class LiveController extends Controller
                 'slug' => $tournament->slug,
             ],
             'boards' => $this->boardDescriptors(),
-            'can_control' => (bool) $request->user()->can('manage-tournament'),
             'poll_interval_ms' => (int) config('scoring.live_poll_interval_ms'),
             'pools' => $pools->map(fn (Pool $pool): array => [
                 'slug' => $pool->slug,

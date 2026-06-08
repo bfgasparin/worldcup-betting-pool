@@ -2,7 +2,6 @@ import { Head, Link } from '@inertiajs/react';
 import { CalendarClock, ClipboardCheck, Radio, Trophy } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import live from '@/routes/live';
 import manage from '@/routes/manage';
 import type { BreadcrumbItem } from '@/types/navigation';
 
@@ -79,7 +78,7 @@ export default function ManageIndex({ tournaments }: ManageIndexProps) {
                                     <div className="mt-auto flex flex-col gap-2">
                                         <AdminAction
                                             href={
-                                                live.control.index(
+                                                manage.live.index(
                                                     tournament.slug,
                                                 ).url
                                             }

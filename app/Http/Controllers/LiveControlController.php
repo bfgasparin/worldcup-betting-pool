@@ -51,7 +51,7 @@ class LiveControlController extends Controller
             ->values()
             ->all();
 
-        return Inertia::render('live/control', [
+        return Inertia::render('manage/live', [
             'tournament' => [
                 'name' => $tournament->name,
                 'slug' => $tournament->slug,

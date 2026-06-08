@@ -1,5 +1,5 @@
-import { Head, Link, usePage } from '@inertiajs/react';
-import { Radio, SlidersHorizontal } from 'lucide-react';
+import { Head, usePage } from '@inertiajs/react';
+import { Radio } from 'lucide-react';
 import { useState } from 'react';
 import { Flag } from '@/components/flag';
 import { LeaderboardRow } from '@/components/leaderboard-row';
@@ -24,7 +24,6 @@ interface LiveShowProps {
     boards: LiveBoardDescriptor[];
     pools: LivePool[];
     liveFixtures: LiveFixture[];
-    can_control: boolean;
     poll_interval_ms: number;
 }
 
@@ -322,7 +321,6 @@ export default function LiveShow({
     boards,
     pools,
     liveFixtures,
-    can_control,
     poll_interval_ms,
 }: LiveShowProps) {
     const page = usePage();
@@ -364,16 +362,6 @@ export default function LiveShow({
                                         : 'No matches live at the moment.'}
                                 </p>
                             </div>
-
-                            {can_control && (
-                                <Link
-                                    href={live.control.index(tournament.slug)}
-                                    className="inline-flex items-center gap-2 rounded-full border border-border bg-card/90 px-4 py-2 font-display text-sm font-semibold shadow-[var(--sh-sm)] transition-colors hover:bg-muted"
-                                >
-                                    <SlidersHorizontal className="size-4 text-primary" />
-                                    Live control
-                                </Link>
-                            )}
                         </div>
                     </header>
 

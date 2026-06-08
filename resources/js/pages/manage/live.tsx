@@ -5,7 +5,7 @@ import { Flag } from '@/components/flag';
 import { LiveBadge } from '@/components/live-badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import live from '@/routes/live';
+import manage from '@/routes/manage';
 import type { LiveControlFixture } from '@/types/live';
 
 interface LiveControlProps {
@@ -96,7 +96,7 @@ function LiveControlRow({
 
     const goLive = () =>
         router.post(
-            live.control.goLive([slug, fixture.id]).url,
+            manage.live.goLive([slug, fixture.id]).url,
             {},
             { preserveScroll: true },
         );
@@ -105,7 +105,7 @@ function LiveControlRow({
         setHome(nextHome);
         setAway(nextAway);
         router.patch(
-            live.control.score([slug, fixture.id]).url,
+            manage.live.score([slug, fixture.id]).url,
             { home_goals: nextHome, away_goals: nextAway },
             { preserveScroll: true, preserveState: true },
         );
@@ -113,7 +113,7 @@ function LiveControlRow({
 
     const endMatch = () =>
         router.post(
-            live.control.end([slug, fixture.id]).url,
+            manage.live.end([slug, fixture.id]).url,
             {},
             { preserveScroll: true },
         );
@@ -248,5 +248,5 @@ export default function LiveControl({
 }
 
 LiveControl.layout = {
-    breadcrumbs: [{ title: 'Live', href: live.index() }],
+    breadcrumbs: [{ title: 'Manage', href: manage.index() }],
 };
