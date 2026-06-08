@@ -2,6 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import { LayoutGrid, Radio, Wrench } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { LivePulse } from '@/components/live-badge';
+import { manageNavItems, manageSlugFromUrl } from '@/components/nav-manage';
 import { tournamentNavItems } from '@/components/nav-tournament';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -49,6 +50,8 @@ export function AppSidebar() {
     const onLive = page.url.startsWith('/live');
     const onManage = page.url.startsWith('/manage');
     const isAdmin = props.auth.isAdmin;
+    const manageSlug = manageSlugFromUrl(page.url);
+    const { isCurrentUrl } = useCurrentUrl();
 
     // The pool in context that the player hasn't joined still gets its row + sub-nav, so the
     // sidebar never dead-ends on a pool you're only previewing. Prepend it when it isn't listed.
@@ -123,6 +126,35 @@ export function AppSidebar() {
                                         <span>Manage</span>
                                     </Link>
                                 </SidebarMenuButton>
+
+                                {manageSlug && (
+                                    <SidebarMenuSub>
+                                        {manageNavItems(manageSlug).map(
+                                            (item) => (
+                                                <SidebarMenuSubItem
+                                                    key={item.title}
+                                                >
+                                                    <SidebarMenuSubButton
+                                                        asChild
+                                                        isActive={isCurrentUrl(
+                                                            item.href,
+                                                        )}
+                                                    >
+                                                        <Link
+                                                            href={item.href}
+                                                            prefetch
+                                                        >
+                                                            <item.icon />
+                                                            <span>
+                                                                {item.title}
+                                                            </span>
+                                                        </Link>
+                                                    </SidebarMenuSubButton>
+                                                </SidebarMenuSubItem>
+                                            ),
+                                        )}
+                                    </SidebarMenuSub>
+                                )}
                             </SidebarMenuItem>
                         )}
                     </SidebarMenu>
