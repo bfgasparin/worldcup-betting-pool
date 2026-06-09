@@ -53,6 +53,12 @@ export interface FixturePick {
     points: number;
     /** The team this entry sent through (knockout fixtures only); null for group fixtures. */
     advancing_team_id: number | null;
+    /**
+     * The match-up the player predicted — only set for upfront-bracket knockout picks, where the
+     * predicted teams may differ from the real ones playing. Null for phased and group picks.
+     */
+    predicted_home: TeamRef | null;
+    predicted_away: TeamRef | null;
 }
 
 /** A board's labels, shared across the pools shown on the live page. */

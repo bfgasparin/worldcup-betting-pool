@@ -13,6 +13,7 @@ use App\Models\Fixture;
 use App\Models\FixtureLiveState;
 use App\Models\GroupPrediction;
 use App\Models\Pool;
+use App\Models\Team;
 use App\Models\Tournament;
 use App\Services\Pools\PrizePot;
 use App\Services\Predictions\GroupStandings;
@@ -44,7 +45,7 @@ class LiveProjection
     public function cachedFor(Pool $pool): LiveProjectionResult
     {
         $version = $this->version($pool->tournament);
-        $key = "live-projection:3:pool:{$pool->id}:v:{$version}";
+        $key = "live-projection:4:pool:{$pool->id}:v:{$version}";
 
         // Cache plain data, never the DTO itself: a serialising store (redis/file) would round-trip
         // a cached object into __PHP_Incomplete_Class. The boards/picks are nested scalars and the
@@ -71,12 +72,21 @@ class LiveProjection
             'knockoutFixtures.phase',
             'knockoutFixtures.liveState',
         ]);
-        $pool->load([
+        $entryRelations = [
             'entries.user',
             'entries.groupPredictions',
             'entries.knockoutPredictions',
             'entries.standings',
-        ]);
+        ];
+
+        // Upfront pools predict their own bracket, so a live knockout's predicted teams may differ
+        // from the real match-up; load them so the picks can carry the full predicted fixture.
+        if ($pool->scoring_strategy === ScoringStrategy::UpfrontBracket) {
+            $entryRelations[] = 'entries.knockoutPredictions.predictedHomeTeam';
+            $entryRelations[] = 'entries.knockoutPredictions.predictedAwayTeam';
+        }
+
+        $pool->load($entryRelations);
 
         $config = ScoringConfig::fromPool($pool);
         $rules = $this->rulesFactory->make($pool->scoring_strategy);
@@ -186,10 +196,13 @@ class LiveProjection
      *
      * @param  array<int, true>  $liveIds
      * @param  array<int, array<int, PredictionBreakdown>>  $breakdownsByEntry
-     * @return array<int, list<array{entry_id: int, home_goals: ?int, away_goals: ?int, points: int, advancing_team_id: ?int}>>
+     * @return array<int, list<array{entry_id: int, home_goals: ?int, away_goals: ?int, points: int, advancing_team_id: ?int, predicted_home: ?array<string, mixed>, predicted_away: ?array<string, mixed>}>>
      */
     private function fixturePicks(Pool $pool, array $liveIds, array $breakdownsByEntry): array
     {
+        // Upfront pools predict their own bracket, so a live knockout's predicted teams may differ
+        // from the real match-up and are carried for the UI; phased pools predict the real teams.
+        $isUpfront = $pool->scoring_strategy === ScoringStrategy::UpfrontBracket;
         $picks = [];
 
         foreach ($pool->entries as $entry) {
@@ -208,15 +221,25 @@ class LiveProjection
                     'away_goals' => $prediction->away_goals,
                     'points' => $breakdowns[$prediction->fixture_id]->points ?? 0,
                     'advancing_team_id' => null,
+                    'predicted_home' => null,
+                    'predicted_away' => null,
                 ];
             }
 
             foreach ($entry->knockoutPredictions as $prediction) {
+                if (! isset($liveIds[$prediction->fixture_id])) {
+                    continue;
+                }
+
+                $predictedHome = $isUpfront ? $this->teamRef($prediction->predictedHomeTeam) : null;
+                $predictedAway = $isUpfront ? $this->teamRef($prediction->predictedAwayTeam) : null;
+
                 // Skip rows the player never engaged with (mirrors PlayerComparison's knockout map).
-                if (! isset($liveIds[$prediction->fixture_id])
-                    || ($prediction->home_goals === null
-                        && $prediction->away_goals === null
-                        && $prediction->advancing_team_id === null)) {
+                if ($prediction->home_goals === null
+                    && $prediction->away_goals === null
+                    && $prediction->advancing_team_id === null
+                    && $predictedHome === null
+                    && $predictedAway === null) {
                     continue;
                 }
 
@@ -226,11 +249,34 @@ class LiveProjection
                     'away_goals' => $prediction->away_goals,
                     'points' => $breakdowns[$prediction->fixture_id]->points ?? 0,
                     'advancing_team_id' => $prediction->advancing_team_id,
+                    'predicted_home' => $predictedHome,
+                    'predicted_away' => $predictedAway,
                 ];
             }
         }
 
         return $picks;
+    }
+
+    /**
+     * A compact team reference for a pick's predicted match-up, mirroring the shape the rest of the
+     * app uses (e.g. {@see PlayerComparison}). Null when the team is unresolved.
+     *
+     * @return array{id: int, name: string, code: ?string, is_placeholder: bool, flag_url: string}|null
+     */
+    private function teamRef(?Team $team): ?array
+    {
+        if ($team === null) {
+            return null;
+        }
+
+        return [
+            'id' => $team->id,
+            'name' => $team->name,
+            'code' => $team->code,
+            'is_placeholder' => (bool) ($team->is_placeholder ?? false),
+            'flag_url' => $team->flag_url,
+        ];
     }
 
     /**

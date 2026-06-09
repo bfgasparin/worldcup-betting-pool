@@ -259,6 +259,9 @@ class LiveProjectionTest extends TestCase
         $this->assertSame(2, $sharpPick['home_goals']);
         $this->assertSame(0, $sharpPick['away_goals']);
         $this->assertNull($sharpPick['advancing_team_id']);
+        // Group fixtures have fixed real teams, so no predicted match-up is carried.
+        $this->assertNull($sharpPick['predicted_home']);
+        $this->assertNull($sharpPick['predicted_away']);
         // The sharp 2–0 call against a live 2–0 is earning points now; the blunt 1–1 earns nothing.
         $this->assertGreaterThan(0, $sharpPick['points']);
         $this->assertSame(0, $bluntPick['points']);
@@ -291,6 +294,40 @@ class LiveProjectionTest extends TestCase
         $this->assertSame(1, $pick['home_goals']);
         $this->assertSame(0, $pick['away_goals']);
         $this->assertIsInt($pick['points']);
+        // Phased pools predict the real teams, so no predicted match-up is carried.
+        $this->assertNull($pick['predicted_home']);
+        $this->assertNull($pick['predicted_away']);
+    }
+
+    public function test_upfront_knockout_picks_carry_the_predicted_match_up(): void
+    {
+        [$home, $away] = $this->tournament->groups()->with('teams')->first()->teams->take(2)->all();
+
+        $ko = $this->tournament->knockoutFixtures()->orderBy('match_number')->firstOrFail();
+
+        $entry = $this->entryFor($this->upfront);
+        KnockoutPrediction::create([
+            'entry_id' => $entry->id,
+            'fixture_id' => $ko->id,
+            'predicted_home_team_id' => $home->id,
+            'predicted_away_team_id' => $away->id,
+            'home_goals' => 2,
+            'away_goals' => 1,
+            'advancing_team_id' => $home->id,
+        ]);
+
+        $this->markFixtureLive($ko, 2, 1);
+
+        $picks = app(LiveProjection::class)->project($this->upfront)->fixturePicks;
+        $pick = collect($picks[$ko->id])->firstWhere('entry_id', $entry->id);
+
+        // Upfront pools predict their own bracket, so the predicted match-up (which may differ from
+        // the real teams) is carried as TeamRefs for the UI to render.
+        $this->assertSame($home->id, $pick['predicted_home']['id']);
+        $this->assertSame($away->id, $pick['predicted_away']['id']);
+        $this->assertSame($home->code, $pick['predicted_home']['code']);
+        $this->assertSame($home->id, $pick['advancing_team_id']);
+        $this->assertSame(2, $pick['home_goals']);
     }
 
     private function entryFor(Pool $pool): Entry

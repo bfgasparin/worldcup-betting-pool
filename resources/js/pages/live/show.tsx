@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp, Crown, Radio, TrendingDown } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { AvatarStack } from '@/components/avatar-stack';
-import { PointsBadge } from '@/components/fixtures';
+import { KnockoutPickMatchup, PointsBadge } from '@/components/fixtures';
 import { Flag } from '@/components/flag';
 import type { LeaderboardEntry } from '@/components/leaderboard-row';
 import { LiveBadge, LivePulse } from '@/components/live-badge';
@@ -193,6 +193,11 @@ function FixturePicksSheet({
                             {sorted.map((pick) => {
                                 const row = rowByEntry.get(pick.entry_id);
                                 const isMe = row?.user_id === meId;
+                                // Upfront knockout picks carry the predicted teams (which may differ
+                                // from the real match-up), so render the full predicted fixture.
+                                const showMatchup =
+                                    pick.predicted_home != null ||
+                                    pick.predicted_away != null;
                                 const advancing =
                                     fixture.is_knockout &&
                                     pick.advancing_team_id != null
@@ -225,16 +230,36 @@ function FixturePicksSheet({
                                                 ? t('You')
                                                 : (row?.name ?? t('Player'))}
                                         </span>
-                                        {advancing && (
-                                            <Flag
-                                                team={advancing}
-                                                className="size-4"
-                                            />
+                                        {showMatchup ? (
+                                            <span className="shrink-0">
+                                                <KnockoutPickMatchup
+                                                    homeGoals={pick.home_goals}
+                                                    awayGoals={pick.away_goals}
+                                                    advancingTeamId={
+                                                        pick.advancing_team_id
+                                                    }
+                                                    predictedHome={
+                                                        pick.predicted_home
+                                                    }
+                                                    predictedAway={
+                                                        pick.predicted_away
+                                                    }
+                                                />
+                                            </span>
+                                        ) : (
+                                            <>
+                                                {advancing && (
+                                                    <Flag
+                                                        team={advancing}
+                                                        className="size-4"
+                                                    />
+                                                )}
+                                                <span className="font-display text-sm font-semibold tabular-nums">
+                                                    {score(pick.home_goals)}–
+                                                    {score(pick.away_goals)}
+                                                </span>
+                                            </>
                                         )}
-                                        <span className="font-display text-sm font-semibold tabular-nums">
-                                            {score(pick.home_goals)}–
-                                            {score(pick.away_goals)}
-                                        </span>
                                         {pick.points > 0 ? (
                                             <PointsBadge points={pick.points} />
                                         ) : (
@@ -283,6 +308,10 @@ function LiveFixtureCard({
         myEntryId != null
             ? (picks.find((pick) => pick.entry_id === myEntryId) ?? null)
             : null;
+    // Upfront knockout picks carry the predicted teams, so show the full predicted match-up.
+    const myShowMatchup =
+        myPick != null &&
+        (myPick.predicted_home != null || myPick.predicted_away != null);
 
     return (
         <div
@@ -314,15 +343,25 @@ function LiveFixtureCard({
 
             {pool && (
                 <div className="flex flex-col gap-2 border-t border-border/60 pt-3">
-                    {myPick && myPick.home_goals !== null ? (
+                    {myPick && (myShowMatchup || myPick.home_goals !== null) ? (
                         <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
                             <span className="font-semibold">
                                 {t('Your pick')}
                             </span>
-                            <span className="font-display font-semibold text-foreground tabular-nums">
-                                {score(myPick.home_goals)}–
-                                {score(myPick.away_goals)}
-                            </span>
+                            {myShowMatchup ? (
+                                <KnockoutPickMatchup
+                                    homeGoals={myPick.home_goals}
+                                    awayGoals={myPick.away_goals}
+                                    advancingTeamId={myPick.advancing_team_id}
+                                    predictedHome={myPick.predicted_home}
+                                    predictedAway={myPick.predicted_away}
+                                />
+                            ) : (
+                                <span className="font-display font-semibold text-foreground tabular-nums">
+                                    {score(myPick.home_goals)}–
+                                    {score(myPick.away_goals)}
+                                </span>
+                            )}
                             {myPick.points > 0 && (
                                 <PointsBadge points={myPick.points} />
                             )}
