@@ -2,6 +2,7 @@ import { createInertiaApp, router } from '@inertiajs/react';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { initializeTheme } from '@/hooks/use-appearance';
+import { initializeInstallPrompt } from '@/hooks/use-install-prompt';
 import { initializeTimezone } from '@/hooks/use-timezone';
 import AppLayout from '@/layouts/app-layout';
 import AuthLayout from '@/layouts/auth-layout';
@@ -53,3 +54,21 @@ initializeTimezone();
 // Capture the active locale from the server-rendered <html lang> so Intl date/number formatting
 // matches the app language without threading the locale through every formatter call site.
 initializeLocale();
+
+// Listen for the browser's install signals so we can offer "Add to home screen" at the right moment.
+initializeInstallPrompt();
+
+// Register the install-only service worker so the app is installable. Production + secure-context
+// only (localhost counts as secure, so dev installability still works over http://localhost); we
+// skip it under `npm run dev` because a service worker fights Vite's HMR. A failed registration must
+// never break the app, so errors are swallowed.
+if (
+    typeof window !== 'undefined' &&
+    'serviceWorker' in navigator &&
+    import.meta.env.PROD &&
+    window.isSecureContext
+) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+}

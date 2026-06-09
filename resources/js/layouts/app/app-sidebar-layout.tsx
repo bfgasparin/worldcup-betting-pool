@@ -3,6 +3,7 @@ import { AppContent } from '@/components/app-content';
 import { AppShell } from '@/components/app-shell';
 import { AppSidebar } from '@/components/app-sidebar';
 import { AppSidebarHeader } from '@/components/app-sidebar-header';
+import { InstallBanner } from '@/components/install-banner';
 import { ManageTabBar } from '@/components/manage-tab-bar';
 import { MobileTopNav } from '@/components/mobile-top-nav';
 import { manageSlugFromUrl } from '@/components/nav-manage';
@@ -38,6 +39,7 @@ export default function AppSidebarLayout({
                 <MobileTopNav />
                 <PoolTabBar />
                 <ManageTabBar />
+                <InstallBanner />
             </AppContent>
         </AppShell>
     );
