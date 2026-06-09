@@ -401,28 +401,26 @@ function TournamentHeader({ group }: { group: TournamentGroup }) {
     const { t } = useTranslation();
 
     return (
-        <div className="flex flex-col gap-3 border-b border-border pb-4 sm:pb-5">
-            <div className="flex flex-wrap items-center gap-2.5 sm:justify-between">
+        <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5">
+                <div className="flex min-w-0 items-center gap-2.5">
+                    <span
+                        className="bg-brand-gradient size-2.5 shrink-0 rounded-full shadow-[var(--sh-sm)]"
+                        aria-hidden
+                    />
+                    <h2 className="truncate text-lg font-semibold tracking-tight text-balance text-foreground sm:text-xl">
+                        {t(group.tournament.name)}
+                    </h2>
+                </div>
                 <div className="flex flex-wrap items-center gap-2.5">
                     <StatusBadge status={lead.status} />
                     <DateRange pool={lead} />
+                    <Chip variant="outline" className="px-3 py-1 text-xs">
+                        {t(':count pools', { count: group.pools.length })}
+                    </Chip>
                 </div>
-                <Chip
-                    variant="outline"
-                    className="hidden px-3 py-1 text-xs sm:inline-flex"
-                >
-                    {t(':count pools', { count: group.pools.length })}
-                </Chip>
             </div>
-            <h2 className="text-xl font-semibold tracking-tight text-balance text-foreground sm:text-3xl">
-                {t(group.tournament.name)}
-            </h2>
             <StatPills pool={lead} />
-            <p className="max-w-xl text-sm text-muted-foreground">
-                {t(
-                    'Each pool below scores this competition its own way — play as many as you like.',
-                )}
-            </p>
         </div>
     );
 }
@@ -450,18 +448,33 @@ function TournamentGroupSection({ group }: { group: TournamentGroup }) {
     }
 
     return (
-        <section className="flex flex-col gap-4 lg:gap-5">
-            <TournamentHeader group={group} />
-            {/* Mobile: a tight, scannable divided list of pools. */}
+        <section className="flex flex-col">
+            {/*
+              Desktop: a tinted label strip captions the cluster, then the tickets sit flush directly
+              below on the page background — no outer box, so the cards keep their full width and the
+              header→cards proximity (plus the gap to the next tournament) carries the grouping.
+            */}
+            <div className="hidden flex-col gap-5 lg:flex">
+                <div className="rounded-2xl border border-border bg-muted/50 px-5 py-4 sm:px-6">
+                    <TournamentHeader group={group} />
+                </div>
+                {/* Two columns so sibling pools fill the row; a 3rd pool wraps cleanly. */}
+                <div className="grid gap-5 lg:grid-cols-2">
+                    {group.pools.map((pool) => (
+                        <PoolTicket key={pool.slug} pool={pool} grouped />
+                    ))}
+                </div>
+            </div>
+            {/*
+              Mobile: one card per tournament — a tinted header title bar over the divided pool rows.
+              A single border + padding layer (no nested band) so rows reach close to the screen edge.
+            */}
             <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card lg:hidden">
+                <div className="bg-muted/50 px-4 py-3.5">
+                    <TournamentHeader group={group} />
+                </div>
                 {group.pools.map((pool) => (
                     <PoolRow key={pool.slug} pool={pool} grouped />
-                ))}
-            </div>
-            {/* Desktop: the rich ticket grid. */}
-            <div className="hidden gap-5 lg:grid lg:grid-cols-2 2xl:grid-cols-3">
-                {group.pools.map((pool) => (
-                    <PoolTicket key={pool.slug} pool={pool} grouped />
                 ))}
             </div>
         </section>
@@ -527,7 +540,7 @@ export default function PoolsIndex({ pools }: PoolsIndexProps) {
         <>
             <Head title={t('Pools')} />
             <div className="relative min-h-full bg-background">
-                <div className="relative w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-10">
+                <div className="relative mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-10">
                     <header className="hero relative mb-6 overflow-hidden rounded-3xl border border-border p-5 sm:mb-8 sm:p-8">
                         <div className="hero-lines" />
                         <div className="relative flex flex-col gap-3">
