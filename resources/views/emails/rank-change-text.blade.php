@@ -5,7 +5,7 @@
     $isUp = $direction === 'up';
     $places = trans_choice('place|places', $delta);
 @endphp
-{!! __('The pool by :source — :label leaderboard update', ['source' => $source, 'label' => $leaderboardLabel]) !!}
+{!! __(':pool — standings update', ['pool' => $poolName]) !!}
 
 {{ $isUp ? __('You climbed to :rank!', ['rank' => $rankOrdinal]) : __('You slipped to :rank', ['rank' => $rankOrdinal]) }}
 

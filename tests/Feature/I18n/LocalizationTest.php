@@ -41,7 +41,7 @@ class LocalizationTest extends TestCase
 
         // The tournament name translates; a pool source never does (no key, returns itself).
         $this->assertSame('Copa do Mundo 2026', __('World Cup 2026'));
-        $this->assertSame('FF&A', __('FF&A'));
+        $this->assertSame('Wagner Figueiredo', __('Wagner Figueiredo'));
     }
 
     public function test_english_source_strings_are_the_fallback(): void
@@ -61,9 +61,9 @@ class LocalizationTest extends TestCase
     {
         App::setLocale('pt_BR');
 
-        $subject = __("🏆 You're top of :source's :pool", ['source' => 'FF&A', 'pool' => 'World Cup 2026']);
+        $subject = __("🏆 You're top of :pool", ['pool' => 'Bolão Copa - FF&A']);
 
-        $this->assertSame('🏆 Você está no topo do bolão da FF&A', $subject);
+        $this->assertSame('🏆 Você está no topo de Bolão Copa - FF&A', $subject);
         $this->assertStringNotContainsString("'s", $subject);
     }
 

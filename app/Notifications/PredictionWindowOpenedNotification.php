@@ -14,9 +14,9 @@ use Illuminate\Support\Facades\Lang;
 
 /**
  * Sent to every player in a phased-bracket pool the moment a new knockout round's prediction window
- * opens (its real participants have just been decided). Leads with the pool's source and accent —
- * pools over the same tournament share a name — and carries the round's prediction deadline so a
- * player knows how long they have to get their picks in.
+ * opens (its real participants have just been decided). Leads with the pool's name and accent — the
+ * source is secondary context — and carries the round's prediction deadline so a player knows how
+ * long they have to get their picks in.
  */
 class PredictionWindowOpenedNotification extends Notification implements ShouldQueue
 {
@@ -63,9 +63,8 @@ class PredictionWindowOpenedNotification extends Notification implements ShouldQ
         $roundName = $this->roundName();
 
         return (new MailMessage)
-            ->subject(__("🎯 :round predictions are open in :source's :pool", [
+            ->subject(__('🎯 :round predictions are open in :pool', [
                 'round' => $roundName,
-                'source' => $this->source,
                 'pool' => $this->poolName,
             ]))
             ->view(['emails.window-opened', 'emails.window-opened-text'], [

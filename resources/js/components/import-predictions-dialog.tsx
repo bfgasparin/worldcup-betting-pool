@@ -92,7 +92,7 @@ export function ImportPredictionsDialog({
                                     )}
                                 >
                                     <span className="font-semibold text-foreground">
-                                        {source.source} · {t(source.name)}
+                                        {source.name} · {source.source}
                                     </span>
                                     <span className="text-xs text-muted-foreground">
                                         {source.phase_labels.join(', ')} ·{' '}
@@ -112,7 +112,7 @@ export function ImportPredictionsDialog({
                     chosen && (
                         <div className="rounded-2xl border border-border px-4 py-3">
                             <p className="font-semibold text-foreground">
-                                {chosen.source} · {t(chosen.name)}
+                                {chosen.name} · {chosen.source}
                             </p>
                             <p className="text-xs text-muted-foreground">
                                 {chosen.phase_labels.join(', ')} ·{' '}

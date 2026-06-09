@@ -1,14 +1,15 @@
 /**
- * The browser-tab title for a pool page. Leads with the source so pools over the same tournament
- * (which share a name) are distinguishable in the tab strip, e.g. "FF&A · World Cup 2026". An
- * optional `prefix` names the section, e.g. "Predict — FF&A · World Cup 2026".
+ * The browser-tab title for a pool page. Leads with the pool's (verbatim) name; an optional
+ * `source` is appended to tell apart pools that share a name, e.g. "Bolão Copa - FF&A · Wagner
+ * Figueiredo". An optional `prefix` names the section, e.g. "Predict — Bolão Copa - FF&A · Wagner
+ * Figueiredo".
  */
 export function poolTitle(
-    source: string,
     name: string,
+    source?: string,
     prefix?: string,
 ): string {
-    const identity = `${source} · ${name}`;
+    const identity = source ? `${name} · ${source}` : name;
 
     return prefix ? `${prefix} — ${identity}` : identity;
 }

@@ -201,7 +201,7 @@ function PoolNavItem({ row, active }: { row: PoolRow; active: boolean }) {
             <SidebarMenuButton
                 asChild
                 isActive={active}
-                tooltip={{ children: t(row.name) }}
+                tooltip={{ children: row.name }}
             >
                 <Link href={poolsRoutes.show(row.slug).url} prefetch>
                     <span
@@ -213,7 +213,7 @@ function PoolNavItem({ row, active }: { row: PoolRow; active: boolean }) {
                     >
                         {sourceMonogram(row.source)}
                     </span>
-                    <span>{t(row.name)}</span>
+                    <span>{row.name}</span>
                 </Link>
             </SidebarMenuButton>
 

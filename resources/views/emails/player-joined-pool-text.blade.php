@@ -1,6 +1,6 @@
 {{ __('Brothers Bets — New entry') }}
 
-{!! __(':name joined the pool by :source.', ['name' => $playerName, 'source' => $source]) !!}
+{!! __(':name joined :pool.', ['name' => $playerName, 'pool' => $poolName]) !!}
 
 {{ __('A new player is in. Reach out to arrange their buy-in payment.') }}
 

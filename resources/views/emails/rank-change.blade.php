@@ -16,7 +16,7 @@
 
 @section('title', $isUp ? __('You climbed the table') : __('Your standings update'))
 
-@section('preheader', ($isUp ? __('You climbed to :rank in the pool by :source.', ['rank' => $rankOrdinal, 'source' => $source]) : __('You slipped to :rank in the pool by :source.', ['rank' => $rankOrdinal, 'source' => $source])))
+@section('preheader', ($isUp ? __('You climbed to :rank in :pool.', ['rank' => $rankOrdinal, 'pool' => $poolName]) : __('You slipped to :rank in :pool.', ['rank' => $rankOrdinal, 'pool' => $poolName])))
 
 @section('headerTag', __('Standings'))
 
@@ -28,7 +28,7 @@
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
             <td class="ffa-pad" align="center" style="padding:36px 32px 4px;text-align:center;">
-                <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:{{ $accentInk }};">{{ __('Pool by :source · :label leaderboard', ['source' => $source, 'label' => $leaderboardLabel]) }}</p>
+                <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:{{ $accentInk }};">{{ $poolName }} · {{ __('by :source', ['source' => $source]) }}</p>
                 <h1 class="ffa-h1" style="margin:12px 0 0;font-family:'Fredoka','Trebuchet MS',Verdana,sans-serif;font-size:30px;font-weight:600;line-height:1.1;letter-spacing:-0.02em;color:#0D2E23;">{{ $isUp ? __('You climbed to :rank!', ['rank' => $rankOrdinal]) : __('You slipped to :rank', ['rank' => $rankOrdinal]) }}</h1>
             </td>
         </tr>
@@ -86,5 +86,5 @@
 @endsection
 
 @section('footerNote')
-    {!! __('You\'re getting this because you\'re playing :pool on Brothers Bets. We only email about your standings.', ['pool' => '<b style="color:#5E6B64;font-weight:700;">' . __('the pool by :source', ['source' => e($source)]) . '</b>']) !!}
+    {!! __('You\'re getting this because you\'re playing :pool on Brothers Bets. We only email about your standings.', ['pool' => '<b style="color:#5E6B64;font-weight:700;">' . e($poolName) . '</b>']) !!}
 @endsection

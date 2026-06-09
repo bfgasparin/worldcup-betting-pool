@@ -55,7 +55,7 @@ export function JoinPoolDialog({
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle className="font-display text-xl">
-                            {t("Join :source's pool", { source: pool.source })}
+                            {t('Join :pool', { pool: pool.name })}
                         </DialogTitle>
                         <DialogDescription>
                             {t(

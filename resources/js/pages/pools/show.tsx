@@ -141,6 +141,7 @@ function DashboardBanner({
                             <PoolIdentity
                                 variant="banner"
                                 source={pool.source}
+                                tournament={pool.tournament_name}
                                 scoringLabel={pool.scoring_label}
                                 accent={pool.accent}
                                 className="min-w-0"
@@ -151,7 +152,7 @@ function DashboardBanner({
                         </div>
                         <div className="min-w-0">
                             <h1 className="text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-4xl">
-                                {t(pool.name)}
+                                {pool.name}
                             </h1>
                             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                                 <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold capitalize">
@@ -1281,7 +1282,6 @@ export default function PoolShow({
     comparison,
     attention,
 }: PoolShowProps) {
-    const { t } = useTranslation();
     const [selecting, setSelecting] = useState(false);
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [pickerOpen, setPickerOpen] = useState(false);
@@ -1362,7 +1362,7 @@ export default function PoolShow({
 
     return (
         <>
-            <Head title={poolTitle(pool.source, t(pool.name))} />
+            <Head title={poolTitle(pool.name, pool.source)} />
             <div className="flex h-full flex-1 flex-col gap-10 p-4 sm:p-6 lg:p-8">
                 <DashboardBanner
                     pool={pool}

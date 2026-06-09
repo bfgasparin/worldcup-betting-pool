@@ -36,9 +36,8 @@ class PlayerJoinedPoolNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject(__('💰 :name joined :source\'s :pool — arrange buy-in', [
+            ->subject(__('💰 :name joined :pool — arrange buy-in', [
                 'name' => $this->player->name,
-                'source' => $this->pool->source,
                 'pool' => $this->pool->name,
             ]))
             ->view(['emails.player-joined-pool', 'emails.player-joined-pool-text'], [

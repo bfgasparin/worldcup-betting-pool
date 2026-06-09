@@ -3,8 +3,8 @@
 @section('title', __(':round predictions are open', ['round' => $roundName]))
 
 @section('preheader', $deadlineLabel
-    ? __('The :round match-ups are set in the pool by :source — get your picks in before :deadline :zone.', ['round' => $roundName, 'source' => $source, 'deadline' => $deadlineLabel, 'zone' => $deadlineZone])
-    : __('The :round match-ups are set in the pool by :source — get your picks in.', ['round' => $roundName, 'source' => $source]))
+    ? __('The :round match-ups are set in :pool — get your picks in before :deadline :zone.', ['round' => $roundName, 'pool' => $poolName, 'deadline' => $deadlineLabel, 'zone' => $deadlineZone])
+    : __('The :round match-ups are set in :pool — get your picks in.', ['round' => $roundName, 'pool' => $poolName]))
 
 @section('headerTag', __('New round'))
 
@@ -16,7 +16,7 @@
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
             <td class="ffa-pad" align="center" style="padding:36px 32px 4px;text-align:center;">
-                <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:{{ $accentInk }};">{{ __('Pool by :source · New predictions', ['source' => $source]) }}</p>
+                <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:{{ $accentInk }};">{{ $poolName }} · {{ __('by :source', ['source' => $source]) }}</p>
                 <h1 class="ffa-h1" style="margin:12px 0 0;font-family:'Fredoka','Trebuchet MS',Verdana,sans-serif;font-size:30px;font-weight:600;line-height:1.1;letter-spacing:-0.02em;color:#0D2E23;">{{ __(':round is open', ['round' => $roundName]) }}</h1>
             </td>
         </tr>
@@ -70,5 +70,5 @@
 @endsection
 
 @section('footerNote')
-    {!! __('You\'re getting this because you\'re playing :pool on Brothers Bets. We only email when a new round opens for you to predict.', ['pool' => '<b style="color:#5E6B64;font-weight:700;">' . __('the pool by :source', ['source' => e($source)]) . '</b>']) !!}
+    {!! __('You\'re getting this because you\'re playing :pool on Brothers Bets. We only email when a new round opens for you to predict.', ['pool' => '<b style="color:#5E6B64;font-weight:700;">' . e($poolName) . '</b>']) !!}
 @endsection

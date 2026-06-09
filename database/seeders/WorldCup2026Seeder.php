@@ -265,9 +265,9 @@ class WorldCup2026Seeder extends Seeder
      * The playable pools over the competition. Both share the tournament's structure and official
      * results but layer on their own scoring strategy and prediction lock:
      *
-     *  - the FF&A pool (upfront bracket): predict the whole tournament before kickoff;
-     *  - the Brothers Association pool (phased bracket): predict the group stage upfront, then each
-     *    knockout round against the official match-ups, with rising round multipliers.
+     *  - "Bolão Copa - FF&A" (source Wagner Figueiredo, upfront bracket): predict the whole tournament before kickoff;
+     *  - "Bolão dos Brothers - Copa" (source Bruno Gasparin, phased bracket): predict the group stage
+     *    upfront, then each knockout round against the official match-ups, with rising round multipliers.
      *
      * The scoring_config for each is duplicated verbatim in {@see PoolFactory} (the default state
      * and the {@see PoolFactory::phasedBracket()} state) — keep them in sync.
@@ -278,8 +278,8 @@ class WorldCup2026Seeder extends Seeder
             ['slug' => 'world-cup-2026-ffa'],
             [
                 'tournament_id' => $tournament->id,
-                'name' => 'World Cup 2026',
-                'source' => 'FF&A',
+                'name' => 'Bolão Copa - FF&A',
+                'source' => 'Wagner Figueiredo',
                 'accent' => PoolAccent::Pitch,
                 'scoring_strategy' => ScoringStrategy::UpfrontBracket,
                 'scoring_config' => [
@@ -312,8 +312,8 @@ class WorldCup2026Seeder extends Seeder
             ['slug' => 'world-cup-2026-brothers'],
             [
                 'tournament_id' => $tournament->id,
-                'name' => 'World Cup 2026',
-                'source' => 'Brothers Association',
+                'name' => 'Bolão dos Brothers - Copa',
+                'source' => 'Bruno Gasparin',
                 'accent' => PoolAccent::Teal,
                 'scoring_strategy' => ScoringStrategy::PhasedBracket,
                 'scoring_config' => [
@@ -346,7 +346,7 @@ class WorldCup2026Seeder extends Seeder
                 'currency' => 'BRL',
                 // No house cut — the whole buy-in goes into the pot ("100% to players").
                 'house_fee_percentage' => 0.00,
-                // A flatter split than FF&A so 2nd and 3rd are worth chasing, not a winner-take-most.
+                // A flatter split than Bolão Copa - FF&A so 2nd and 3rd are worth chasing, not a winner-take-most.
                 'prize_structure' => [
                     ['place' => 1, 'percentage' => 50],
                     ['place' => 2, 'percentage' => 30],

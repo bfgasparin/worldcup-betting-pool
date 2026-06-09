@@ -1,4 +1,4 @@
-{!! __('The pool by :source — new predictions are open', ['source' => $source]) !!}
+{!! __(':pool — new predictions are open', ['pool' => $poolName]) !!}
 
 {{ __(':round is open', ['round' => $roundName]) }}
 

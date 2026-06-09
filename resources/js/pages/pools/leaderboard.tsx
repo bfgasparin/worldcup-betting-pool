@@ -408,7 +408,7 @@ export default function Leaderboard({
     return (
         <>
             <Head
-                title={poolTitle(pool.source, t(pool.name), t('Leaderboards'))}
+                title={poolTitle(pool.name, pool.source, t('Leaderboards'))}
             />
             <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
                 <header className="hero relative overflow-hidden rounded-3xl border border-border p-8">
@@ -438,6 +438,7 @@ export default function Leaderboard({
                         <PoolIdentity
                             source={pool.source}
                             name={pool.name}
+                            tournament={pool.tournament_name}
                             scoringLabel={pool.scoring_label}
                             accent={pool.accent}
                             className="mt-1"

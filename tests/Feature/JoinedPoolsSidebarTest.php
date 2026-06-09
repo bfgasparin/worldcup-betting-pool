@@ -54,7 +54,7 @@ class JoinedPoolsSidebarTest extends TestCase
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->has('joinedPools', 1)
                 ->where('joinedPools.0.slug', 'world-cup-2026-ffa')
-                ->where('joinedPools.0.source', 'FF&A')
+                ->where('joinedPools.0.source', 'Wagner Figueiredo')
                 ->where('joinedPools.0.needs_attention', true)
                 ->has('joinedPools.0.name')
                 ->has('joinedPools.0.accent')

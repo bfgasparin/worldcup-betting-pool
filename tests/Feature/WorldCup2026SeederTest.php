@@ -226,8 +226,8 @@ class WorldCup2026SeederTest extends TestCase
         $pool = Pool::where('slug', 'world-cup-2026-ffa')->firstOrFail();
 
         $this->assertTrue($pool->tournament->is($tournament));
-        $this->assertSame('World Cup 2026', $pool->name);
-        $this->assertSame('FF&A', $pool->source);
+        $this->assertSame('Bolão Copa - FF&A', $pool->name);
+        $this->assertSame('Wagner Figueiredo', $pool->source);
         $this->assertSame(PoolAccent::Pitch, $pool->accent);
         $this->assertSame(ScoringStrategy::UpfrontBracket, $pool->scoring_strategy);
         $this->assertSame(20, $pool->scoring_config['group']['exact_score']);
@@ -250,8 +250,8 @@ class WorldCup2026SeederTest extends TestCase
         $pool = Pool::where('slug', 'world-cup-2026-brothers')->firstOrFail();
 
         $this->assertTrue($pool->tournament->is($tournament));
-        $this->assertSame('World Cup 2026', $pool->name);
-        $this->assertSame('Brothers Association', $pool->source);
+        $this->assertSame('Bolão dos Brothers - Copa', $pool->name);
+        $this->assertSame('Bruno Gasparin', $pool->source);
         $this->assertSame(PoolAccent::Teal, $pool->accent);
         $this->assertSame(ScoringStrategy::PhasedBracket, $pool->scoring_strategy);
 
