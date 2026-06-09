@@ -33,7 +33,8 @@ class OnboardingControllerTest extends TestCase
         $this->actingAs($user)
             ->patch(route('onboarding.name'), ['name' => 'Real Name'])
             ->assertSessionHasNoErrors()
-            ->assertRedirect();
+            ->assertRedirect()
+            ->assertInertiaFlashMissing('toast');
 
         $this->assertSame('Real Name', $user->refresh()->name);
     }
@@ -55,7 +56,8 @@ class OnboardingControllerTest extends TestCase
         $this->actingAs($user)
             ->post(route('onboarding.avatar'), ['avatar' => UploadedFile::fake()->image('me.jpg', 300, 300)])
             ->assertSessionHasNoErrors()
-            ->assertRedirect();
+            ->assertRedirect()
+            ->assertInertiaFlashMissing('toast');
 
         $user->refresh();
         $this->assertNotNull($user->avatar_path);

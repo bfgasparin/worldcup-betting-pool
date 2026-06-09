@@ -28,8 +28,6 @@ class OnboardingController extends Controller
     {
         $request->user()->fill($request->validated())->save();
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Name saved.')]);
-
         return back();
     }
 
@@ -39,8 +37,6 @@ class OnboardingController extends Controller
     public function updateAvatar(AvatarUploadRequest $request): RedirectResponse
     {
         $request->user()->storeAvatar($request->file('avatar'));
-
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Photo saved.')]);
 
         return back();
     }
