@@ -5,6 +5,7 @@ namespace Tests\Feature\Auth;
 use App\Actions\Auth\SendLoginCode;
 use App\Models\User;
 use App\Notifications\LoginCodeNotification;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\App;
@@ -13,6 +14,13 @@ use Tests\TestCase;
 class LoginCodeNotificationTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_the_notification_is_queued_so_it_does_not_block_the_request(): void
+    {
+        // Queueing keeps the SMTP round-trip off the web request and gives the
+        // anti-enumeration endpoint a uniform response time for any email.
+        $this->assertInstanceOf(ShouldQueue::class, new LoginCodeNotification('482915'));
+    }
 
     public function test_the_mail_message_keeps_the_code_out_of_the_subject(): void
     {

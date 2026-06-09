@@ -4,10 +4,11 @@ namespace App\Notifications;
 
 use App\Actions\Auth\SendLoginCode;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class LoginCodeNotification extends Notification
+class LoginCodeNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 

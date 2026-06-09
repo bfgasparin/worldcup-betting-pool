@@ -7,9 +7,11 @@ use App\Actions\Auth\VerifyLoginCode;
 use App\Models\User;
 use App\Notifications\LoginCodeNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Notifications\SendQueuedNotifications;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class PasswordlessLoginTest extends TestCase
@@ -32,6 +34,22 @@ class PasswordlessLoginTest extends TestCase
         $this->assertNotNull(Cache::get(SendLoginCode::cacheKey($user->email)));
 
         Notification::assertSentTo($user, LoginCodeNotification::class);
+    }
+
+    public function test_requesting_a_code_pushes_the_notification_onto_the_queue()
+    {
+        // The login-code email must not block the web request on the SMTP send.
+        Queue::fake();
+
+        $user = User::factory()->create();
+
+        $this->post(route('login.code.send'), ['email' => $user->email])
+            ->assertSessionHas('status');
+
+        Queue::assertPushed(SendQueuedNotifications::class, function (SendQueuedNotifications $job) use ($user) {
+            return $job->notification instanceof LoginCodeNotification
+                && $job->notifiables->contains(fn ($notifiable) => $notifiable->is($user));
+        });
     }
 
     public function test_requesting_a_code_for_an_unknown_email_responds_the_same_and_sends_nothing()
