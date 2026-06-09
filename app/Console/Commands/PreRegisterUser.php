@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Concerns\ProfileValidationRules;
+use App\Concerns\ResolvesLocaleOption;
 use App\Models\Pool;
 use App\Models\User;
 use Illuminate\Console\Attributes\Description;
@@ -14,11 +15,12 @@ use Illuminate\Support\Facades\Validator;
 #[Signature('user:pre-register
     {--name= : The user\'s display name (required)}
     {--phone= : The user\'s phone number (required; their import-matching identity)}
+    {--locale= : Preferred language for emails/UI (e.g. pt_BR); omit to follow the device language}
     {--pool=* : Slug of a pool to pre-join the (already-paid) user into; repeatable}')]
 #[Description('Pre-register a passwordless user from a name + phone, with no email yet, and optionally pre-join them to one or more pools (for players who have already paid). The email is set later via user:set-email; until then they cannot log in. Fails if the phone already exists; it never modifies existing accounts. Pool pre-joins skip the admin notification the web join sends.')]
 class PreRegisterUser extends Command
 {
-    use ProfileValidationRules;
+    use ProfileValidationRules, ResolvesLocaleOption;
 
     public function handle(): int
     {
@@ -33,6 +35,12 @@ class PreRegisterUser extends Command
         if ($validator->fails()) {
             $this->components->error($validator->errors()->first());
 
+            return self::FAILURE;
+        }
+
+        $locale = $this->resolveLocale();
+
+        if ($locale === false) {
             return self::FAILURE;
         }
 
@@ -59,12 +67,13 @@ class PreRegisterUser extends Command
             }
         }
 
-        $user = DB::transaction(function () use ($name, $phone, $pools): User {
+        $user = DB::transaction(function () use ($name, $phone, $locale, $pools): User {
             // forceCreate bypasses the mass-assignment guard for parity with the user:create command;
             // no email or email_verified_at is set, so both stay NULL until user:set-email is run.
             $user = User::forceCreate([
                 'name' => $name,
                 'phone' => $phone,
+                'locale' => $locale,
             ]);
 
             // Pre-join, mirroring PoolController::join but deliberately WITHOUT the admin

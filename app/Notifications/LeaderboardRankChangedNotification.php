@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Enums\LeaderboardCategory;
 use App\Enums\PoolAccent;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -30,7 +31,7 @@ class LeaderboardRankChangedNotification extends Notification implements ShouldQ
         public int $points,
         public ?string $aheadName = null,
         public ?int $pointsBehind = null,
-        public string $leaderboardLabel = 'Overall',
+        public LeaderboardCategory $category = LeaderboardCategory::Overall,
     ) {}
 
     /**
@@ -62,7 +63,9 @@ class LeaderboardRankChangedNotification extends Notification implements ShouldQ
                 'accentGradient' => $this->accent->gradientCss(),
                 'accentSolid' => $this->accent->solidHex(),
                 'accentInk' => $this->accent->eyebrowInk(),
-                'leaderboardLabel' => $this->leaderboardLabel,
+                // Resolved here (inside toMail) so it honors the recipient's preferred locale,
+                // which Laravel sets for the send via User::preferredLocale().
+                'leaderboardLabel' => $this->category->label(),
                 'direction' => $this->direction,
                 'rank' => $this->rank,
                 'previousRank' => $this->previousRank,

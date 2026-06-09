@@ -25,6 +25,24 @@ class PreRegisterUserTest extends TestCase
         $this->assertNull($user->email);
         $this->assertNull($user->email_verified_at);
         $this->assertNull($user->password);
+        // No --locale given: the user follows the device language until they choose one.
+        $this->assertNull($user->locale);
+    }
+
+    public function test_it_stores_an_explicit_locale(): void
+    {
+        $this->artisan('user:pre-register', ['--name' => 'Ana Silva', '--phone' => '+5511999999999', '--locale' => 'pt_BR'])
+            ->assertSuccessful();
+
+        $this->assertSame('pt_BR', User::where('phone', '+5511999999999')->value('locale'));
+    }
+
+    public function test_it_rejects_an_unsupported_locale(): void
+    {
+        $this->artisan('user:pre-register', ['--name' => 'Ana Silva', '--phone' => '+5511999999999', '--locale' => 'fr'])
+            ->assertFailed();
+
+        $this->assertDatabaseCount('users', 0);
     }
 
     public function test_it_fails_when_the_name_is_missing(): void

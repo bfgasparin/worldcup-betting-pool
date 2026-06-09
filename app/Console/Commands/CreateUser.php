@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Concerns\ResolvesLocaleOption;
 use App\Models\User;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -11,10 +12,13 @@ use Illuminate\Support\Facades\Validator;
 #[Signature('user:create
     {--email= : The user\'s email address (their login identity)}
     {--name= : Display name (defaults to the part before @ when omitted)}
+    {--locale= : Preferred language for emails/UI (e.g. pt_BR); omit to follow the device language}
     {--admin : Also report admin status and print the ADMIN_EMAILS line to add}')]
 #[Description('Create a new pre-registered, passwordless user so they can log in via an emailed code. Fails if the email already exists; it never modifies existing accounts.')]
 class CreateUser extends Command
 {
+    use ResolvesLocaleOption;
+
     public function handle(): int
     {
         $email = trim((string) $this->option('email'));
@@ -33,12 +37,19 @@ class CreateUser extends Command
 
         $name = trim((string) $this->option('name')) ?: str($email)->before('@')->toString();
 
+        $locale = $this->resolveLocale();
+
+        if ($locale === false) {
+            return self::FAILURE;
+        }
+
         // forceCreate bypasses the model's mass-assignment guard so email_verified_at (outside
         // #[Fillable]) is stamped, keeping new accounts in parity with factory/seeded users.
         $user = User::forceCreate([
             'name' => $name,
             'email' => $email,
             'email_verified_at' => now(),
+            'locale' => $locale,
         ]);
 
         $this->components->info("User {$user->email} ({$user->name}) created.");

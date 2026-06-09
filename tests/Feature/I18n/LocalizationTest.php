@@ -69,10 +69,8 @@ class LocalizationTest extends TestCase
 
     public function test_inertia_responses_share_the_locale_and_translation_bag(): void
     {
-        config(['app.locale' => 'pt_BR']);
-        App::setLocale('pt_BR');
-
-        $this->get('/')->assertInertia(fn (Assert $page) => $page
+        // The SetLocale middleware resolves pt_BR from the browser's Accept-Language header.
+        $this->get('/', ['Accept-Language' => 'pt-BR'])->assertInertia(fn (Assert $page) => $page
             ->where('locale', 'pt_BR')
             ->where('translations.ui.World Cup 2026', 'Copa do Mundo 2026')
             ->where('translations.countries.BRA', 'Brasil')

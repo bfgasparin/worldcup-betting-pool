@@ -86,6 +86,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Supported Locales
+    |--------------------------------------------------------------------------
+    |
+    | The locales a user can run the app in, mapped to the autonym shown in the
+    | language picker (each in its own language). The keys are the active set
+    | that {@see App\Support\LocaleResolver} matches the browser/user against;
+    | add a locale here once its lang/ files exist. English needs no lang files
+    | (source strings are the keys), the rest live under lang/{locale}.
+    |
+    */
+
+    'supported_locales' => [
+        'en' => 'English',
+        'pt_BR' => 'Português (Brasil)',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Encryption Key
     |--------------------------------------------------------------------------
     |
