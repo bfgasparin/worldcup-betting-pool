@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, Crown, Radio, TrendingDown } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { AvatarStack } from '@/components/avatar-stack';
+import { KnockoutPickMatchup, PointsBadge } from '@/components/fixtures';
 import { Flag } from '@/components/flag';
 import type { LeaderboardEntry } from '@/components/leaderboard-row';
 import { LiveBadge, LivePulse } from '@/components/live-badge';
@@ -10,6 +11,12 @@ import { PersonalMovement } from '@/components/personal-movement';
 import PlayerAvatar from '@/components/player-avatar';
 import { PoolIdentity } from '@/components/pool-identity';
 import { StandingsList } from '@/components/standings-list';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { useLivePoll } from '@/hooks/use-live-poll';
 import { useTranslation } from '@/hooks/use-translation';
@@ -19,6 +26,7 @@ import { formatPlaceholderLabel } from '@/lib/placeholder-label';
 import { cn } from '@/lib/utils';
 import live from '@/routes/live';
 import type {
+    FixturePick,
     LiveBoardDescriptor,
     LiveFixture,
     LivePool,
@@ -71,10 +79,239 @@ function TeamSide({
     );
 }
 
-/** One live match: big scoreline, flags, and a pulsing LIVE / muted FT marker. */
-function LiveFixtureCard({ fixture }: { fixture: LiveFixture }) {
+/** The flags + big scoreline shared by the live card and the picks sheet's pinned header. */
+function FixtureScoreline({ fixture }: { fixture: LiveFixture }) {
+    return (
+        <div className="flex items-center gap-3">
+            <TeamSide
+                name={fixture.home_team?.name ?? null}
+                label={fixture.home_label}
+                flagTeam={fixture.home_team}
+                align="start"
+            />
+            <div className="flex shrink-0 items-center gap-2 font-display text-2xl font-bold tabular-nums">
+                <span>{score(fixture.home_goals)}</span>
+                <span className="text-muted-foreground">:</span>
+                <span>{score(fixture.away_goals)}</span>
+            </div>
+            <TeamSide
+                name={fixture.away_team?.name ?? null}
+                label={fixture.away_label}
+                flagTeam={fixture.away_team}
+                align="end"
+            />
+        </div>
+    );
+}
+
+/** A small neutral "0" badge matching PointsBadge's resting shape (kept calm — not destructive). */
+function ZeroPoints() {
+    return (
+        <span className="inline-flex items-center rounded-full bg-secondary px-2.5 py-1 font-display text-xs font-semibold text-muted-foreground tabular-nums">
+            0
+        </span>
+    );
+}
+
+/**
+ * The "everyone's picks" bottom sheet for one live match: the live score pinned on top, then every
+ * player's predicted scoreline and the points they're earning from it now, sorted by points then by
+ * how close the call is. Identity is joined from the pool's overall board via entry_id. Scoped to
+ * the selected pool (its name labels the sheet when the viewer follows more than one).
+ */
+function FixturePicksSheet({
+    open,
+    onOpenChange,
+    fixture,
+    picks,
+    pool,
+    meId,
+    multiPool,
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    fixture: LiveFixture;
+    picks: FixturePick[];
+    pool: LivePool;
+    meId: number;
+    multiPool: boolean;
+}) {
     const { t } = useTranslation();
+    const rowByEntry = new Map(
+        (pool.boards.overall ?? []).map((row) => [row.entry_id, row]),
+    );
+
+    const closeness = (pick: FixturePick): number => {
+        if (
+            pick.home_goals === null ||
+            pick.away_goals === null ||
+            fixture.home_goals === null ||
+            fixture.away_goals === null
+        ) {
+            return Number.MAX_SAFE_INTEGER;
+        }
+
+        return (
+            Math.abs(pick.home_goals - fixture.home_goals) +
+            Math.abs(pick.away_goals - fixture.away_goals)
+        );
+    };
+
+    const sorted = [...picks].sort(
+        (a, b) =>
+            b.points - a.points ||
+            closeness(a) - closeness(b) ||
+            a.entry_id - b.entry_id,
+    );
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="gap-0 p-0 sm:max-w-md">
+                <DialogHeader className="gap-3 border-b border-border p-4 pr-12 text-left">
+                    <div className="flex items-center justify-between gap-3">
+                        <DialogTitle className="min-w-0 flex-1 truncate font-display text-sm font-semibold">
+                            {multiPool
+                                ? `${t('All picks')} · ${pool.name}`
+                                : t('All picks')}
+                        </DialogTitle>
+                        {fixture.status === 'ended' ? (
+                            <LiveBadge
+                                label={t('Full time')}
+                                tone="ft"
+                                className="shrink-0"
+                            />
+                        ) : (
+                            <LiveBadge className="shrink-0" />
+                        )}
+                    </div>
+                    <FixtureScoreline fixture={fixture} />
+                </DialogHeader>
+
+                <div className="max-h-[55dvh] overflow-y-auto p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
+                    {sorted.length > 0 ? (
+                        <ul className="flex flex-col">
+                            {sorted.map((pick) => {
+                                const row = rowByEntry.get(pick.entry_id);
+                                const isMe = row?.user_id === meId;
+                                // Upfront knockout picks carry the predicted teams (which may differ
+                                // from the real match-up), so render the full predicted fixture.
+                                const showMatchup =
+                                    pick.predicted_home != null ||
+                                    pick.predicted_away != null;
+                                const advancing =
+                                    fixture.is_knockout &&
+                                    pick.advancing_team_id != null
+                                        ? ([
+                                              fixture.home_team,
+                                              fixture.away_team,
+                                          ].find(
+                                              (team) =>
+                                                  team?.id ===
+                                                  pick.advancing_team_id,
+                                          ) ?? null)
+                                        : null;
+
+                                return (
+                                    <li
+                                        key={pick.entry_id}
+                                        className={cn(
+                                            'flex items-center gap-3 rounded-xl px-2 py-2',
+                                            isMe && 'bg-primary/5',
+                                        )}
+                                    >
+                                        <PlayerAvatar
+                                            name={row?.name ?? ''}
+                                            initials={row?.initials ?? '?'}
+                                            src={row?.avatar ?? null}
+                                            className="size-8"
+                                        />
+                                        <span className="min-w-0 flex-1 truncate font-display text-sm font-semibold">
+                                            {isMe
+                                                ? t('You')
+                                                : (row?.name ?? t('Player'))}
+                                        </span>
+                                        {showMatchup ? (
+                                            <span className="shrink-0">
+                                                <KnockoutPickMatchup
+                                                    homeGoals={pick.home_goals}
+                                                    awayGoals={pick.away_goals}
+                                                    advancingTeamId={
+                                                        pick.advancing_team_id
+                                                    }
+                                                    predictedHome={
+                                                        pick.predicted_home
+                                                    }
+                                                    predictedAway={
+                                                        pick.predicted_away
+                                                    }
+                                                />
+                                            </span>
+                                        ) : (
+                                            <>
+                                                {advancing && (
+                                                    <Flag
+                                                        team={advancing}
+                                                        className="size-4"
+                                                    />
+                                                )}
+                                                <span className="font-display text-sm font-semibold tabular-nums">
+                                                    {score(pick.home_goals)}–
+                                                    {score(pick.away_goals)}
+                                                </span>
+                                            </>
+                                        )}
+                                        {pick.points > 0 ? (
+                                            <PointsBadge points={pick.points} />
+                                        ) : (
+                                            <ZeroPoints />
+                                        )}
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    ) : (
+                        <p className="p-6 text-center text-sm text-muted-foreground">
+                            {t('No predictions yet for this match.')}
+                        </p>
+                    )}
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+/**
+ * One live match: big scoreline, flags, a pulsing LIVE / muted FT marker, the viewer's own pick (for
+ * the selected pool), and a button opening the "all picks" sheet. Pick data is pool-scoped, joined
+ * from the pool's board by entry_id; switching pools re-renders the card with the new pick.
+ */
+function LiveFixtureCard({
+    fixture,
+    pool,
+    meId,
+    multiPool,
+}: {
+    fixture: LiveFixture;
+    pool: LivePool | null;
+    meId: number;
+    multiPool: boolean;
+}) {
+    const { t } = useTranslation();
+    const [picksOpen, setPicksOpen] = useState(false);
     const ended = fixture.status === 'ended';
+
+    const picks = pool?.fixture_picks[fixture.id] ?? [];
+    const myEntryId =
+        pool?.boards.overall?.find((row) => row.user_id === meId)?.entry_id ??
+        null;
+    const myPick =
+        myEntryId != null
+            ? (picks.find((pick) => pick.entry_id === myEntryId) ?? null)
+            : null;
+    // Upfront knockout picks carry the predicted teams, so show the full predicted match-up.
+    const myShowMatchup =
+        myPick != null &&
+        (myPick.predicted_home != null || myPick.predicted_away != null);
 
     return (
         <div
@@ -96,36 +333,79 @@ function LiveFixtureCard({ fixture }: { fixture: LiveFixture }) {
                 )}
             </div>
 
-            <div className="flex items-center gap-3">
-                <TeamSide
-                    name={fixture.home_team?.name ?? null}
-                    label={fixture.home_label}
-                    flagTeam={fixture.home_team}
-                    align="start"
-                />
-                <div className="flex shrink-0 items-center gap-2 font-display text-2xl font-bold tabular-nums">
-                    <span>{score(fixture.home_goals)}</span>
-                    <span className="text-muted-foreground">:</span>
-                    <span>{score(fixture.away_goals)}</span>
-                </div>
-                <TeamSide
-                    name={fixture.away_team?.name ?? null}
-                    label={fixture.away_label}
-                    flagTeam={fixture.away_team}
-                    align="end"
-                />
-            </div>
+            <FixtureScoreline fixture={fixture} />
 
             {ended && (
                 <p className="text-center text-xs text-muted-foreground">
                     {t('Awaiting official confirmation')}
                 </p>
             )}
+
+            {pool && (
+                <div className="flex flex-col gap-2 border-t border-border/60 pt-3">
+                    {myPick && (myShowMatchup || myPick.home_goals !== null) ? (
+                        <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                            <span className="font-semibold">
+                                {t('Your pick')}
+                            </span>
+                            {myShowMatchup ? (
+                                <KnockoutPickMatchup
+                                    homeGoals={myPick.home_goals}
+                                    awayGoals={myPick.away_goals}
+                                    advancingTeamId={myPick.advancing_team_id}
+                                    predictedHome={myPick.predicted_home}
+                                    predictedAway={myPick.predicted_away}
+                                />
+                            ) : (
+                                <span className="font-display font-semibold text-foreground tabular-nums">
+                                    {score(myPick.home_goals)}–
+                                    {score(myPick.away_goals)}
+                                </span>
+                            )}
+                            {myPick.points > 0 && (
+                                <PointsBadge points={myPick.points} />
+                            )}
+                        </div>
+                    ) : (
+                        <p className="text-center text-xs text-muted-foreground/70">
+                            {t('No prediction')}
+                        </p>
+                    )}
+
+                    <button
+                        type="button"
+                        onClick={() => setPicksOpen(true)}
+                        className="rounded-xl border border-border py-2 font-display text-xs font-semibold text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                    >
+                        {t('See all picks')}
+                    </button>
+
+                    <FixturePicksSheet
+                        open={picksOpen}
+                        onOpenChange={setPicksOpen}
+                        fixture={fixture}
+                        picks={picks}
+                        pool={pool}
+                        meId={meId}
+                        multiPool={multiPool}
+                    />
+                </div>
+            )}
         </div>
     );
 }
 
-function LiveScoreboard({ fixtures }: { fixtures: LiveFixture[] }) {
+function LiveScoreboard({
+    fixtures,
+    pool,
+    meId,
+    multiPool,
+}: {
+    fixtures: LiveFixture[];
+    pool: LivePool | null;
+    meId: number;
+    multiPool: boolean;
+}) {
     const { t } = useTranslation();
 
     if (fixtures.length === 0) {
@@ -145,7 +425,13 @@ function LiveScoreboard({ fixtures }: { fixtures: LiveFixture[] }) {
     return (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {fixtures.map((fixture) => (
-                <LiveFixtureCard key={fixture.id} fixture={fixture} />
+                <LiveFixtureCard
+                    key={fixture.id}
+                    fixture={fixture}
+                    pool={pool}
+                    meId={meId}
+                    multiPool={multiPool}
+                />
             ))}
         </div>
     );
@@ -652,7 +938,12 @@ export default function LiveShow({
                             <h2 className="font-display text-lg font-semibold">
                                 {t('Live scores')}
                             </h2>
-                            <LiveScoreboard fixtures={liveFixtures} />
+                            <LiveScoreboard
+                                fixtures={liveFixtures}
+                                pool={selectedPool}
+                                meId={meId}
+                                multiPool={pools.length > 1}
+                            />
                         </section>
 
                         {pools.length > 1 && (
