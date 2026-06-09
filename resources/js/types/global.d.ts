@@ -1,4 +1,5 @@
 import type { Auth } from '@/types/auth';
+import type { Translations } from '@/types/i18n';
 import type { JoinedPool } from '@/types/navigation';
 
 declare module 'react' {
@@ -14,6 +15,8 @@ declare module '@inertiajs/core' {
             name: string;
             auth: Auth;
             timezone: string | null;
+            locale: string;
+            translations: Translations;
             sidebarOpen: boolean;
             joinedPools: JoinedPool[];
             hasLiveMatches: boolean;

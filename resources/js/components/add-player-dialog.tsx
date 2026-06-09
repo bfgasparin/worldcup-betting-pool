@@ -9,6 +9,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { useTranslation } from '@/hooks/use-translation';
 import { ordinal } from '@/lib/leaderboards';
 import { cn } from '@/lib/utils';
 import type { PlayerDirectoryEntry } from '@/types/pools';
@@ -33,6 +34,7 @@ export function AddPlayerDialog({
     onToggle: (entryId: number) => void;
     limit: number;
 }) {
+    const { t } = useTranslation();
     const [query, setQuery] = useState('');
 
     // Start each opening from a clean search rather than the previous session's query. Adjusting
@@ -58,9 +60,14 @@ export function AddPlayerDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Add players to compare</DialogTitle>
+                    <DialogTitle>{t('Add players to compare')}</DialogTitle>
                     <DialogDescription>
-                        Pick up to {limit} players to line up against you.
+                        {t(
+                            'Pick up to :limit players to line up against you.',
+                            {
+                                limit,
+                            },
+                        )}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -69,8 +76,8 @@ export function AddPlayerDialog({
                     <Input
                         value={query}
                         onChange={(event) => setQuery(event.target.value)}
-                        placeholder="Search players…"
-                        aria-label="Search players"
+                        placeholder={t('Search players…')}
+                        aria-label={t('Search players')}
                         className="pl-9"
                         autoFocus
                     />
@@ -79,7 +86,7 @@ export function AddPlayerDialog({
                 <div className="-mx-1 max-h-[320px] overflow-y-auto px-1">
                     {filtered.length === 0 ? (
                         <p className="py-8 text-center text-sm text-muted-foreground">
-                            No players found.
+                            {t('No players found.')}
                         </p>
                     ) : (
                         <ul className="flex flex-col gap-1">
@@ -121,7 +128,7 @@ export function AddPlayerDialog({
                                                 <span className="block text-xs text-muted-foreground">
                                                     {ordinal(player.rank)}
                                                     {player.points != null
-                                                        ? ` · ${player.points} pts`
+                                                        ? ` · ${player.points} ${t('pts')}`
                                                         : ''}
                                                 </span>
                                             </span>
@@ -147,7 +154,7 @@ export function AddPlayerDialog({
 
                 {atLimit && (
                     <p className="text-center text-xs font-medium text-muted-foreground">
-                        Maximum of {limit} players reached.
+                        {t('Maximum of :limit players reached.', { limit })}
                     </p>
                 )}
             </DialogContent>

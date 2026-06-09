@@ -1,3 +1,4 @@
+import type { Translator } from '@/hooks/use-translation';
 import type { ComparePlayer, PredictionWindowStatus } from '@/types/pools';
 
 /**
@@ -64,6 +65,6 @@ export function isRevealed(
 }
 
 /** A player's short lane label — "You" for the viewer, otherwise their initials. */
-export function laneLabel(player: ComparePlayer): string {
-    return player.is_viewer ? 'You' : player.initials;
+export function laneLabel(player: ComparePlayer, t: Translator['t']): string {
+    return player.is_viewer ? t('You') : player.initials;
 }

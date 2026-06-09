@@ -1,17 +1,17 @@
-Brothers Bets — New entry
+{{ __('Brothers Bets — New entry') }}
 
-{{ $playerName }} joined {!! $source !!}'s {!! $poolName !!}.
+{!! __(':name joined the pool by :source.', ['name' => $playerName, 'source' => $source]) !!}
 
-A new player is in. Reach out to arrange their buy-in payment.
+{{ __('A new player is in. Reach out to arrange their buy-in payment.') }}
 
-Player: {{ $playerName }}
-Email: {{ $playerEmail }}
+{{ __('Player') }}: {{ $playerName }}
+{{ __('Email') }}: {{ $playerEmail }}
 @if (! empty($playerPhone))
-Phone: {{ $playerPhone }}
+{{ __('Phone') }}: {{ $playerPhone }}
 @endif
-Buy-in: @if ((float) $entryPrice > 0){{ $currency }} {{ number_format((float) $entryPrice, 2) }}@else No buy-in (free pool)@endif
+{{ __('Buy-in') }}: @if ((float) $entryPrice > 0){{ $currency }} {{ number_format((float) $entryPrice, 2) }}@else {{ __('No buy-in (free pool)') }}@endif
 
 
-View the pool: {{ $url }}
+{{ __('View the pool') }}: {{ $url }}
 
 — Brothers Bets

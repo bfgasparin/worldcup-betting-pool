@@ -135,7 +135,8 @@ class ApproveScoreBatchTest extends TestCase
             Notification::assertSentTo(
                 $user,
                 PredictionWindowOpenedNotification::class,
-                fn (PredictionWindowOpenedNotification $notification): bool => $notification->roundName === $roundName
+                fn (PredictionWindowOpenedNotification $notification): bool => $notification->roundNameEn === $roundName
+                    && $notification->phaseKey === PhaseKey::RoundOf32
                     && $notification->poolSlug === $phased->slug
                     && $notification->deadline !== null,
             );
@@ -184,6 +185,7 @@ class ApproveScoreBatchTest extends TestCase
             $phased->slug,
             $phased->source,
             $phased->accent ?? PoolAccent::Pitch,
+            PhaseKey::RoundOf32,
             'Round of 32',
             now()->addDays(3),
         );

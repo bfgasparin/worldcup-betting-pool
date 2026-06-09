@@ -1,4 +1,5 @@
 import { ArrowDown, ArrowUp, Minus } from 'lucide-react';
+import { useTranslation } from '@/hooks/use-translation';
 import { cn } from '@/lib/utils';
 import type { RankMovement } from '@/types/pools';
 
@@ -32,6 +33,8 @@ export function MovementArrow({
     size?: 'sm' | 'md';
     className?: string;
 }) {
+    const { t } = useTranslation();
+
     if (movement === null) {
         return null;
     }
@@ -44,7 +47,7 @@ export function MovementArrow({
                     className,
                 )}
             >
-                New
+                {t('New')}
             </span>
         );
     }
@@ -57,7 +60,7 @@ export function MovementArrow({
                     'text-muted-foreground/50',
                     className,
                 )}
-                aria-label="No change"
+                aria-label={t('No change')}
             />
         );
     }
@@ -65,13 +68,18 @@ export function MovementArrow({
     const up = movement === 'up';
     const Icon = up ? ArrowUp : ArrowDown;
     const places = delta != null && delta > 0 ? delta : null;
-    const noun = places === 1 ? 'place' : 'places';
     const label =
         places === null
             ? up
-                ? 'Moved up'
-                : 'Moved down'
-            : `${up ? 'Up' : 'Down'} ${places} ${noun}`;
+                ? t('Moved up')
+                : t('Moved down')
+            : up
+              ? places === 1
+                  ? t('Up 1 place')
+                  : t('Up :count places', { count: places })
+              : places === 1
+                ? t('Down 1 place')
+                : t('Down :count places', { count: places });
 
     return (
         <span

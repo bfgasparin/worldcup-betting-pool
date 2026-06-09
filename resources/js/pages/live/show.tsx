@@ -12,8 +12,10 @@ import { PoolIdentity } from '@/components/pool-identity';
 import { StandingsList } from '@/components/standings-list';
 import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { useLivePoll } from '@/hooks/use-live-poll';
+import { useTranslation } from '@/hooks/use-translation';
 import { resolveAccent, sourceMonogram } from '@/lib/accents';
 import { formatMoney } from '@/lib/money';
+import { formatPlaceholderLabel } from '@/lib/placeholder-label';
 import { cn } from '@/lib/utils';
 import live from '@/routes/live';
 import type {
@@ -50,6 +52,10 @@ function TeamSide({
     flagTeam: LiveFixture['home_team'];
     align: 'start' | 'end';
 }) {
+    const { t, tCountry, tBracket } = useTranslation();
+    const displayName = name ? tCountry(flagTeam?.code, name) : null;
+    const displayLabel = label ? formatPlaceholderLabel(label, tBracket) : null;
+
     return (
         <div
             className={cn(
@@ -59,7 +65,7 @@ function TeamSide({
         >
             <Flag team={flagTeam} className="size-5" />
             <span className="truncate font-display text-sm font-semibold sm:text-base">
-                {name ?? label ?? 'TBD'}
+                {displayName ?? displayLabel ?? t('TBD')}
             </span>
         </div>
     );
@@ -67,6 +73,7 @@ function TeamSide({
 
 /** One live match: big scoreline, flags, and a pulsing LIVE / muted FT marker. */
 function LiveFixtureCard({ fixture }: { fixture: LiveFixture }) {
+    const { t } = useTranslation();
     const ended = fixture.status === 'ended';
 
     return (
@@ -78,13 +85,13 @@ function LiveFixtureCard({ fixture }: { fixture: LiveFixture }) {
         >
             <div className="flex items-center justify-between">
                 {ended ? (
-                    <LiveBadge label="Full time" tone="ft" />
+                    <LiveBadge label={t('Full time')} tone="ft" />
                 ) : (
                     <LiveBadge />
                 )}
                 {fixture.is_knockout && (
                     <span className="font-display text-[0.65rem] font-bold tracking-[0.14em] text-muted-foreground uppercase">
-                        Knockout
+                        {t('Knockout')}
                     </span>
                 )}
             </div>
@@ -111,7 +118,7 @@ function LiveFixtureCard({ fixture }: { fixture: LiveFixture }) {
 
             {ended && (
                 <p className="text-center text-xs text-muted-foreground">
-                    Awaiting official confirmation
+                    {t('Awaiting official confirmation')}
                 </p>
             )}
         </div>
@@ -119,15 +126,17 @@ function LiveFixtureCard({ fixture }: { fixture: LiveFixture }) {
 }
 
 function LiveScoreboard({ fixtures }: { fixtures: LiveFixture[] }) {
+    const { t } = useTranslation();
+
     if (fixtures.length === 0) {
         return (
             <div className="card-elevated flex flex-col items-center gap-2 rounded-2xl border border-border p-10 text-center">
                 <Radio className="size-8 text-muted-foreground" />
                 <p className="font-display font-semibold">
-                    No matches are live right now
+                    {t('No matches are live right now')}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                    This page lights up the moment a match kicks off.
+                    {t('This page lights up the moment a match kicks off.')}
                 </p>
             </div>
         );
@@ -195,6 +204,7 @@ function ViewerProjection({
     primaryLabel: string;
     className?: string;
 }) {
+    const { t } = useTranslation();
     const prizeText =
         pool.is_paid && row.projected_prize != null
             ? formatMoney(row.projected_prize, pool.currency)
@@ -208,7 +218,7 @@ function ViewerProjection({
             )}
         >
             <div className="text-xs font-bold tracking-[0.12em] text-white/80 uppercase">
-                Your projected spot
+                {t('Your projected spot')}
             </div>
 
             <div className="flex flex-1 items-center gap-4 py-4">
@@ -239,18 +249,20 @@ function ViewerProjection({
 
             <div className="grid grid-cols-2 gap-3 border-t border-white/15 pt-3">
                 <StatCell
-                    label={`Projected ${primaryLabel.toLowerCase()}`}
+                    label={t('Projected :stat', {
+                        stat: primaryLabel.toLowerCase(),
+                    })}
                     value={row.primary_value.toLocaleString()}
                 />
                 <StatCell
-                    label="Earning now"
+                    label={t('Earning now')}
                     value={formatLiveGain(row.live_gain)}
                 />
 
                 {prizeText && (
                     <div className="hidden lg:block">
                         <div className="text-[11px] font-bold tracking-[0.1em] text-white/70 uppercase">
-                            Projected prize
+                            {t('Projected prize')}
                         </div>
                         <div className="mt-0.5">
                             <span className="bg-gold-gradient inline-block rounded-full px-2.5 py-0.5 font-display text-sm font-bold text-[#3a2600] tabular-nums">
@@ -262,7 +274,7 @@ function ViewerProjection({
 
                 {row.pending_bonus > 0 && (
                     <StatCell
-                        label="If it holds"
+                        label={t('If it holds')}
                         value={`+${row.pending_bonus}`}
                         valueClassName="text-amber-300"
                     />
@@ -306,11 +318,6 @@ function pickLeaders(
     return leaders.length > 0 ? { leaders, value } : null;
 }
 
-/** "place" / "places" for a movement delta. */
-function places(delta: number): string {
-    return delta === 1 ? 'place' : 'places';
-}
-
 /**
  * One live-mover stat card: a tinted lead, then the standout player (or stacked avatars + "K players"
  * on a tie) and the headline delta. A "No movement yet" resting state keeps the card present — and
@@ -322,7 +329,7 @@ function MoverCard({
     toneClassName,
     result,
     format,
-    emptyLabel = 'No movement yet',
+    emptyLabel,
     meId,
 }: {
     title: string;
@@ -333,6 +340,8 @@ function MoverCard({
     emptyLabel?: string;
     meId: number;
 }) {
+    const { t, tChoice } = useTranslation();
+
     return (
         <div className="card-elevated flex flex-col gap-3 rounded-2xl border border-border bg-card p-4">
             <span className="inline-flex items-center gap-1.5 text-[0.7rem] font-bold tracking-[0.12em] text-muted-foreground uppercase">
@@ -355,9 +364,12 @@ function MoverCard({
                         <p className="truncate font-display font-semibold">
                             {result.leaders.length === 1
                                 ? result.leaders[0].user_id === meId
-                                    ? 'You'
+                                    ? t('You')
                                     : result.leaders[0].name
-                                : `${result.leaders.length} players`}
+                                : tChoice(
+                                      ':count player|:count players',
+                                      result.leaders.length,
+                                  )}
                         </p>
                         <p
                             className={cn(
@@ -370,7 +382,9 @@ function MoverCard({
                     </div>
                 </div>
             ) : (
-                <p className="text-sm text-muted-foreground">{emptyLabel}</p>
+                <p className="text-sm text-muted-foreground">
+                    {emptyLabel ?? t('No movement yet')}
+                </p>
             )}
         </div>
     );
@@ -393,6 +407,7 @@ function LiveMovers({
     meId: number;
     className?: string;
 }) {
+    const { t, tChoice } = useTranslation();
     const label = primaryLabel.toLowerCase();
     const gain = (row: ProjectedRow): number => row.live_gain;
     const isGainer = (row: ProjectedRow): boolean => row.live_gain > 0;
@@ -416,37 +431,41 @@ function LiveMovers({
     return (
         <div className={cn('grid grid-cols-2 gap-3', className)}>
             <MoverCard
-                title="Top earner"
+                title={t('Top earner')}
                 icon={Crown}
                 toneClassName="text-accent"
                 result={topEarner}
                 format={(value) => `+${value} ${label}`}
-                emptyLabel="No earnings yet"
+                emptyLabel={t('No earnings yet')}
                 meId={meId}
             />
             <MoverCard
-                title="Quietest"
+                title={t('Quietest')}
                 icon={TrendingDown}
                 toneClassName="text-muted-foreground"
                 result={quietest}
                 format={(value) => `+${value} ${label}`}
-                emptyLabel="No earnings yet"
+                emptyLabel={t('No earnings yet')}
                 meId={meId}
             />
             <MoverCard
-                title="Climber"
+                title={t('Climber')}
                 icon={ArrowUp}
                 toneClassName="text-primary"
                 result={climber}
-                format={(value) => `▲${value} ${places(value)}`}
+                format={(value) =>
+                    `▲${value} ${tChoice('place|places', value)}`
+                }
                 meId={meId}
             />
             <MoverCard
-                title="Faller"
+                title={t('Faller')}
                 icon={ArrowDown}
                 toneClassName="text-destructive"
                 result={faller}
-                format={(value) => `▼${value} ${places(value)}`}
+                format={(value) =>
+                    `▼${value} ${tChoice('place|places', value)}`
+                }
                 meId={meId}
             />
         </div>
@@ -462,12 +481,13 @@ function ProjectedBoard({
     board: LiveBoardDescriptor;
     meId: number;
 }) {
+    const { t } = useTranslation();
     const rows = pool.boards[board.key] ?? [];
     const mine = rows.find((row) => row.user_id === meId);
 
     const toEntry = (row: ProjectedRow): LeaderboardEntry => ({
         rank: row.rank,
-        name: row.user_id === meId ? 'You' : row.name,
+        name: row.user_id === meId ? t('You') : row.name,
         initials: row.initials,
         avatar: row.avatar,
         primary: row.primary_value,
@@ -516,7 +536,7 @@ function ProjectedBoard({
                 />
             ) : (
                 <p className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-                    No players to project yet.
+                    {t('No players to project yet.')}
                 </p>
             )}
         </div>
@@ -532,6 +552,7 @@ function PoolLiveSection({
     boards: LiveBoardDescriptor[];
     meId: number;
 }) {
+    const { t } = useTranslation();
     const [boardKey, setBoardKey] = useState(boards[0]?.key ?? 'overall');
     const board = boards.find((item) => item.key === boardKey) ?? boards[0];
 
@@ -546,12 +567,12 @@ function PoolLiveSection({
                     variant="banner"
                 />
                 <span className="font-display text-xs font-semibold text-muted-foreground">
-                    Projected · if scores hold
+                    {t('Projected · if scores hold')}
                 </span>
             </div>
 
             <SegmentedTabs
-                aria-label="Projected leaderboard"
+                aria-label={t('Projected leaderboard')}
                 items={boards.map((item) => ({
                     value: item.key,
                     label: item.label,
@@ -573,6 +594,7 @@ export default function LiveShow({
     liveFixtures,
     poll_interval_ms,
 }: LiveShowProps) {
+    const { t, tChoice } = useTranslation();
     const page = usePage();
     const meId = page.props.auth.user?.id ?? 0;
     const [poolSlug, setPoolSlug] = useState(pools[0]?.slug ?? '');
@@ -591,7 +613,11 @@ export default function LiveShow({
 
     return (
         <>
-            <Head title={`${tournament.name} · Live`} />
+            <Head
+                title={t(':tournament · Live', {
+                    tournament: t(tournament.name),
+                })}
+            />
             <div className="relative min-h-full bg-background">
                 <div className="w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-10">
                     <header className="hero relative mb-6 overflow-hidden rounded-3xl border border-border p-5 sm:mb-8 sm:p-8">
@@ -600,16 +626,19 @@ export default function LiveShow({
                             <div className="flex flex-col gap-3">
                                 <span className="inline-flex w-fit items-center gap-2 text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">
                                     <LivePulse />
-                                    Live Center
+                                    {t('Live Center')}
                                 </span>
                                 <h1 className="text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl">
-                                    {tournament.name}
+                                    {t(tournament.name)}
                                 </h1>
                                 <span className="bg-gold-gradient mt-1 h-1 w-12 rounded-full" />
                                 <p className="text-sm font-semibold text-muted-foreground">
                                     {liveCount > 0
-                                        ? `${liveCount} match${liveCount === 1 ? '' : 'es'} live now — watch your standings move in real time.`
-                                        : 'No matches live at the moment.'}
+                                        ? tChoice(
+                                              ':count match live now — watch your standings move in real time.|:count matches live now — watch your standings move in real time.',
+                                              liveCount,
+                                          )
+                                        : t('No matches live at the moment.')}
                                 </p>
                             </div>
                         </div>
@@ -618,14 +647,14 @@ export default function LiveShow({
                     <div className="flex flex-col gap-8">
                         <section className="flex flex-col gap-4">
                             <h2 className="font-display text-lg font-semibold">
-                                Live scores
+                                {t('Live scores')}
                             </h2>
                             <LiveScoreboard fixtures={liveFixtures} />
                         </section>
 
                         {pools.length > 1 && (
                             <SegmentedTabs
-                                aria-label="Your pools"
+                                aria-label={t('Your pools')}
                                 items={pools.map((pool) => {
                                     const kit = resolveAccent(pool.accent);
 
@@ -645,7 +674,7 @@ export default function LiveShow({
                                                         pool.source,
                                                     )}
                                                 </span>
-                                                {pool.name}
+                                                {t(pool.name)}
                                             </span>
                                         ),
                                     };
@@ -664,8 +693,9 @@ export default function LiveShow({
                             />
                         ) : (
                             <p className="text-sm text-muted-foreground">
-                                Join a pool over this tournament to follow your
-                                live standings.
+                                {t(
+                                    'Join a pool over this tournament to follow your live standings.',
+                                )}
                             </p>
                         )}
                     </div>

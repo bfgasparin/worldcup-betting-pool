@@ -25,6 +25,8 @@ import { TieResolutionPanel } from '@/components/tie-resolution-panel';
 import { Button } from '@/components/ui/button';
 import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { useTranslation } from '@/hooks/use-translation';
+import { formatPlaceholderLabel } from '@/lib/placeholder-label';
 import { poolTitle } from '@/lib/pool-title';
 import { scoringRules } from '@/lib/scoring';
 import { cn } from '@/lib/utils';
@@ -207,9 +209,11 @@ function computeInitialStep(
 
 /** Shown in place of a step's cards when the "needs prediction" filter leaves nothing to fill. */
 function StepClearNote() {
+    const { t } = useTranslation();
+
     return (
         <p className="card-elevated rounded-3xl px-5 py-10 text-center text-sm text-muted-foreground">
-            Nothing left to predict here — you&apos;re all set for this step.
+            {t("Nothing left to predict here — you're all set for this step.")}
         </p>
     );
 }
@@ -365,6 +369,7 @@ function ScoringLegend({
     config: Record<string, Record<string, number>>;
     step: number;
 }) {
+    const { t } = useTranslation();
     const rules = scoringRules(
         config,
         step === 0 ? 'group' : 'knockout',
@@ -378,7 +383,7 @@ function ScoringLegend({
                     key={rule.label}
                     className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground"
                 >
-                    {rule.label}
+                    {t(rule.label)}
                     <b className="font-display text-primary">+{rule.points}</b>
                 </span>
             ))}
@@ -407,6 +412,7 @@ function GroupCard({
     /** When set, only fixtures it keeps are shown (the "needs my prediction" filter). */
     fixtureFilter?: (fixture: PredictGroupFixture) => boolean;
 }) {
+    const { t } = useTranslation();
     const fixtures = fixtureFilter
         ? group.fixtures.filter(fixtureFilter)
         : group.fixtures;
@@ -425,11 +431,11 @@ function GroupCard({
                 <div className="flex min-w-0 items-center gap-2.5">
                     <GroupBadge name={group.name} />
                     <h3 className="font-display text-base font-semibold whitespace-nowrap">
-                        Group {group.name}
+                        {t('Group :name', { name: group.name })}
                     </h3>
                 </div>
                 <span className="text-[11px] font-bold tracking-wide text-muted-foreground uppercase">
-                    {fixtures.length} matches
+                    {t(':count matches', { count: fixtures.length })}
                 </span>
             </div>
 
@@ -479,7 +485,9 @@ function GroupCard({
                                     <ScoreStepper
                                         value={score.home}
                                         disabled={!canEdit}
-                                        label={`${teamName(fixture.home)} goals`}
+                                        label={t(':team goals', {
+                                            team: teamName(fixture.home),
+                                        })}
                                         onChange={(value) =>
                                             onChange(
                                                 fixture.fixture_id,
@@ -495,7 +503,9 @@ function GroupCard({
                                     <ScoreStepper
                                         value={score.away}
                                         disabled={!canEdit}
-                                        label={`${teamName(fixture.away)} goals`}
+                                        label={t(':team goals', {
+                                            team: teamName(fixture.away),
+                                        })}
                                         onChange={(value) =>
                                             onChange(
                                                 fixture.fixture_id,
@@ -527,10 +537,9 @@ function GroupCard({
                     <div className="mt-2 flex items-start gap-2 rounded-xl border border-border bg-muted/40 px-3 py-2 text-[12px] text-muted-foreground">
                         <Info className="mt-0.5 size-3.5 shrink-0" />
                         <span>
-                            The teams marked = are level on every tiebreaker, so
-                            this projected order is only a guess — it may not
-                            match the real standings, and it does not affect
-                            this pool.
+                            {t(
+                                'The teams marked = are level on every tiebreaker, so this projected order is only a guess — it may not match the real standings, and it does not affect this pool.',
+                            )}
                         </span>
                     </div>
                 )}
@@ -539,8 +548,10 @@ function GroupCard({
             {tiedClusters.length > 0 && (
                 <div className="mt-3">
                     <TieResolutionPanel
-                        title="Resolve the tie"
-                        description="These teams are level on every tiebreaker. Drag them into the order you want them to finish — your bracket can't fill until you do."
+                        title={t('Resolve the tie')}
+                        description={t(
+                            "These teams are level on every tiebreaker. Drag them into the order you want them to finish — your bracket can't fill until you do.",
+                        )}
                         clusters={tiedClusters}
                         editable={canEdit}
                         url={orderingUrl}
@@ -571,6 +582,8 @@ function SlotRow({
     onChange: (value: string) => void;
     onCommit: () => void;
 }) {
+    const { t } = useTranslation();
+
     return (
         <div className="flex items-center justify-between gap-2">
             <span className="flex min-w-0 items-center gap-1.5 font-medium">
@@ -580,7 +593,7 @@ function SlotRow({
             <ScoreStepper
                 value={value}
                 disabled={disabled}
-                label={`${label} goals`}
+                label={t(':team goals', { team: label })}
                 onChange={onChange}
                 onCommit={onCommit}
             />
@@ -606,6 +619,7 @@ function KnockoutCard({
     onChange: (patch: Partial<KnockoutPick>, immediate?: boolean) => void;
     onCommit: () => void;
 }) {
+    const { t, tBracket } = useTranslation();
     const resolved = fixture.home !== null && fixture.away !== null;
     const bothScored = pick.home !== '' && pick.away !== '';
     const isDraw = bothScored && Number(pick.home) === Number(pick.away);
@@ -650,16 +664,21 @@ function KnockoutCard({
         >
             <div className="mb-1 flex items-center justify-between gap-2">
                 <span className="font-display text-xs font-semibold text-muted-foreground">
-                    Match {fixture.match_number}
+                    {t('Match :number', { number: fixture.match_number })}
                 </span>
                 {isFinal && (
                     <span className="font-display text-[11px] font-bold tracking-wide text-amber uppercase">
-                        Final
+                        {t('Final')}
                     </span>
                 )}
             </div>
             <SlotRow
-                label={teamName(fixture.home, fixture.home_label)}
+                label={teamName(
+                    fixture.home,
+                    fixture.home_label
+                        ? formatPlaceholderLabel(fixture.home_label, tBracket)
+                        : null,
+                )}
                 team={fixture.home}
                 value={pick.home}
                 disabled={!canEdit || !resolved}
@@ -668,7 +687,12 @@ function KnockoutCard({
             />
             <div className="border-t border-border" />
             <SlotRow
-                label={teamName(fixture.away, fixture.away_label)}
+                label={teamName(
+                    fixture.away,
+                    fixture.away_label
+                        ? formatPlaceholderLabel(fixture.away_label, tBracket)
+                        : null,
+                )}
                 team={fixture.away}
                 value={pick.away}
                 disabled={!canEdit || !resolved}
@@ -678,16 +702,16 @@ function KnockoutCard({
 
             {!resolved ? (
                 <p className="mt-1 text-xs text-muted-foreground italic">
-                    Pick the earlier rounds to reveal these teams.
+                    {t('Pick the earlier rounds to reveal these teams.')}
                 </p>
             ) : !bothScored ? (
                 <p className="mt-1 text-xs text-muted-foreground italic">
-                    Enter the score to set who advances.
+                    {t('Enter the score to set who advances.')}
                 </p>
             ) : isDraw ? (
                 <div className="mt-1 flex flex-col gap-1">
                     <span className="text-[0.65rem] font-semibold tracking-wide text-muted-foreground uppercase">
-                        Extra time / penalties — who advances?
+                        {t('Extra time / penalties — who advances?')}
                     </span>
                     <ToggleGroup
                         type="single"
@@ -722,7 +746,7 @@ function KnockoutCard({
             ) : (
                 <div className="mt-1 flex flex-col gap-1">
                     <span className="text-[0.65rem] font-semibold tracking-wide text-muted-foreground uppercase">
-                        Advances
+                        {t('Advances')}
                     </span>
                     <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-pitch-deep dark:text-primary">
                         <Flag team={winnerTeam} />
@@ -735,10 +759,12 @@ function KnockoutCard({
 }
 
 function SaveStatus({ status }: { status: SaveStatusValue }) {
+    const { t } = useTranslation();
+
     if (status === 'saving') {
         return (
             <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Loader2 className="size-3.5 animate-spin" /> Saving…
+                <Loader2 className="size-3.5 animate-spin" /> {t('Saving…')}
             </span>
         );
     }
@@ -746,8 +772,8 @@ function SaveStatus({ status }: { status: SaveStatusValue }) {
     if (status === 'error') {
         return (
             <span className="inline-flex items-center gap-1.5 text-xs text-destructive">
-                <CircleAlert className="size-3.5" /> Couldn't save — check your
-                connection
+                <CircleAlert className="size-3.5" />{' '}
+                {t("Couldn't save — check your connection")}
             </span>
         );
     }
@@ -756,7 +782,7 @@ function SaveStatus({ status }: { status: SaveStatusValue }) {
     // always visible (idle = nothing pending = effectively all saved).
     return (
         <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Check className="size-3.5 text-primary" /> All changes saved
+            <Check className="size-3.5 text-primary" /> {t('All changes saved')}
         </span>
     );
 }
@@ -772,6 +798,7 @@ export default function Predict({
     show_tie_note: showTieNote,
     completion,
 }: PredictPageProps) {
+    const { t } = useTranslation();
     const canEdit = pool.can_edit;
     const isUpfront = pool.scoring_strategy === 'upfront-bracket';
     const [saveStatus, setSaveStatus] = useState<SaveStatusValue>('idle');
@@ -1207,20 +1234,20 @@ export default function Predict({
 
     return (
         <>
-            <Head title={poolTitle(pool.source, pool.name, 'Predict')} />
+            <Head title={poolTitle(pool.source, t(pool.name), t('Predict'))} />
             <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
                 <header className="hero relative overflow-hidden rounded-3xl border border-border p-6 sm:p-8">
                     <div className="hero-lines" />
                     <div className="relative flex flex-col gap-3">
                         <div className="flex flex-wrap items-center gap-3">
                             <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground capitalize">
-                                {pool.status.replace('_', ' ')}
+                                {t(pool.status.replace('_', ' '))}
                             </span>
                             <Link
                                 href={pools.show(pool.slug)}
                                 className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                             >
-                                ← Back to pool
+                                ← {t('Back to pool')}
                             </Link>
                             {canImport && (
                                 <button
@@ -1229,12 +1256,12 @@ export default function Predict({
                                     className="inline-flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                                 >
                                     <Download className="size-4" />
-                                    Import from another pool
+                                    {t('Import from another pool')}
                                 </button>
                             )}
                         </div>
                         <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-                            My Predictions
+                            {t('My Predictions')}
                         </h1>
                         <PoolIdentity
                             source={pool.source}
@@ -1261,9 +1288,9 @@ export default function Predict({
                     <div className="flex items-center gap-3 rounded-2xl border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
                         <Lock className="size-4 shrink-0" />
                         <span>
-                            Predictions are locked — the tournament has started,
-                            so what is done is done. You can still review your
-                            picks below.
+                            {t(
+                                'Predictions are locked — the tournament has started, so what is done is done. You can still review your picks below.',
+                            )}
                         </span>
                     </div>
                 )}
@@ -1277,9 +1304,11 @@ export default function Predict({
                         <div className="flex items-start gap-3 text-sm text-foreground">
                             <Download className="mt-0.5 size-4 shrink-0" />
                             <span>
-                                You have already made these picks in{' '}
-                                <strong>{importSources[0].source}</strong>.
-                                Import them here instead of starting over?
+                                {t('You have already made these picks in')}{' '}
+                                <strong>{importSources[0].source}</strong>.{' '}
+                                {t(
+                                    'Import them here instead of starting over?',
+                                )}
                             </span>
                         </div>
                         <div className="flex shrink-0 gap-2">
@@ -1289,7 +1318,7 @@ export default function Predict({
                                 size="sm"
                                 onClick={() => setImportOpen(true)}
                             >
-                                Import
+                                {t('Import')}
                             </Button>
                             <Button
                                 type="button"
@@ -1297,7 +1326,7 @@ export default function Predict({
                                 size="sm"
                                 onClick={() => setSuggestionDismissed(true)}
                             >
-                                Not now
+                                {t('Not now')}
                             </Button>
                         </div>
                     </div>
@@ -1305,7 +1334,7 @@ export default function Predict({
 
                 <div className="flex flex-col gap-3">
                     <SegmentedTabs
-                        aria-label="Prediction steps"
+                        aria-label={t('Prediction steps')}
                         value={String(step)}
                         onChange={(value) => goToStep(Number(value))}
                         items={STEP_TITLES.map((title, index) => {
@@ -1316,7 +1345,7 @@ export default function Predict({
 
                             return {
                                 value: String(index),
-                                label: `${index + 1}. ${title}${showCount ? ` · ${remaining} left` : ''}`,
+                                label: `${index + 1}. ${t(title)}${showCount ? ` · ${t(':count left', { count: remaining })}` : ''}`,
                             };
                         })}
                     />
@@ -1339,11 +1368,13 @@ export default function Predict({
                                 }}
                             >
                                 <ListFilter className="size-4" />
-                                Needs prediction
+                                {t('Needs prediction')}
                             </Button>
                             {onlyRemaining && (
                                 <span className="text-xs font-semibold text-muted-foreground">
-                                    {stepRemainingCounts[step]} left
+                                    {t(':count left', {
+                                        count: stepRemainingCounts[step],
+                                    })}
                                 </span>
                             )}
                             {completedShowing && (
@@ -1354,7 +1385,7 @@ export default function Predict({
                                     onClick={hideCompleted}
                                 >
                                     <Check className="size-4" />
-                                    Hide completed
+                                    {t('Hide completed')}
                                 </Button>
                             )}
                             {nextStep !== null && (
@@ -1364,7 +1395,7 @@ export default function Predict({
                                     size="sm"
                                     onClick={() => goToStep(nextStep)}
                                 >
-                                    Next to predict
+                                    {t('Next to predict')}
                                     <ChevronRight className="size-4" />
                                 </Button>
                             )}
@@ -1379,10 +1410,9 @@ export default function Predict({
                                 <div className="flex items-start gap-3 rounded-2xl border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
                                     <Info className="mt-0.5 size-4 shrink-0" />
                                     <span>
-                                        Some groups finish level on points. Ties
-                                        do not affect this pool — your knockout
-                                        predictions follow the real match-ups,
-                                        so there is nothing to resolve here.
+                                        {t(
+                                            'Some groups finish level on points. Ties do not affect this pool — your knockout predictions follow the real match-ups, so there is nothing to resolve here.',
+                                        )}
                                     </span>
                                 </div>
                             )}
@@ -1418,8 +1448,12 @@ export default function Predict({
                                 thirdsTie &&
                                 thirdsTie.teams.length > 0 && (
                                     <TieResolutionPanel
-                                        title="Tied for the last third-place spots"
-                                        description="These third-placed teams are level. Drag them into order — the ones you rank highest take the final qualifying spots."
+                                        title={t(
+                                            'Tied for the last third-place spots',
+                                        )}
+                                        description={t(
+                                            'These third-placed teams are level. Drag them into order — the ones you rank highest take the final qualifying spots.',
+                                        )}
                                         clusters={[
                                             {
                                                 teams: thirdsTie.teams,
@@ -1472,14 +1506,16 @@ export default function Predict({
                         disabled={step === 0}
                         onClick={() => goToStep(Math.max(0, step - 1))}
                     >
-                        <ChevronLeft className="size-4" /> Back
+                        <ChevronLeft className="size-4" /> {t('Back')}
                     </Button>
 
                     {currentStepEditable && <SaveStatus status={saveStatus} />}
 
                     {isLastStep ? (
                         <Button variant="gold" asChild>
-                            <Link href={pools.show(pool.slug)}>Finish</Link>
+                            <Link href={pools.show(pool.slug)}>
+                                {t('Finish')}
+                            </Link>
                         </Button>
                     ) : (
                         <Button
@@ -1487,7 +1523,7 @@ export default function Predict({
                             variant={canEdit ? 'default' : 'outline'}
                             onClick={() => goToStep(step + 1)}
                         >
-                            Next <ChevronRight className="size-4" />
+                            {t('Next')} <ChevronRight className="size-4" />
                         </Button>
                     )}
                 </footer>
@@ -1514,15 +1550,18 @@ export default function Predict({
 }
 
 function ThirdsPanel({ thirds }: { thirds: ThirdRanking[] | null }) {
+    const { t, tCountry } = useTranslation();
+
     return (
         <div className="card-elevated flex flex-col gap-2 rounded-2xl p-4">
             <h3 className="font-display text-xs font-bold tracking-wide text-primary uppercase">
-                Best third-placed teams
+                {t('Best third-placed teams')}
             </h3>
             {thirds === null ? (
                 <p className="text-sm text-muted-foreground">
-                    Predict every group fully to see which eight third-placed
-                    teams qualify for the Round of 32.
+                    {t(
+                        'Predict every group fully to see which eight third-placed teams qualify for the Round of 32.',
+                    )}
                 </p>
             ) : (
                 <ol className="flex flex-wrap gap-2">
@@ -1535,7 +1574,9 @@ function ThirdsPanel({ thirds }: { thirds: ThirdRanking[] | null }) {
                                 {entry.rank}.
                             </span>
                             <Flag team={entry.team} />
-                            {entry.team?.name ?? 'TBD'}
+                            {entry.team
+                                ? tCountry(entry.team.code, entry.team.name)
+                                : t('TBD')}
                         </li>
                     ))}
                 </ol>
@@ -1545,11 +1586,13 @@ function ThirdsPanel({ thirds }: { thirds: ThirdRanking[] | null }) {
 }
 
 function PhaseWindowBadge({ window }: { window: PredictionWindowStatus }) {
+    const { t } = useTranslation();
+
     if (window === 'open') {
         return null;
     }
 
-    const label = window === 'pending' ? 'Opens later' : 'Locked';
+    const label = window === 'pending' ? t('Opens later') : t('Locked');
 
     return (
         <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
@@ -1582,6 +1625,8 @@ function KnockoutStep({
     ) => void;
     onCommit: () => void;
 }) {
+    const { t, tPhase } = useTranslation();
+
     return (
         <div className="flex flex-col gap-8">
             {phaseKeys.map((key) => {
@@ -1605,14 +1650,15 @@ function KnockoutStep({
                     <div key={key} className="flex flex-col gap-3">
                         <div className="flex items-center justify-between gap-2">
                             <h2 className="font-display text-xs font-bold tracking-wide text-primary uppercase">
-                                {phase.phase_name}
+                                {tPhase(phase.phase_key, phase.phase_name)}
                             </h2>
                             <PhaseWindowBadge window={phase.window} />
                         </div>
                         {phase.window === 'pending' ? (
                             <p className="text-sm text-muted-foreground italic">
-                                This round opens once the previous round&apos;s
-                                results are in.
+                                {t(
+                                    "This round opens once the previous round's results are in.",
+                                )}
                             </p>
                         ) : (
                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">

@@ -59,6 +59,8 @@ import {
 } from '@/components/ui/sheet';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
+import { useTranslation } from '@/hooks/use-translation';
+import type { Translator } from '@/hooks/use-translation';
 import { COMPARE_LIMIT } from '@/lib/compare';
 import { ordinal } from '@/lib/leaderboards';
 import { poolTitle } from '@/lib/pool-title';
@@ -116,6 +118,7 @@ function DashboardBanner({
             : pool.starts_on
         : null;
 
+    const { t } = useTranslation();
     const tz = useDisplayTimeZone();
     const hasEntry = standings.me !== null;
     // The actions row holds the primary CTA (edit when joined, join when not) plus the compare
@@ -148,18 +151,18 @@ function DashboardBanner({
                         </div>
                         <div className="min-w-0">
                             <h1 className="text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-4xl">
-                                {pool.name}
+                                {t(pool.name)}
                             </h1>
                             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                                 <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold capitalize">
-                                    {pool.status.replace('_', ' ')}
+                                    {t(pool.status.replace('_', ' '))}
                                 </span>
                                 <span className="inline-flex items-center gap-1.5">
                                     <Users className="size-4" />
                                     {standings.participants}{' '}
                                     {standings.participants === 1
-                                        ? 'player'
-                                        : 'players'}
+                                        ? t('player')
+                                        : t('players')}
                                 </span>
                                 {dates && (
                                     <span className="inline-flex items-center gap-1.5">
@@ -190,7 +193,7 @@ function DashboardBanner({
                                             href={pools.predict.edit(pool.slug)}
                                         >
                                             <PencilLine className="size-4" />
-                                            Edit predictions
+                                            {t('Edit predictions')}
                                         </Link>
                                     </Button>
                                 ) : pool.can_join ? (
@@ -207,7 +210,7 @@ function DashboardBanner({
                                         className="w-full sm:w-auto"
                                     >
                                         <GitCompare className="size-4" />
-                                        Compare players
+                                        {t('Compare players')}
                                     </Button>
                                 )}
                             </div>
@@ -222,20 +225,22 @@ function DashboardBanner({
 }
 
 /** The outstanding work in one open window, e.g. "4 picks left", "ties to break", or both. */
-function windowSummary(window: AttentionWindow): string {
+function windowSummary(window: AttentionWindow, t: Translator['t']): string {
     const parts: string[] = [];
 
     if (window.missing_count > 0) {
         parts.push(
-            `${window.missing_count} ${window.missing_count === 1 ? 'pick' : 'picks'} left`,
+            window.missing_count === 1
+                ? t('1 pick left')
+                : t(':count picks left', { count: window.missing_count }),
         );
     }
 
     if (window.has_unresolved_ties) {
-        parts.push('ties to break');
+        parts.push(t('ties to break'));
     }
 
-    return parts.join(' and ');
+    return parts.join(t(' and '));
 }
 
 /**
@@ -250,6 +255,7 @@ function PredictionReminder({
     pool: PoolDetail;
     attention: AttentionSummary;
 }) {
+    const { t } = useTranslation();
     const tz = useDisplayTimeZone();
 
     if (!attention.needs_attention) {
@@ -267,7 +273,7 @@ function PredictionReminder({
                 </span>
                 <div className="space-y-1.5">
                     <p className="font-semibold text-foreground">
-                        Your predictions need attention
+                        {t('Your predictions need attention')}
                     </p>
                     <ul className="space-y-1 text-sm text-muted-foreground">
                         {attention.open_windows.map((window) => (
@@ -276,12 +282,12 @@ function PredictionReminder({
                                 className="flex flex-wrap items-center gap-x-1.5"
                             >
                                 <span className="font-medium text-foreground">
-                                    {window.label}
+                                    {t(window.label)}
                                 </span>
-                                <span>— {windowSummary(window)}</span>
+                                <span>— {windowSummary(window, t)}</span>
                                 {window.deadline && (
                                     <span className="text-xs">
-                                        · closes{' '}
+                                        · {t('closes')}{' '}
                                         {formatMatchDate(window.deadline, tz)},{' '}
                                         {formatMatchTime(window.deadline, tz)}
                                     </span>
@@ -294,7 +300,7 @@ function PredictionReminder({
             <Button asChild className="shrink-0">
                 <Link href={pools.predict.edit(pool.slug)}>
                     <PencilLine className="size-4" />
-                    Complete predictions
+                    {t('Complete predictions')}
                 </Link>
             </Button>
         </section>
@@ -315,6 +321,8 @@ function AddToggle({
     disabled: boolean;
     onToggle: (entryId: number) => void;
 }) {
+    const { t } = useTranslation();
+
     return (
         <button
             type="button"
@@ -323,8 +331,8 @@ function AddToggle({
             aria-pressed={selected}
             aria-label={
                 selected
-                    ? `Remove ${name} from the comparison`
-                    : `Add ${name} to the comparison`
+                    ? t('Remove :name from the comparison', { name })
+                    : t('Add :name to the comparison', { name })
             }
             className={cn(
                 'grid size-8 shrink-0 cursor-pointer place-items-center rounded-full border transition-colors',
@@ -355,6 +363,8 @@ function SelectableRow({
     disabled: boolean;
     onToggle: (entryId: number) => void;
 }) {
+    const { t } = useTranslation();
+
     return (
         <div
             className={cn(
@@ -380,7 +390,7 @@ function SelectableRow({
             </span>
             {row.is_me ? (
                 <span className="px-2 text-xs font-semibold text-muted-foreground">
-                    You
+                    {t('You')}
                 </span>
             ) : (
                 <AddToggle
@@ -397,18 +407,20 @@ function SelectableRow({
 
 /** Header tag marking the prize board apart from the bragging-rights side boards (paid pools). */
 function BoardTag({ awardsPrizes }: { awardsPrizes: boolean }) {
+    const { t } = useTranslation();
+
     if (awardsPrizes) {
         return (
             <span className="bg-gold-gradient inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold tracking-[0.08em] text-[#3a2600] uppercase">
                 <Trophy className="size-3" />
-                Prize board
+                {t('Prize board')}
             </span>
         );
     }
 
     return (
         <span className="inline-flex items-center rounded-full bg-secondary px-2.5 py-1 text-[10px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
-            Bragging rights
+            {t('Bragging rights')}
         </span>
     );
 }
@@ -431,6 +443,7 @@ function FeaturedBoardCard({
     selectedIds: number[];
     onToggle: (entryId: number) => void;
 }) {
+    const { t } = useTranslation();
     const atLimit = selectedIds.length >= COMPARE_LIMIT;
     const isPaid = pool.pricing.entry_price > 0;
     // Inline prize amounts: only on the prize board, and only once the pot has money in it.
@@ -459,7 +472,7 @@ function FeaturedBoardCard({
                         }
                         className="inline-flex shrink-0 items-center gap-1 font-display text-sm font-semibold text-primary transition-all hover:gap-2"
                     >
-                        Details
+                        {t('Details')}
                         <ArrowRight className="size-4" />
                     </Link>
                 )}
@@ -496,7 +509,7 @@ function FeaturedBoardCard({
                 {pinnedMe && (
                     <>
                         <div className="border-t border-dashed border-border bg-muted/30 px-4 py-1 text-center text-[10px] font-bold tracking-[0.12em] text-muted-foreground uppercase">
-                            You
+                            {t('You')}
                         </div>
                         <LeaderboardRow
                             entry={{
@@ -571,6 +584,7 @@ function FeaturedBoards({
     selectedIds: number[];
     onToggle: (entryId: number) => void;
 }) {
+    const { t } = useTranslation();
     const headline = boards[0];
 
     // Nobody on the board yet — hide the whole region (the banner still offers Join).
@@ -584,8 +598,8 @@ function FeaturedBoards({
         <section className="flex flex-col gap-3">
             {selecting && (
                 <span className="font-display text-sm font-semibold text-muted-foreground">
-                    Tap <Plus className="inline size-3.5" /> to add a player to
-                    the comparison
+                    {t('Tap')} <Plus className="inline size-3.5" />{' '}
+                    {t('to add a player to the comparison')}
                 </span>
             )}
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] lg:items-start">
@@ -630,6 +644,7 @@ function BoardSummaryCard({
     selectedIds: number[];
     onToggle: (entryId: number) => void;
 }) {
+    const { t } = useTranslation();
     const atLimit = selectedIds.length >= COMPARE_LIMIT;
     const unit = summary.primary_stat_label.toLowerCase();
     const leader =
@@ -664,7 +679,7 @@ function BoardSummaryCard({
                     </span>
                 ) : (
                     <span className="font-display text-sm font-semibold text-muted-foreground">
-                        No leader yet
+                        {t('No leader yet')}
                     </span>
                 )}
                 <span className="flex shrink-0 items-center gap-2">
@@ -690,7 +705,7 @@ function BoardSummaryCard({
 
             <div className="flex items-center justify-between gap-2 border-t border-border pt-2 text-xs font-medium text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5">
-                    You · {summary.you ? ordinal(summary.you.rank) : '—'}
+                    {t('You')} · {summary.you ? ordinal(summary.you.rank) : '—'}
                     {summary.you?.movement && (
                         <MovementArrow
                             movement={summary.you.movement}
@@ -740,6 +755,8 @@ function BoardSummaries({
     selectedIds: number[];
     onToggle: (entryId: number) => void;
 }) {
+    const { t } = useTranslation();
+
     if (summaries.length === 0) {
         return null;
     }
@@ -749,7 +766,7 @@ function BoardSummaries({
     return (
         <section className="flex flex-col gap-3">
             <h2 className="font-display text-xl font-semibold tracking-tight">
-                More leaderboards
+                {t('More leaderboards')}
             </h2>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {summaries.map((summary) => (
@@ -764,8 +781,13 @@ function BoardSummaries({
     );
 }
 
-function metaLine(count: number, prefix: string, range: string | null): string {
-    const label = `${count} ${count === 1 ? 'match' : 'matches'}`;
+function metaLine(
+    count: number,
+    prefix: string,
+    range: string | null,
+    t: Translator['t'],
+): string {
+    const label = count === 1 ? t('1 match') : t(':count matches', { count });
 
     return [prefix, label, range].filter(Boolean).join(' · ');
 }
@@ -819,11 +841,18 @@ function FixtureFiltersSheet({
     filter: TimeFilter;
     onFilterChange: (filter: TimeFilter) => void;
 }) {
+    const { t } = useTranslation();
     const [open, setOpen] = useState(false);
-    const viewLabel = VIEW_FILTER_OPTIONS.find((o) => o.value === view)?.label;
-    const timeLabel = TIME_FILTER_OPTIONS.find(
-        (o) => o.value === filter,
-    )?.label;
+    const viewItems = VIEW_FILTER_OPTIONS.map((o) => ({
+        value: o.value,
+        label: t(o.label),
+    }));
+    const timeItems = TIME_FILTER_OPTIONS.map((o) => ({
+        value: o.value,
+        label: t(o.label),
+    }));
+    const viewLabel = viewItems.find((o) => o.value === view)?.label;
+    const timeLabel = timeItems.find((o) => o.value === filter)?.label;
 
     return (
         <Sheet open={open} onOpenChange={setOpen}>
@@ -845,33 +874,35 @@ function FixtureFiltersSheet({
             >
                 <SheetHeader className="p-0">
                     <SheetTitle className="font-display text-base">
-                        Filters
+                        {t('Filters')}
                     </SheetTitle>
                     <SheetDescription className="sr-only">
-                        Choose how fixtures are grouped and which ones to show.
+                        {t(
+                            'Choose how fixtures are grouped and which ones to show.',
+                        )}
                     </SheetDescription>
                 </SheetHeader>
                 <div className="flex flex-col gap-4">
                     <div className="flex flex-col gap-2">
                         <span className="text-[11px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
-                            View
+                            {t('View')}
                         </span>
                         <SegmentedTabs
-                            aria-label="Fixtures view"
+                            aria-label={t('Fixtures view')}
                             value={view}
                             onChange={onViewChange}
-                            items={VIEW_FILTER_OPTIONS}
+                            items={viewItems}
                         />
                     </div>
                     <div className="flex flex-col gap-2">
                         <span className="text-[11px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
-                            Show
+                            {t('Show')}
                         </span>
                         <SegmentedTabs
-                            aria-label="Show fixtures"
+                            aria-label={t('Show fixtures')}
                             value={filter}
                             onChange={onFilterChange}
-                            items={TIME_FILTER_OPTIONS}
+                            items={timeItems}
                         />
                     </div>
                 </div>
@@ -897,6 +928,7 @@ function FixturesView({
     /** When set, each fixture renders a per-player comparison instead of the viewer's own card. */
     comparison: Comparison | null;
 }) {
+    const { t, tPhase } = useTranslation();
     const tz = useDisplayTimeZone();
     const [view, setView] = useState<FixturesViewMode>('groups');
     const [filter, setFilter] = useState<TimeFilter>('all');
@@ -942,14 +974,14 @@ function FixturesView({
     // The Final tab stays present whenever the tournament has those matches; its count tracks the
     // filter (and its panel shows an empty state when the filter clears it).
     const phases: Phase[] = [
-        { id: 'gs', label: 'Group Stage', count: groupMatches },
+        { id: 'gs', label: t('Group Stage'), count: groupMatches },
         ...koPhases.map((p) => ({
             id: p.phase_key,
-            label: p.phase_name,
+            label: tPhase(p.phase_key, p.phase_name),
             count: applyTimeFilter(p.fixtures, effectiveFilter, tz).length,
         })),
         ...(finalTabExists
-            ? [{ id: 'final', label: 'Final', count: finalFixtures.length }]
+            ? [{ id: 'final', label: t('Final'), count: finalFixtures.length }]
             : []),
     ];
 
@@ -993,13 +1025,13 @@ function FixturesView({
                     }}
                 >
                     <ToggleGroupItem value="groups" className="px-4 text-xs">
-                        Groups
+                        {t('Groups')}
                     </ToggleGroupItem>
                     <ToggleGroupItem value="matchdays" className="px-4 text-xs">
-                        Matchdays
+                        {t('Matchdays')}
                     </ToggleGroupItem>
                     <ToggleGroupItem value="schedule" className="px-4 text-xs">
-                        Schedule
+                        {t('Schedule')}
                     </ToggleGroupItem>
                 </ToggleGroup>
 
@@ -1019,13 +1051,13 @@ function FixturesView({
                     }}
                 >
                     <ToggleGroupItem value="all" className="px-4 text-xs">
-                        All
+                        {t('All')}
                     </ToggleGroupItem>
                     <ToggleGroupItem value="today" className="px-4 text-xs">
-                        Today
+                        {t('Today')}
                     </ToggleGroupItem>
                     <ToggleGroupItem value="upcoming" className="px-4 text-xs">
-                        Upcoming
+                        {t('Upcoming')}
                     </ToggleGroupItem>
                 </ToggleGroup>
             </div>
@@ -1060,11 +1092,14 @@ function FixturesView({
                     {effectiveActive === 'gs' && (
                         <div>
                             <PhaseMeta
-                                title="Group Stage"
+                                title={t('Group Stage')}
                                 meta={metaLine(
                                     groupMatches,
-                                    `${visibleGroups.length} groups`,
+                                    t(':count groups', {
+                                        count: visibleGroups.length,
+                                    }),
                                     phaseDateRange(groupFixtures, tz),
+                                    t,
                                 )}
                             />
                             {visibleGroups.length === 0 ? (
@@ -1118,11 +1153,15 @@ function FixturesView({
                         return (
                             <div key={phase.phase_key}>
                                 <PhaseMeta
-                                    title={phase.phase_name}
+                                    title={tPhase(
+                                        phase.phase_key,
+                                        phase.phase_name,
+                                    )}
                                     meta={metaLine(
                                         phaseFixtures.length,
                                         '',
                                         phaseDateRange(phaseFixtures, tz),
+                                        t,
                                     )}
                                 />
                                 {phaseFixtures.length === 0 ? (
@@ -1161,11 +1200,12 @@ function FixturesView({
                     {effectiveActive === 'final' && (
                         <div>
                             <PhaseMeta
-                                title="Final & Third Place"
+                                title={t('Final & Third Place')}
                                 meta={metaLine(
                                     finalFixtures.length,
                                     '',
                                     phaseDateRange(finalFixtures, tz),
+                                    t,
                                 )}
                             />
                             {finalFixtures.length === 0 ? (
@@ -1241,6 +1281,7 @@ export default function PoolShow({
     comparison,
     attention,
 }: PoolShowProps) {
+    const { t } = useTranslation();
     const [selecting, setSelecting] = useState(false);
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [pickerOpen, setPickerOpen] = useState(false);
@@ -1321,7 +1362,7 @@ export default function PoolShow({
 
     return (
         <>
-            <Head title={poolTitle(pool.source, pool.name)} />
+            <Head title={poolTitle(pool.source, t(pool.name))} />
             <div className="flex h-full flex-1 flex-col gap-10 p-4 sm:p-6 lg:p-8">
                 <DashboardBanner
                     pool={pool}

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { useTranslation } from '@/hooks/use-translation';
 import { store } from '@/routes/login';
 import { send as sendLoginCode } from '@/routes/login/code';
 
@@ -18,6 +19,7 @@ type Props = {
 const CODE_LENGTH = 6;
 
 export default function Login({ status }: Props) {
+    const { t } = useTranslation();
     const [step, setStep] = useState<'email' | 'code'>('email');
     const [submittedEmail, setSubmittedEmail] = useState('');
     const [otp, setOtp] = useState('');
@@ -50,14 +52,14 @@ export default function Login({ status }: Props) {
 
     return (
         <>
-            <Head title="Log in" />
+            <Head title={t('Log in')} />
 
             <PasskeyVerify />
 
             {step === 'email' ? (
                 <form onSubmit={submitEmail} className="flex flex-col gap-6">
                     <div className="grid gap-2">
-                        <Label htmlFor="email">Email address</Label>
+                        <Label htmlFor="email">{t('Email address')}</Label>
                         <Input
                             id="email"
                             type="email"
@@ -83,7 +85,7 @@ export default function Login({ status }: Props) {
                         data-test="send-code-button"
                     >
                         {emailForm.processing && <Spinner />}
-                        Send login code
+                        {t('Send login code')}
                     </Button>
 
                     {status && (
@@ -108,7 +110,7 @@ export default function Login({ status }: Props) {
 
                             <div className="grid gap-2 text-center">
                                 <p className="text-sm text-muted-foreground">
-                                    We sent a 6-digit code to{' '}
+                                    {t('We sent a 6-digit code to')}{' '}
                                     <span className="font-medium text-foreground">
                                         {submittedEmail}
                                     </span>
@@ -116,7 +118,7 @@ export default function Login({ status }: Props) {
                             </div>
 
                             <div className="grid gap-2">
-                                <Label htmlFor="code">Login code</Label>
+                                <Label htmlFor="code">{t('Login code')}</Label>
                                 <OtpInput
                                     name="code"
                                     value={otp}
@@ -127,7 +129,7 @@ export default function Login({ status }: Props) {
                                     invalid={Boolean(
                                         errors.code || errors.email,
                                     )}
-                                    aria-label="Login code"
+                                    aria-label={t('Login code')}
                                 />
                                 <InputError message={errors.code} />
                                 <InputError message={errors.email} />
@@ -142,7 +144,7 @@ export default function Login({ status }: Props) {
                                 data-test="verify-code-button"
                             >
                                 {processing && <Spinner />}
-                                Log in
+                                {t('Log in')}
                             </Button>
 
                             <div className="flex flex-col items-center gap-2 text-center text-sm text-muted-foreground">
@@ -156,8 +158,8 @@ export default function Login({ status }: Props) {
                                     data-test="resend-code-button"
                                 >
                                     {emailForm.processing
-                                        ? 'Resending…'
-                                        : 'Resend code'}
+                                        ? t('Resending…')
+                                        : t('Resend code')}
                                 </button>
                                 <button
                                     type="button"
@@ -165,7 +167,7 @@ export default function Login({ status }: Props) {
                                     className="underline-offset-4 hover:underline"
                                     data-test="change-email-button"
                                 >
-                                    Use a different email
+                                    {t('Use a different email')}
                                 </button>
                             </div>
 

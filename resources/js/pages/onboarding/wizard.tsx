@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { useInitials } from '@/hooks/use-initials';
+import { useTranslation } from '@/hooks/use-translation';
 import {
     avatar as avatarRoute,
     complete as completeRoute,
@@ -61,9 +62,15 @@ const STEP_CONTENT: Record<
 export default function Wizard({ hasPasskeys }: Props) {
     const { auth } = usePage().props;
     const getInitials = useInitials();
+    const { t } = useTranslation();
 
     const [step, setStep] = useState<StepKey>('name');
     const currentIndex = STEPS.findIndex((s) => s.key === step);
+
+    const localizedSteps = STEPS.map((s) => ({
+        ...s,
+        label: t(s.label),
+    }));
 
     const nameForm = useForm({ name: auth.user.name ?? '' });
     const avatarForm = useForm<{ avatar: File | null }>({ avatar: null });
@@ -119,7 +126,7 @@ export default function Wizard({ hasPasskeys }: Props) {
 
     return (
         <div className="grid min-h-svh lg:grid-cols-2">
-            <Head title="Welcome" />
+            <Head title={t('Welcome')} />
 
             {/* Pitch brand + progress panel — desktop only. */}
             <aside className="hero relative hidden flex-col justify-between overflow-hidden p-10 lg:flex xl:p-14">
@@ -145,27 +152,32 @@ export default function Wizard({ hasPasskeys }: Props) {
                     <div className="flex flex-col gap-3">
                         <span className="inline-flex w-fit items-center gap-2.5 rounded-full bg-muted px-4 py-1.5 text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">
                             <span className="bg-brand-gradient size-2 rounded-full" />
-                            Getting started
+                            {t('Getting started')}
                         </span>
                         <h2 className="max-w-sm font-display text-4xl font-semibold tracking-tight text-balance text-foreground">
-                            Let&apos;s get you{' '}
-                            <span className="text-primary">match-ready</span>.
+                            {t("Let's get you")}{' '}
+                            <span className="text-primary">
+                                {t('match-ready')}
+                            </span>
+                            .
                         </h2>
                         <p className="max-w-sm text-pretty text-muted-foreground">
-                            A few quick things and you&apos;re in — then
-                            it&apos;s straight to the predictions.
+                            {t(
+                                "A few quick things and you're in — then it's straight to the predictions.",
+                            )}
                         </p>
                     </div>
 
                     <OnboardingStepper
-                        steps={STEPS}
+                        steps={localizedSteps}
                         currentIndex={currentIndex}
                     />
                 </div>
 
                 <p className="relative z-10 max-w-sm text-sm text-muted-foreground">
-                    Every step is optional — you can change all of this later in
-                    settings.
+                    {t(
+                        'Every step is optional — you can change all of this later in settings.',
+                    )}
                 </p>
             </aside>
 
@@ -187,7 +199,7 @@ export default function Wizard({ hasPasskeys }: Props) {
                             </span>
                         </span>
                         <OnboardingProgress
-                            steps={STEPS}
+                            steps={localizedSteps}
                             currentIndex={currentIndex}
                         />
                     </div>
@@ -205,23 +217,23 @@ export default function Wizard({ hasPasskeys }: Props) {
                             </span>
                             <div className="space-y-2">
                                 <h1 className="font-display text-2xl font-semibold tracking-tight">
-                                    {content.title}
+                                    {t(content.title)}
                                 </h1>
                                 <p className="text-sm leading-relaxed text-muted-foreground">
-                                    {content.blurb}
+                                    {t(content.blurb)}
                                 </p>
                             </div>
                         </div>
 
                         {step === 'name' && (
                             <div className="grid gap-2">
-                                <Label htmlFor="name">Full name</Label>
+                                <Label htmlFor="name">{t('Full name')}</Label>
                                 <Input
                                     id="name"
                                     name="name"
                                     autoFocus
                                     autoComplete="name"
-                                    placeholder="e.g. Bruno Gasparin"
+                                    placeholder={t('e.g. Bruno Gasparin')}
                                     value={nameForm.data.name}
                                     onChange={(event) =>
                                         nameForm.setData(
@@ -259,7 +271,9 @@ export default function Wizard({ hasPasskeys }: Props) {
                                 {hasPasskeys && (
                                     <p className="flex items-center gap-2 rounded-xl bg-primary/10 px-3 py-2 text-sm font-medium text-primary">
                                         <Check className="size-4" />
-                                        You already have a passkey set up.
+                                        {t(
+                                            'You already have a passkey set up.',
+                                        )}
                                     </p>
                                 )}
                                 <PasskeyRegistration onSuccess={finish} />
@@ -269,23 +283,23 @@ export default function Wizard({ hasPasskeys }: Props) {
                         <p className="text-xs text-muted-foreground">
                             {step === 'passkey' ? (
                                 <>
-                                    You can add a passkey later in{' '}
+                                    {t('You can add a passkey later in')}{' '}
                                     <Link
                                         href={securityEdit()}
                                         className="font-medium text-foreground underline-offset-4 hover:underline"
                                     >
-                                        Security settings
+                                        {t('Security settings')}
                                     </Link>
                                     .
                                 </>
                             ) : (
                                 <>
-                                    You can change this anytime in{' '}
+                                    {t('You can change this anytime in')}{' '}
                                     <Link
                                         href={profileEdit()}
                                         className="font-medium text-foreground underline-offset-4 hover:underline"
                                     >
-                                        Profile settings
+                                        {t('Profile settings')}
                                     </Link>
                                     .
                                 </>
@@ -306,7 +320,7 @@ export default function Wizard({ hasPasskeys }: Props) {
                                 onClick={goBack}
                             >
                                 <ArrowLeft className="size-4" />
-                                Back
+                                {t('Back')}
                             </Button>
                         ) : (
                             <span />
@@ -321,7 +335,7 @@ export default function Wizard({ hasPasskeys }: Props) {
                                     disabled={busy}
                                     onClick={advance}
                                 >
-                                    Skip for now
+                                    {t('Skip for now')}
                                 </Button>
                             )}
 
@@ -332,7 +346,7 @@ export default function Wizard({ hasPasskeys }: Props) {
                                     onClick={saveName}
                                 >
                                     {nameForm.processing && <Spinner />}
-                                    Continue
+                                    {t('Continue')}
                                 </Button>
                             )}
 
@@ -343,7 +357,7 @@ export default function Wizard({ hasPasskeys }: Props) {
                                     onClick={saveAvatar}
                                 >
                                     {avatarForm.processing && <Spinner />}
-                                    Continue
+                                    {t('Continue')}
                                 </Button>
                             )}
 
@@ -354,7 +368,7 @@ export default function Wizard({ hasPasskeys }: Props) {
                                     onClick={finish}
                                 >
                                     {completing && <Spinner />}
-                                    Finish
+                                    {t('Finish')}
                                 </Button>
                             )}
                         </div>

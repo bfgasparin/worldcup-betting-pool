@@ -2,6 +2,7 @@ import { Camera } from 'lucide-react';
 import { useEffect, useMemo, useRef } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from '@/hooks/use-translation';
 import { cn } from '@/lib/utils';
 
 type Props = {
@@ -30,6 +31,7 @@ export default function AvatarUploadField({
     disabled,
     className,
 }: Props) {
+    const { t } = useTranslation();
     const inputRef = useRef<HTMLInputElement>(null);
 
     const previewUrl = useMemo(
@@ -62,7 +64,7 @@ export default function AvatarUploadField({
                 disabled={disabled}
                 onClick={() => inputRef.current?.click()}
                 className="group relative rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none"
-                aria-label={shown ? 'Change photo' : 'Choose photo'}
+                aria-label={shown ? t('Change photo') : t('Choose photo')}
             >
                 <Avatar className="size-28 shadow-[var(--sh-md)] ring-4 ring-card">
                     <AvatarImage src={shown} alt="" className="object-cover" />
@@ -92,7 +94,7 @@ export default function AvatarUploadField({
                     disabled={disabled}
                     onClick={() => inputRef.current?.click()}
                 >
-                    {shown ? 'Change photo' : 'Choose photo'}
+                    {shown ? t('Change photo') : t('Choose photo')}
                 </Button>
 
                 {file && (
@@ -103,13 +105,13 @@ export default function AvatarUploadField({
                         disabled={disabled}
                         onClick={clear}
                     >
-                        Clear
+                        {t('Clear')}
                     </Button>
                 )}
             </div>
 
             <p className="text-xs text-muted-foreground">
-                JPG, PNG or WEBP · up to 4&nbsp;MB
+                {t('JPG, PNG or WEBP · up to :size', { size: '4 MB' })}
             </p>
         </div>
     );

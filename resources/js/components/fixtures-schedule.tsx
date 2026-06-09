@@ -15,6 +15,9 @@ import { FixtureComparePicks } from '@/components/fixtures-compare';
 import { Flag } from '@/components/flag';
 import { MatchdayChip, MatchdayStripe } from '@/components/matchday-marker';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
+import { useTranslation } from '@/hooks/use-translation';
+import type { Translator } from '@/hooks/use-translation';
+import { formatPlaceholderLabel } from '@/lib/placeholder-label';
 import { cn } from '@/lib/utils';
 import type {
     BracketFixture,
@@ -60,12 +63,13 @@ interface NormalizedMatch {
 function normalizeGroupFixture(
     fixture: GroupFixture,
     groupName: string,
+    t: Translator['t'],
 ): NormalizedMatch {
     return {
         fixtureId: fixture.fixture_id,
         kind: 'group',
         matchdayKey: fixture.matchday_key,
-        context: `Group ${groupName}`,
+        context: t('Group :name', { name: groupName }),
         kicksOffAt: fixture.kicks_off_at,
         venue: fixture.venue,
         home: fixture.home,
@@ -90,13 +94,13 @@ function normalizeGroupFixture(
 
 function normalizeBracketFixture(
     fixture: BracketFixture,
-    phaseName: string,
+    phaseLabel: string,
 ): NormalizedMatch {
     return {
         fixtureId: fixture.fixture_id,
         kind: 'knockout',
         matchdayKey: fixture.matchday_key,
-        context: phaseName,
+        context: phaseLabel,
         kicksOffAt: fixture.kicks_off_at,
         venue: fixture.venue,
         home: fixture.home,
@@ -123,16 +127,21 @@ function normalizeBracketFixture(
 function normalizeAll(
     groups: GroupView[],
     bracket: BracketPhase[],
+    t: Translator['t'],
+    tPhase: Translator['tPhase'],
 ): NormalizedMatch[] {
     return [
         ...groups.flatMap((group) =>
             group.fixtures.map((fixture) =>
-                normalizeGroupFixture(fixture, group.name),
+                normalizeGroupFixture(fixture, group.name, t),
             ),
         ),
         ...bracket.flatMap((phase) =>
             phase.fixtures.map((fixture) =>
-                normalizeBracketFixture(fixture, phase.phase_name),
+                normalizeBracketFixture(
+                    fixture,
+                    tPhase(phase.phase_key, phase.phase_name),
+                ),
             ),
         ),
     ];
@@ -241,20 +250,23 @@ export function FixturesEmptyState({ message }: { message: string }) {
 }
 
 /** The empty-state message for a time filter that matched no fixtures. */
-export function timeFilterEmptyMessage(filter: TimeFilter): string {
+export function timeFilterEmptyMessage(
+    filter: TimeFilter,
+    t: Translator['t'] = (key) => key,
+): string {
     return filter === 'today'
-        ? 'No matches kicking off today.'
-        : 'No upcoming matches — every match has been played.';
+        ? t('No matches kicking off today.')
+        : t('No upcoming matches — every match has been played.');
 }
 
-function sectionMeta(count: number, range: string | null): string {
-    const label = `${count} ${count === 1 ? 'match' : 'matches'}`;
+function sectionMeta(
+    count: number,
+    range: string | null,
+    t: Translator['t'],
+): string {
+    const label = count === 1 ? t('1 match') : t(':count matches', { count });
 
     return [label, range].filter(Boolean).join(' · ');
-}
-
-function venueLabel(venue: string): string {
-    return venue.replace(/\s+Stadium$/, '');
 }
 
 /** One side of a flat match row: the team's flag + code/name, or the placeholder token for an open slot. */
@@ -272,6 +284,11 @@ function SideToken({
     /** Show the "Advances" chip — only a knockout winner on a level (pens/extra-time) result. */
     advanceChip?: boolean;
 }) {
+    const { tBracket } = useTranslation();
+    const localizedLabel = label
+        ? formatPlaceholderLabel(label, tBracket)
+        : label;
+
     return (
         <span
             className={cn(
@@ -284,7 +301,7 @@ function SideToken({
         >
             {align === 'end' ? (
                 <>
-                    <TeamMatchupName team={team} label={label} />
+                    <TeamMatchupName team={team} label={localizedLabel} />
                     <Flag team={team} className="h-4 w-6" />
                     {advanceChip && <AdvanceChip />}
                 </>
@@ -292,7 +309,7 @@ function SideToken({
                 <>
                     {advanceChip && <AdvanceChip />}
                     <Flag team={team} className="h-4 w-6" />
-                    <TeamMatchupName team={team} label={label} />
+                    <TeamMatchupName team={team} label={localizedLabel} />
                 </>
             )}
         </span>
@@ -309,6 +326,7 @@ function ScheduleRow({
     comparison: Comparison | null;
     showTimes: boolean;
 }) {
+    const { t, tVenue } = useTranslation();
     const tz = useDisplayTimeZone();
     const settled = match.homeGoals !== null && match.awayGoals !== null;
     const homeAdvances =
@@ -373,11 +391,11 @@ function ScheduleRow({
                     {!comparison &&
                         (match.pick == null ? (
                             <div className="text-[11px] font-medium text-muted-foreground/70">
-                                No prediction
+                                {t('No prediction')}
                             </div>
                         ) : match.kind === 'knockout' ? (
                             <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-                                <span className="shrink-0">You</span>
+                                <span className="shrink-0">{t('You')}</span>
                                 <KnockoutPickMatchup
                                     homeGoals={match.pick.homeGoals}
                                     awayGoals={match.pick.awayGoals}
@@ -390,7 +408,7 @@ function ScheduleRow({
                             </div>
                         ) : (
                             <div className="text-[11px] text-muted-foreground">
-                                You{' '}
+                                {t('You')}{' '}
                                 <span className="font-semibold tabular-nums">
                                     {match.pick.homeGoals}–
                                     {match.pick.awayGoals}
@@ -418,7 +436,7 @@ function ScheduleRow({
                     ? `${formatMatchDate(match.kicksOffAt, tz)} · ${formatMatchTime(match.kicksOffAt, tz)} · `
                     : ''}
                 {match.context}
-                {match.venue ? ` · ${venueLabel(match.venue)}` : ''}
+                {match.venue ? ` · ${tVenue(match.venue)}` : ''}
             </div>
 
             {comparison && (
@@ -494,8 +512,9 @@ export function MatchdayView({
     filter: TimeFilter;
     comparison: Comparison | null;
 }) {
+    const { t, tPhase } = useTranslation();
     const tz = useDisplayTimeZone();
-    const all = normalizeAll(groups, bracket).filter((match) =>
+    const all = normalizeAll(groups, bracket, t, tPhase).filter((match) =>
         matchesNormalized(match, filter, tz),
     );
 
@@ -509,7 +528,9 @@ export function MatchdayView({
         .filter((section) => section.matches.length > 0);
 
     if (sections.length === 0) {
-        return <FixturesEmptyState message={timeFilterEmptyMessage(filter)} />;
+        return (
+            <FixturesEmptyState message={timeFilterEmptyMessage(filter, t)} />
+        );
     }
 
     return (
@@ -526,6 +547,7 @@ export function MatchdayView({
                             })),
                             tz,
                         ),
+                        t,
                     )}
                     matches={matches}
                     comparison={comparison}
@@ -547,8 +569,9 @@ export function ScheduleView({
     filter: TimeFilter;
     comparison: Comparison | null;
 }) {
+    const { t, tPhase } = useTranslation();
     const tz = useDisplayTimeZone();
-    const sorted = normalizeAll(groups, bracket)
+    const sorted = normalizeAll(groups, bracket, t, tPhase)
         .filter((match) => matchesNormalized(match, filter, tz))
         .sort((a, b) => kickoffMs(a) - kickoffMs(b));
 
@@ -559,7 +582,7 @@ export function ScheduleView({
     for (const match of sorted) {
         const header = match.kicksOffAt
             ? formatScheduleDateHeader(match.kicksOffAt, tz)
-            : 'Date TBD';
+            : t('Date TBD');
         const last = days[days.length - 1];
 
         if (last && last.header === header) {
@@ -570,7 +593,9 @@ export function ScheduleView({
     }
 
     if (days.length === 0) {
-        return <FixturesEmptyState message={timeFilterEmptyMessage(filter)} />;
+        return (
+            <FixturesEmptyState message={timeFilterEmptyMessage(filter, t)} />
+        );
     }
 
     return (
@@ -579,7 +604,7 @@ export function ScheduleView({
                 <ScheduleSection
                     key={day.header}
                     title={day.header}
-                    meta={sectionMeta(day.matches.length, null)}
+                    meta={sectionMeta(day.matches.length, null, t)}
                     matches={day.matches}
                     comparison={comparison}
                 />

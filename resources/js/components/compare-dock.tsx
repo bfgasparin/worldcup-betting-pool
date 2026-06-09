@@ -1,5 +1,6 @@
 import { Pencil, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from '@/hooks/use-translation';
 import { lane } from '@/lib/compare';
 import { cn } from '@/lib/utils';
 import type { PlayerDirectoryEntry } from '@/types/pools';
@@ -55,13 +56,14 @@ function SelectingDock({
     onCancel,
     onConfirm,
 }: SelectingProps) {
+    const { t } = useTranslation();
     const byId = new Map(directory.map((player) => [player.entry_id, player]));
     const atLimit = selectedIds.length >= limit;
 
     return (
         <>
             <span className="font-display text-sm font-semibold">
-                Comparing
+                {t('Comparing')}
             </span>
 
             <span
@@ -70,7 +72,7 @@ function SelectingDock({
                     lane(0).avatar,
                 )}
             >
-                You
+                {t('You')}
             </span>
 
             {selectedIds.map((id, index) => {
@@ -87,12 +89,14 @@ function SelectingDock({
                             aria-hidden
                         />
                         <span className="max-w-[7rem] truncate">
-                            {player?.name ?? 'Player'}
+                            {player?.name ?? t('Player')}
                         </span>
                         <button
                             type="button"
                             onClick={() => onRemove(id)}
-                            aria-label={`Remove ${player?.name ?? 'player'}`}
+                            aria-label={t('Remove :name', {
+                                name: player?.name ?? t('player'),
+                            })}
                             className="grid size-5 cursor-pointer place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                         >
                             <X className="size-3.5" />
@@ -109,7 +113,7 @@ function SelectingDock({
                 disabled={atLimit}
             >
                 <Plus className="size-4" />
-                Add player
+                {t('Add player')}
             </Button>
 
             <div className="ml-auto flex items-center gap-2">
@@ -119,7 +123,7 @@ function SelectingDock({
                     size="sm"
                     onClick={onCancel}
                 >
-                    Cancel
+                    {t('Cancel')}
                 </Button>
                 <Button
                     type="button"
@@ -127,7 +131,7 @@ function SelectingDock({
                     onClick={onConfirm}
                     disabled={selectedIds.length === 0}
                 >
-                    Compare ({selectedIds.length})
+                    {t('Compare (:count)', { count: selectedIds.length })}
                 </Button>
             </div>
         </>
@@ -141,11 +145,14 @@ function ComparingDock({
     onEdit,
     onExit,
 }: ComparingProps) {
+    const { t } = useTranslation();
+
     return (
         <>
             <span className="font-display text-sm font-semibold">
-                Comparing {playerCount}{' '}
-                {playerCount === 1 ? 'player' : 'players'}
+                {playerCount === 1
+                    ? t('Comparing :count player', { count: playerCount })
+                    : t('Comparing :count players', { count: playerCount })}
             </span>
 
             <div className="ml-auto flex items-center gap-2">
@@ -157,7 +164,7 @@ function ComparingDock({
                         onClick={onAddPlayer}
                     >
                         <Plus className="size-4" />
-                        Add
+                        {t('Add')}
                     </Button>
                 )}
                 <Button
@@ -167,7 +174,7 @@ function ComparingDock({
                     onClick={onEdit}
                 >
                     <Pencil className="size-4" />
-                    Edit
+                    {t('Edit')}
                 </Button>
                 <Button
                     type="button"
@@ -176,7 +183,7 @@ function ComparingDock({
                     onClick={onExit}
                 >
                     <X className="size-4" />
-                    Exit compare
+                    {t('Exit compare')}
                 </Button>
             </div>
         </>

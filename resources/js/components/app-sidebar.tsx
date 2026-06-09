@@ -21,6 +21,7 @@ import {
     SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
 import { useCurrentUrl } from '@/hooks/use-current-url';
+import { useTranslation } from '@/hooks/use-translation';
 import { resolveAccent, sourceMonogram } from '@/lib/accents';
 import { cn } from '@/lib/utils';
 import live from '@/routes/live';
@@ -52,6 +53,7 @@ export function AppSidebar() {
     const isAdmin = props.auth.isAdmin;
     const manageSlug = manageSlugFromUrl(page.url);
     const { isCurrentUrl } = useCurrentUrl();
+    const { t } = useTranslation();
 
     // The pool in context that the player hasn't joined still gets its row + sub-nav, so the
     // sidebar never dead-ends on a pool you're only previewing. Prepend it when it isn't listed.
@@ -86,11 +88,11 @@ export function AppSidebar() {
                             <SidebarMenuButton
                                 asChild
                                 isActive={!activePool && !onLive}
-                                tooltip={{ children: 'All pools' }}
+                                tooltip={{ children: t('All pools') }}
                             >
                                 <Link href={pools()} prefetch>
                                     <LayoutGrid />
-                                    <span>All pools</span>
+                                    <span>{t('All pools')}</span>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
@@ -98,18 +100,18 @@ export function AppSidebar() {
                             <SidebarMenuButton
                                 asChild
                                 isActive={onLive}
-                                tooltip={{ children: 'Live' }}
+                                tooltip={{ children: t('Live') }}
                             >
                                 <Link href={live.index()}>
                                     <Radio />
-                                    <span>Live</span>
+                                    <span>{t('Live')}</span>
                                 </Link>
                             </SidebarMenuButton>
                             {props.hasLiveMatches && (
                                 <SidebarMenuBadge>
                                     <LivePulse />
                                     <span className="sr-only">
-                                        Matches are live
+                                        {t('Matches are live')}
                                     </span>
                                 </SidebarMenuBadge>
                             )}
@@ -119,11 +121,11 @@ export function AppSidebar() {
                                 <SidebarMenuButton
                                     asChild
                                     isActive={onManage}
-                                    tooltip={{ children: 'Manage' }}
+                                    tooltip={{ children: t('Manage') }}
                                 >
                                     <Link href={manage.index()}>
                                         <Wrench />
-                                        <span>Manage</span>
+                                        <span>{t('Manage')}</span>
                                     </Link>
                                 </SidebarMenuButton>
 
@@ -146,7 +148,7 @@ export function AppSidebar() {
                                                         >
                                                             <item.icon />
                                                             <span>
-                                                                {item.title}
+                                                                {t(item.title)}
                                                             </span>
                                                         </Link>
                                                     </SidebarMenuSubButton>
@@ -162,7 +164,7 @@ export function AppSidebar() {
 
                 {rows.length > 0 && (
                     <SidebarGroup className="px-2 py-0">
-                        <SidebarGroupLabel>Your pools</SidebarGroupLabel>
+                        <SidebarGroupLabel>{t('Your pools')}</SidebarGroupLabel>
                         <SidebarMenu>
                             {rows.map((row) => (
                                 <PoolNavItem
@@ -191,6 +193,7 @@ export function AppSidebar() {
 function PoolNavItem({ row, active }: { row: PoolRow; active: boolean }) {
     const kit = resolveAccent(row.accent);
     const { isCurrentUrl } = useCurrentUrl();
+    const { t } = useTranslation();
     const items = tournamentNavItems(row.slug);
 
     return (
@@ -198,7 +201,7 @@ function PoolNavItem({ row, active }: { row: PoolRow; active: boolean }) {
             <SidebarMenuButton
                 asChild
                 isActive={active}
-                tooltip={{ children: row.name }}
+                tooltip={{ children: t(row.name) }}
             >
                 <Link href={poolsRoutes.show(row.slug).url} prefetch>
                     <span
@@ -210,7 +213,7 @@ function PoolNavItem({ row, active }: { row: PoolRow; active: boolean }) {
                     >
                         {sourceMonogram(row.source)}
                     </span>
-                    <span>{row.name}</span>
+                    <span>{t(row.name)}</span>
                 </Link>
             </SidebarMenuButton>
 
@@ -220,7 +223,7 @@ function PoolNavItem({ row, active }: { row: PoolRow; active: boolean }) {
                         className="bg-gold-gradient size-2 rounded-full shadow-[var(--sh-sm)]"
                         aria-hidden
                     />
-                    <span className="sr-only">Needs your attention</span>
+                    <span className="sr-only">{t('Needs your attention')}</span>
                 </SidebarMenuBadge>
             )}
 
@@ -234,7 +237,7 @@ function PoolNavItem({ row, active }: { row: PoolRow; active: boolean }) {
                             >
                                 <Link href={item.href} prefetch>
                                     <item.icon />
-                                    <span>{item.title}</span>
+                                    <span>{t(item.title)}</span>
                                 </Link>
                             </SidebarMenuSubButton>
 
@@ -247,7 +250,7 @@ function PoolNavItem({ row, active }: { row: PoolRow; active: boolean }) {
                                         aria-hidden
                                     />
                                     <span className="sr-only">
-                                        Predictions need your attention
+                                        {t('Predictions need your attention')}
                                     </span>
                                 </SidebarMenuBadge>
                             )}

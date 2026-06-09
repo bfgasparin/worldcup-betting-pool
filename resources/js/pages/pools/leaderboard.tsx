@@ -20,6 +20,8 @@ import PlayerAvatar from '@/components/player-avatar';
 import { PoolIdentity } from '@/components/pool-identity';
 import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
+import type { Translator } from '@/hooks/use-translation';
+import { useTranslation } from '@/hooks/use-translation';
 import { tiebreakRule } from '@/lib/leaderboards';
 import { poolTitle } from '@/lib/pool-title';
 import { cn } from '@/lib/utils';
@@ -44,9 +46,11 @@ function BoardTabs({
     active: LeaderboardCategoryKey;
     onSelect: (key: LeaderboardCategoryKey) => void;
 }) {
+    const { t } = useTranslation();
+
     return (
         <SegmentedTabs
-            aria-label="Leaderboard"
+            aria-label={t('Leaderboard')}
             value={active}
             onChange={onSelect}
             items={boards.map((board) => ({
@@ -75,6 +79,7 @@ function MatchdaySelector({
     selected: string;
     onSelect: (key: string) => void;
 }) {
+    const { t } = useTranslation();
     const travellable = matchdays.filter(isTravellable).map((m) => m.key);
     const position = travellable.indexOf(selected);
     const prev = position > 0 ? travellable[position - 1] : null;
@@ -90,7 +95,7 @@ function MatchdaySelector({
                 className="min-w-0 flex-1"
                 size="sm"
                 disabledStyle="dashed"
-                aria-label="Matchday"
+                aria-label={t('Matchday')}
                 value={selected}
                 onChange={onSelect}
                 items={matchdays.map((matchday) => ({
@@ -113,6 +118,7 @@ function StepButton({
     target: string | null;
     onSelect: (key: string) => void;
 }) {
+    const { t } = useTranslation();
     const Icon = direction === 'prev' ? ChevronLeft : ChevronRight;
 
     return (
@@ -121,7 +127,9 @@ function StepButton({
             disabled={target === null}
             onClick={() => target !== null && onSelect(target)}
             aria-label={
-                direction === 'prev' ? 'Previous matchday' : 'Next matchday'
+                direction === 'prev'
+                    ? t('Previous matchday')
+                    : t('Next matchday')
             }
             className="grid size-9 shrink-0 place-items-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
         >
@@ -142,8 +150,10 @@ function stackPlayers(card: MatchdayCard) {
 }
 
 /** The single leader's name, or "6 players" when several tie. */
-function playersLabel(card: MatchdayCard): string {
-    return card.count === 1 ? card.leaders[0].name : `${card.count} players`;
+function playersLabel(card: MatchdayCard, t: Translator['t']): string {
+    return card.count === 1
+        ? card.leaders[0].name
+        : t(':count players', { count: card.count });
 }
 
 /** One of the three per-matchday cards (you earned / top earner / lowest earner). Tie-aware. */
@@ -162,6 +172,8 @@ function MatchdayStatCard({
     statLabel: string;
     showName: boolean;
 }) {
+    const { t } = useTranslation();
+
     return (
         <div className="card-elevated rounded-2xl border border-border bg-card p-4">
             <div className="flex items-center gap-2 text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">
@@ -185,14 +197,14 @@ function MatchdayStatCard({
                         </div>
                         <div className="mt-1 truncate text-xs text-muted-foreground">
                             {showName
-                                ? playersLabel(card)
+                                ? playersLabel(card, t)
                                 : statLabel.toLowerCase()}
                         </div>
                     </div>
                 </div>
             ) : (
                 <p className="mt-3 text-sm text-muted-foreground">
-                    Not started
+                    {t('Not started')}
                 </p>
             )}
         </div>
@@ -212,6 +224,7 @@ function MoverCard({
     direction: 'up' | 'down';
     card: MatchdayCard | null;
 }) {
+    const { t } = useTranslation();
     const up = direction === 'up';
     const Icon = up ? ArrowUp : ArrowDown;
 
@@ -232,7 +245,7 @@ function MoverCard({
                     <AvatarStack players={stackPlayers(card)} />
                     <div className="min-w-0">
                         <div className="truncate text-sm font-semibold text-foreground">
-                            {playersLabel(card)}
+                            {playersLabel(card, t)}
                         </div>
                         <div
                             className={cn(
@@ -241,14 +254,17 @@ function MoverCard({
                             )}
                         >
                             <Icon className="size-3.5" />
-                            {card.leaders[0].value}{' '}
-                            {card.leaders[0].value === 1 ? 'place' : 'places'}
+                            {card.leaders[0].value === 1
+                                ? t('1 place')
+                                : t(':count places', {
+                                      count: card.leaders[0].value,
+                                  })}
                         </div>
                     </div>
                 </div>
             ) : (
                 <p className="mt-3 text-sm text-muted-foreground">
-                    No movement
+                    {t('No movement')}
                 </p>
             )}
         </div>
@@ -289,12 +305,13 @@ function PersonalCard({
     matchdayValue: number | null;
     statLabel: string;
 }) {
+    const { t } = useTranslation();
     const label = statLabel.toLowerCase();
 
     return (
         <div className="bg-brand-gradient shadow-glow relative flex flex-col overflow-hidden rounded-2xl p-5 text-white lg:w-72 lg:shrink-0">
             <div className="text-xs font-bold tracking-[0.12em] text-white/80 uppercase">
-                Your standing
+                {t('Your standing')}
             </div>
 
             <div className="flex flex-1 items-center gap-4 py-4">
@@ -320,7 +337,7 @@ function PersonalCard({
             <div className="grid grid-cols-2 gap-3 border-t border-white/15 pt-3">
                 <div>
                     <div className="text-[11px] font-bold tracking-[0.1em] text-white/70 uppercase">
-                        This matchday
+                        {t('This matchday')}
                     </div>
                     <div className="font-display text-lg font-semibold tabular-nums">
                         {matchdayValue === null ? '—' : `+${matchdayValue}`}
@@ -328,7 +345,7 @@ function PersonalCard({
                 </div>
                 <div>
                     <div className="truncate text-[11px] font-bold tracking-[0.1em] text-white/70 uppercase">
-                        Total {label}
+                        {t('Total :label', { label })}
                     </div>
                     <div className="font-display text-lg font-semibold tabular-nums">
                         {row.primary_value === null
@@ -348,6 +365,7 @@ export default function Leaderboard({
     matchdays,
     selected_matchday,
 }: LeaderboardPageProps) {
+    const { t } = useTranslation();
     const tz = useDisplayTimeZone();
     const [active, setActive] = useState<LeaderboardCategoryKey>(
         active_board ?? boards[0]?.key ?? 'overall',
@@ -389,30 +407,33 @@ export default function Leaderboard({
 
     return (
         <>
-            <Head title={poolTitle(pool.source, pool.name, 'Leaderboards')} />
+            <Head
+                title={poolTitle(pool.source, t(pool.name), t('Leaderboards'))}
+            />
             <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
                 <header className="hero relative overflow-hidden rounded-3xl border border-border p-8">
                     <div className="hero-lines" />
                     <div className="relative flex flex-col gap-3">
                         <span className="inline-flex items-center gap-2 text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">
                             <ListOrdered className="size-4 text-primary" />
-                            Leaderboards
+                            {t('Leaderboards')}
                         </span>
                         <div className="flex flex-wrap items-center gap-3">
                             <h1 className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
-                                {board?.label ?? 'Leaderboards'}
+                                {board?.label ?? t('Leaderboards')}
                             </h1>
                             {isPaid && board?.awards_prizes && (
                                 <span className="bg-gold-gradient inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold tracking-wide text-[#3a2600] uppercase shadow-[var(--sh-sm)]">
                                     <Trophy className="size-3.5" />
-                                    Prize board
+                                    {t('Prize board')}
                                 </span>
                             )}
                         </div>
                         <p className="inline-flex items-center gap-2 text-sm text-muted-foreground">
                             <Users className="size-4" />
-                            {participants}{' '}
-                            {participants === 1 ? 'player' : 'players'}
+                            {participants === 1
+                                ? t('1 player')
+                                : t(':count players', { count: participants })}
                         </p>
                         <PoolIdentity
                             source={pool.source}
@@ -441,7 +462,7 @@ export default function Leaderboard({
                 {board && (
                     <div className="flex flex-col items-baseline justify-between gap-1 sm:flex-row sm:gap-3">
                         <p className="font-display text-sm font-semibold text-foreground">
-                            {selected?.label ?? 'This matchday'}
+                            {selected?.label ?? t('This matchday')}
                             {dateRange && (
                                 <span className="ml-1.5 font-sans font-normal text-muted-foreground">
                                     · {dateRange}
@@ -462,7 +483,7 @@ export default function Leaderboard({
                         )}
                         <div className="grid flex-1 grid-cols-2 gap-3">
                             <MatchdayStatCard
-                                title="Top of the matchday"
+                                title={t('Top of the matchday')}
                                 icon={Crown}
                                 tone="gold"
                                 card={cards.top}
@@ -470,7 +491,7 @@ export default function Leaderboard({
                                 showName
                             />
                             <MatchdayStatCard
-                                title="Quietest matchday"
+                                title={t('Quietest matchday')}
                                 icon={TrendingDown}
                                 tone="muted"
                                 card={cards.lowest}
@@ -478,12 +499,12 @@ export default function Leaderboard({
                                 showName
                             />
                             <MoverCard
-                                title="Climber"
+                                title={t('Climber')}
                                 direction="up"
                                 card={cards.biggest_climber}
                             />
                             <MoverCard
-                                title="Faller"
+                                title={t('Faller')}
                                 direction="down"
                                 card={cards.biggest_faller}
                             />
@@ -496,15 +517,19 @@ export default function Leaderboard({
                         <div className="flex flex-col gap-1.5">
                             <p className="text-sm font-semibold text-foreground">
                                 {isCurrent
-                                    ? 'Live standings'
-                                    : `Standings at the end of ${selected?.label ?? 'this matchday'}`}
+                                    ? t('Live standings')
+                                    : t('Standings at the end of :matchday', {
+                                          matchday:
+                                              selected?.label ??
+                                              t('this matchday'),
+                                      })}
                             </p>
                             <p className="text-sm text-muted-foreground">
                                 {board.description}
                             </p>
                             <p className="inline-flex items-start gap-1.5 text-xs font-medium text-muted-foreground">
                                 <Scale className="mt-px size-3.5 shrink-0 text-primary/70" />
-                                {tiebreakRule(board)}
+                                {tiebreakRule(board, t)}
                             </p>
                         </div>
 
@@ -515,12 +540,12 @@ export default function Leaderboard({
                                 </div>
                                 <div>
                                     <p className="font-display text-base font-semibold">
-                                        The table is warming up
+                                        {t('The table is warming up')}
                                     </p>
                                     <p className="mt-1 text-sm text-muted-foreground">
-                                        Standings land as match results come in
-                                        — predictions lock at kick-off. Here's
-                                        everyone playing so far.
+                                        {t(
+                                            "Standings land as match results come in — predictions lock at kick-off. Here's everyone playing so far.",
+                                        )}
                                     </p>
                                 </div>
                             </div>
@@ -538,11 +563,12 @@ export default function Leaderboard({
                             <div className="flex min-h-44 flex-col items-center justify-center gap-2 rounded-3xl border border-dashed border-border p-8 text-center">
                                 <Users className="size-6 text-muted-foreground" />
                                 <p className="font-display font-semibold">
-                                    No players yet
+                                    {t('No players yet')}
                                 </p>
                                 <p className="max-w-sm text-sm text-muted-foreground">
-                                    Predictions put you on the board — be the
-                                    first to lock in your scorelines.
+                                    {t(
+                                        'Predictions put you on the board — be the first to lock in your scorelines.',
+                                    )}
                                 </p>
                             </div>
                         )}

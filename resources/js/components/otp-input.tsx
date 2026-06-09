@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import type { ClipboardEvent, KeyboardEvent } from 'react';
+import { useTranslation } from '@/hooks/use-translation';
 import { cn } from '@/lib/utils';
 
 type Props = {
@@ -27,8 +28,10 @@ export default function OtpInput({
     autoFocus = false,
     invalid = false,
     name,
-    'aria-label': ariaLabel = 'Verification code',
+    'aria-label': ariaLabelProp,
 }: Props) {
+    const { t } = useTranslation();
+    const ariaLabel = ariaLabelProp ?? t('Verification code');
     const inputs = useRef<Array<HTMLInputElement | null>>([]);
 
     const focusCell = (index: number): void => {
@@ -134,7 +137,10 @@ export default function OtpInput({
                     autoFocus={autoFocus && index === 0}
                     value={value[index] ?? ''}
                     aria-invalid={invalid}
-                    aria-label={`${ariaLabel} digit ${index + 1}`}
+                    aria-label={t(':label digit :number', {
+                        label: ariaLabel,
+                        number: index + 1,
+                    })}
                     onChange={(event) =>
                         handleChange(index, event.target.value)
                     }

@@ -3,20 +3,20 @@
     $prevOrdinal = \Illuminate\Support\Number::ordinal($previousRank);
     $aheadOrdinal = \Illuminate\Support\Number::ordinal(max($rank - 1, 1));
     $isUp = $direction === 'up';
-    $places = \Illuminate\Support\Str::plural('place', $delta);
+    $places = trans_choice('place|places', $delta);
 @endphp
-{!! $source !!}'s {!! $poolName !!} — {{ $leaderboardLabel }} leaderboard update
+{!! __('The pool by :source — :label leaderboard update', ['source' => $source, 'label' => $leaderboardLabel]) !!}
 
-{{ $isUp ? "You climbed to {$rankOrdinal}!" : "You slipped to {$rankOrdinal}" }}
+{{ $isUp ? __('You climbed to :rank!', ['rank' => $rankOrdinal]) : __('You slipped to :rank', ['rank' => $rankOrdinal]) }}
 
-You {{ $isUp ? 'climbed' : 'slipped' }} {{ $delta }} {{ $places }} (from {{ $prevOrdinal }}) — now {{ $rankOrdinal }} of {{ $totalEntries }} on {{ $points }} pts.
+{{ $isUp ? __('You climbed :delta :places (from :prev) — now :rank of :total on :points pts.', ['delta' => $delta, 'places' => $places, 'prev' => $prevOrdinal, 'rank' => $rankOrdinal, 'total' => $totalEntries, 'points' => $points]) : __('You slipped :delta :places (from :prev) — now :rank of :total on :points pts.', ['delta' => $delta, 'places' => $places, 'prev' => $prevOrdinal, 'rank' => $rankOrdinal, 'total' => $totalEntries, 'points' => $points]) }}
 @if ($aheadName && $pointsBehind !== null && $pointsBehind > 0)
 
-You're just {{ $pointsBehind }} pts behind {{ $aheadName }} in {{ $aheadOrdinal }}.
+{{ __('You\'re just :points pts behind :name in :rank.', ['points' => $pointsBehind, 'name' => $aheadName, 'rank' => $aheadOrdinal]) }}
 @endif
 
-See the full table: {{ $url }}
+{{ __('See the full table') }}: {{ $url }}
 
-There's plenty of football still to come — keep an eye on the table.
+{{ __('There\'s plenty of football still to come — keep an eye on the table.') }}
 
 — Brothers Bets

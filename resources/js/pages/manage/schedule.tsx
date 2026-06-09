@@ -20,7 +20,9 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
+import { useTranslation } from '@/hooks/use-translation';
 import { toZonedInputValue } from '@/lib/datetime';
+import { formatPlaceholderLabel } from '@/lib/placeholder-label';
 import manage from '@/routes/manage';
 import type { BreadcrumbItem } from '@/types/navigation';
 import type { ScheduleFixtureRow, VenueOption } from '@/types/pools';
@@ -64,6 +66,7 @@ function RescheduleRow({
     slug: string;
     viewerTz: string;
 }) {
+    const { t, tCountry, tVenue, tBracket } = useTranslation();
     const isFinished = row.status === 'finished';
     const [venue, setVenue] = useState(row.venue ?? venues[0]?.name ?? '');
     const [kickoff, setKickoff] = useState(
@@ -88,7 +91,7 @@ function RescheduleRow({
                     setError(
                         errors.kicks_off_at ??
                             errors.venue ??
-                            'Could not reschedule this fixture.',
+                            t('Could not reschedule this fixture.'),
                     ),
                 onFinish: () => setSaving(false),
             },
@@ -109,13 +112,13 @@ function RescheduleRow({
         <div className="grid grid-cols-1 gap-3 border-b border-border px-4 py-3 last:border-0 lg:grid-cols-[150px_1fr_auto] lg:items-center">
             <div className="flex flex-col gap-1">
                 <span className="font-display text-sm font-semibold">
-                    Match {row.match_number}
+                    {t('Match :number', { number: row.match_number })}
                 </span>
                 <span className="text-[11px] font-medium text-muted-foreground">
-                    {row.phase}
+                    {t(row.phase)}
                 </span>
                 <span className="inline-flex w-fit items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
-                    {STATUS_LABELS[row.status]}
+                    {t(STATUS_LABELS[row.status])}
                 </span>
             </div>
 
@@ -124,41 +127,57 @@ function RescheduleRow({
                     <span className="inline-flex min-w-0 items-center gap-1.5">
                         <Flag team={row.home} className="h-4 w-6" />
                         <span className="truncate">
-                            {row.home?.name ?? row.home_label}
+                            {row.home
+                                ? tCountry(row.home.code, row.home.name)
+                                : row.home_label
+                                  ? formatPlaceholderLabel(
+                                        row.home_label,
+                                        tBracket,
+                                    )
+                                  : row.home_label}
                         </span>
                     </span>
                     <span className="text-muted-foreground">v</span>
                     <span className="inline-flex min-w-0 items-center gap-1.5">
                         <Flag team={row.away} className="h-4 w-6" />
                         <span className="truncate">
-                            {row.away?.name ?? row.away_label}
+                            {row.away
+                                ? tCountry(row.away.code, row.away.name)
+                                : row.away_label
+                                  ? formatPlaceholderLabel(
+                                        row.away_label,
+                                        tBracket,
+                                    )
+                                  : row.away_label}
                         </span>
                     </span>
                 </div>
                 {row.kicks_off_at && (
                     <span className="text-[11px] text-muted-foreground">
-                        Currently {formatLocal(row.kicks_off_at, viewerTz)}
-                        {row.venue ? ` · ${row.venue}` : ''}
+                        {t('Currently :datetime', {
+                            datetime: formatLocal(row.kicks_off_at, viewerTz),
+                        })}
+                        {row.venue ? ` · ${tVenue(row.venue)}` : ''}
                     </span>
                 )}
                 {row.governs_prediction_lock && (
                     <span className="inline-flex w-fit items-center gap-1 text-[11px] font-medium text-amber">
                         <AlertTriangle className="size-3" />
-                        Sets the prediction deadline
+                        {t('Sets the prediction deadline')}
                     </span>
                 )}
             </div>
 
             {isFinished ? (
                 <span className="text-xs text-muted-foreground italic lg:justify-self-end">
-                    Finished — can&apos;t be rescheduled.
+                    {t("Finished — can't be rescheduled.")}
                 </span>
             ) : (
                 <div className="flex flex-col gap-1 lg:items-end">
                     <div className="flex flex-wrap items-center gap-2">
                         <Select value={venue} onValueChange={setVenue}>
                             <SelectTrigger size="sm" className="w-44">
-                                <SelectValue placeholder="Venue" />
+                                <SelectValue placeholder={t('Venue')} />
                             </SelectTrigger>
                             <SelectContent>
                                 {venues.map((option) => (
@@ -166,7 +185,7 @@ function RescheduleRow({
                                         key={option.name}
                                         value={option.name}
                                     >
-                                        {option.name}
+                                        {tVenue(option.name)}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -176,7 +195,7 @@ function RescheduleRow({
                             value={kickoff}
                             onChange={(event) => setKickoff(event.target.value)}
                             className="h-9 w-52"
-                            aria-label="Kickoff (your local time)"
+                            aria-label={t('Kickoff (your local time)')}
                         />
                         <Button
                             size="sm"
@@ -184,11 +203,13 @@ function RescheduleRow({
                             disabled={saving || kickoff === '' || venue === ''}
                             onClick={onReschedule}
                         >
-                            {saving ? 'Saving…' : 'Reschedule'}
+                            {saving ? t('Saving…') : t('Reschedule')}
                         </Button>
                     </div>
                     <span className="text-[11px] text-muted-foreground">
-                        Your local time ({viewerTz})
+                        {t('Your local time (:timezone)', {
+                            timezone: viewerTz,
+                        })}
                     </span>
                     {error && (
                         <span className="text-xs text-destructive">
@@ -201,12 +222,13 @@ function RescheduleRow({
             <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Move the prediction deadline?</DialogTitle>
+                        <DialogTitle>
+                            {t('Move the prediction deadline?')}
+                        </DialogTitle>
                         <DialogDescription>
-                            This match currently sets the prediction deadline
-                            for its round. Rescheduling it will move that
-                            deadline and may re-open or lock predictions.
-                            Continue?
+                            {t(
+                                'This match currently sets the prediction deadline for its round. Rescheduling it will move that deadline and may re-open or lock predictions. Continue?',
+                            )}
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
@@ -214,7 +236,7 @@ function RescheduleRow({
                             variant="ghost"
                             onClick={() => setConfirmOpen(false)}
                         >
-                            Cancel
+                            {t('Cancel')}
                         </Button>
                         <Button
                             onClick={() => {
@@ -222,7 +244,7 @@ function RescheduleRow({
                                 submit();
                             }}
                         >
-                            Reschedule anyway
+                            {t('Reschedule anyway')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -236,6 +258,7 @@ export default function ScheduleIndex({
     venues,
     rows,
 }: SchedulePageProps) {
+    const { t } = useTranslation();
     const viewerTz = useDisplayTimeZone();
 
     // Group fixtures by phase, preserving the match-number order the server sent.
@@ -253,23 +276,22 @@ export default function ScheduleIndex({
 
     return (
         <>
-            <Head title={`Manage schedule · ${tournament.name}`} />
+            <Head title={`${t('Manage schedule')} · ${t(tournament.name)}`} />
             <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
                 <header className="hero relative overflow-hidden rounded-3xl border border-border p-8">
                     <div className="hero-lines" />
                     <div className="relative flex flex-col gap-3">
                         <span className="inline-flex items-center gap-2 text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">
                             <CalendarClock className="size-4 text-primary" />
-                            Manage schedule
+                            {t('Manage schedule')}
                         </span>
                         <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-                            {tournament.name}
+                            {t(tournament.name)}
                         </h1>
                         <p className="max-w-xl text-sm text-muted-foreground">
-                            Move a delayed match to a new kickoff and venue.
-                            Only matches that haven&apos;t finished can be
-                            rescheduled; doing so clears any unpublished
-                            proposed result.
+                            {t(
+                                "Move a delayed match to a new kickoff and venue. Only matches that haven't finished can be rescheduled; doing so clears any unpublished proposed result.",
+                            )}
                         </p>
                     </div>
                 </header>
@@ -277,7 +299,7 @@ export default function ScheduleIndex({
                 {phases.map((phase) => (
                     <section key={phase.name} className="flex flex-col gap-2">
                         <h2 className="font-display text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                            {phase.name}
+                            {t(phase.name)}
                         </h2>
                         <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--sh-sm)]">
                             {phase.rows.map((row) => (

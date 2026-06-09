@@ -1,10 +1,10 @@
 @extends('emails.layout')
 
-@section('title', 'New player joined')
+@section('title', __('New player joined'))
 
-@section('preheader', "{$playerName} just joined {$source}'s {$poolName} — arrange their buy-in.")
+@section('preheader', __(':name just joined the pool by :source — arrange their buy-in.', ['name' => $playerName, 'source' => $source]))
 
-@section('headerTag', 'New entry')
+@section('headerTag', __('New entry'))
 
 @section('accentBarSolid', $accentSolid)
 @section('accentBarGradient', $accentGradient)
@@ -14,8 +14,8 @@
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
             <td class="ffa-pad" align="center" style="padding:36px 32px 4px;text-align:center;">
-                <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:{{ $accentInk }};">Pool by {{ $source }} &middot; New entry</p>
-                <h1 class="ffa-h1" style="margin:12px 0 0;font-family:'Fredoka','Trebuchet MS',Verdana,sans-serif;font-size:30px;font-weight:600;line-height:1.1;letter-spacing:-0.02em;color:#0D2E23;">{{ $playerName }} joined {{ $source }}'s {{ $poolName }}</h1>
+                <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:{{ $accentInk }};">{{ __('Pool by :source · New entry', ['source' => $source]) }}</p>
+                <h1 class="ffa-h1" style="margin:12px 0 0;font-family:'Fredoka','Trebuchet MS',Verdana,sans-serif;font-size:30px;font-weight:600;line-height:1.1;letter-spacing:-0.02em;color:#0D2E23;">{{ __(':name joined the pool by :source', ['name' => $playerName, 'source' => $source]) }}</h1>
             </td>
         </tr>
     </table>
@@ -24,7 +24,7 @@
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
             <td class="ffa-pad-narrow" align="center" style="padding:14px 48px 0;text-align:center;">
-                <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#5E6B64;">A new player is in. Reach out to arrange their buy-in payment.</p>
+                <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#5E6B64;">{{ __('A new player is in. Reach out to arrange their buy-in payment.') }}</p>
             </td>
         </tr>
     </table>
@@ -36,15 +36,15 @@
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F6F9F5;border:1px solid #E2EBE2;border-radius:16px;">
                     @php
                         $rows = [
-                            ['Player', e($playerName)],
-                            ['Email', '<a class="ffa-anchor" href="mailto:' . e($playerEmail) . '">' . e($playerEmail) . '</a>'],
+                            [__('Player'), e($playerName)],
+                            [__('Email'), '<a class="ffa-anchor" href="mailto:' . e($playerEmail) . '">' . e($playerEmail) . '</a>'],
                         ];
                         if (! empty($playerPhone)) {
-                            $rows[] = ['Phone', '<a class="ffa-anchor" href="tel:' . e($playerPhone) . '">' . e($playerPhone) . '</a>'];
+                            $rows[] = [__('Phone'), '<a class="ffa-anchor" href="tel:' . e($playerPhone) . '">' . e($playerPhone) . '</a>'];
                         }
-                        $rows[] = ['Buy-in', (float) $entryPrice > 0
+                        $rows[] = [__('Buy-in'), (float) $entryPrice > 0
                             ? e($currency) . ' ' . number_format((float) $entryPrice, 2)
-                            : 'No buy-in (free pool)'];
+                            : __('No buy-in (free pool)')];
                     @endphp
                     @foreach ($rows as $i => [$label, $value])
                         <tr>
@@ -61,12 +61,12 @@
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
             <td align="center" style="padding:24px 32px 34px;text-align:center;">
-                @include('emails.partials.button', ['url' => $url, 'label' => 'View the pool →', 'variant' => 'pitch'])
+                @include('emails.partials.button', ['url' => $url, 'label' => __('View the pool →'), 'variant' => 'pitch'])
             </td>
         </tr>
     </table>
 @endsection
 
 @section('footerNote')
-    You're getting this because you're an organizer of <b style="color:#5E6B64;font-weight:700;">{{ $source }}'s {{ $poolName }}</b> on Brothers Bets. We only email you about pools you run.
+    {!! __('You\'re getting this because you\'re an organizer of :pool on Brothers Bets. We only email you about pools you run.', ['pool' => '<b style="color:#5E6B64;font-weight:700;">' . __('the pool by :source', ['source' => e($source)]) . '</b>']) !!}
 @endsection

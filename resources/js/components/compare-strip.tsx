@@ -5,6 +5,7 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { useTranslation } from '@/hooks/use-translation';
 import { lane } from '@/lib/compare';
 import { ordinal } from '@/lib/leaderboards';
 import { cn } from '@/lib/utils';
@@ -23,6 +24,7 @@ function LaneCard({
     index: number;
     onRemove?: () => void;
 }) {
+    const { t } = useTranslation();
     const kit = lane(index);
 
     return (
@@ -36,7 +38,9 @@ function LaneCard({
                 <button
                     type="button"
                     onClick={onRemove}
-                    aria-label={`Remove ${player.name} from the comparison`}
+                    aria-label={t('Remove :name from the comparison', {
+                        name: player.name,
+                    })}
                     className="absolute top-2 right-2 grid size-6 cursor-pointer place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                     <X className="size-3.5" />
@@ -58,7 +62,7 @@ function LaneCard({
                     <span className="block text-xs font-medium text-muted-foreground">
                         {player.rank != null
                             ? ordinal(player.rank)
-                            : 'Unranked'}
+                            : t('Unranked')}
                     </span>
                 </span>
             </div>
@@ -68,7 +72,7 @@ function LaneCard({
                     {player.total_points ?? '—'}
                 </span>
                 <span className="text-xs font-semibold text-muted-foreground">
-                    pts
+                    {t('pts')}
                 </span>
             </div>
         </div>
@@ -83,10 +87,12 @@ function BoardTotals({
     players: ComparePlayer[];
     boards: BoardDescriptor[];
 }) {
+    const { t } = useTranslation();
+
     return (
         <Collapsible>
             <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-center gap-1.5 font-display text-xs font-semibold tracking-wide text-muted-foreground uppercase transition-colors outline-none hover:text-foreground focus-visible:text-foreground [&[data-state=open]>svg]:rotate-180">
-                Board totals
+                {t('Board totals')}
                 <ChevronDown className="size-4 transition-transform duration-200" />
             </CollapsibleTrigger>
             <CollapsibleContent className="pt-3">
@@ -94,7 +100,7 @@ function BoardTotals({
                     <table className="w-full border-collapse text-sm tabular-nums">
                         <thead>
                             <tr className="[&>th]:px-3 [&>th]:py-2 [&>th]:text-left [&>th]:text-[11px] [&>th]:font-bold [&>th]:tracking-wide [&>th]:text-muted-foreground [&>th]:uppercase">
-                                <th>Board</th>
+                                <th>{t('Board')}</th>
                                 {players.map((player, index) => (
                                     <th key={index} className="!text-right">
                                         <span
@@ -109,7 +115,7 @@ function BoardTotals({
                                                 aria-hidden
                                             />
                                             {player.is_viewer
-                                                ? 'You'
+                                                ? t('You')
                                                 : player.initials}
                                         </span>
                                     </th>
@@ -166,6 +172,7 @@ export function CompareStrip({
     boards: BoardDescriptor[];
     onRemove: (entryId: number) => void;
 }) {
+    const { t } = useTranslation();
     // Opponents' picks stay hidden until each phase's window locks; flag that so empty lanes read as
     // "revealed later" rather than "nobody predicted". Any still-open window means some are hidden.
     const picksHidden = Object.values(windows).some(
@@ -176,7 +183,7 @@ export function CompareStrip({
     return (
         <section className="flex flex-col gap-4 rounded-3xl border border-border bg-card/60 p-5 shadow-[var(--sh-sm)]">
             <h2 className="font-display text-xl font-semibold tracking-tight">
-                Head-to-head
+                {t('Head-to-head')}
             </h2>
 
             <div className="flex [scrollbar-width:none] gap-3 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden">
@@ -197,8 +204,9 @@ export function CompareStrip({
             {picksHidden && (
                 <p className="inline-flex items-center gap-2 rounded-2xl bg-muted/60 px-4 py-2.5 text-sm font-medium text-muted-foreground">
                     <Lock className="size-4 shrink-0" />
-                    Other players' picks unlock once predictions lock. Points
-                    and standings still compare now.
+                    {t(
+                        "Other players' picks unlock once predictions lock. Points and standings still compare now.",
+                    )}
                 </p>
             )}
 
