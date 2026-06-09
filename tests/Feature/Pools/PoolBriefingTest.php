@@ -69,26 +69,17 @@ class PoolBriefingTest extends TestCase
         $user = User::factory()->create();
         $pool = Tournament::firstOrFail()->pools()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
 
-        // Simulate a concurrent request winning the race: right after syncWithoutDetaching reads the
-        // (empty) pivot, sneak in the conflicting row so its follow-up insert hits the unique index.
-        $injected = false;
-        DB::listen(function ($query) use (&$injected, $pool, $user) {
-            if (! $injected
-                && str_contains($query->sql, 'select')
-                && str_contains($query->sql, 'pool_briefing_views')) {
-                $injected = true;
-                DB::table('pool_briefing_views')->insert([
-                    'pool_id' => $pool->id,
-                    'user_id' => $user->id,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
-        });
+        // A concurrent first-time view already recorded the row; marking it seen again must be a
+        // no-op rather than a duplicate-key error (atomic insert-or-ignore keeps it a single row).
+        DB::table('pool_briefing_views')->insert([
+            'pool_id' => $pool->id,
+            'user_id' => $user->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
 
         $pool->markBriefingSeenBy($user); // must not throw
 
-        $this->assertTrue($injected, 'the existence-check SELECT should have fired');
         $this->assertDatabaseCount('pool_briefing_views', 1);
     }
 

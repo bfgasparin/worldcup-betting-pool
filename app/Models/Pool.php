@@ -13,7 +13,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\UniqueConstraintViolationException;
 
 #[Fillable([
     'tournament_id',
@@ -182,12 +181,14 @@ class Pool extends Model
      */
     public function markBriefingSeenBy(User $user): void
     {
-        try {
-            $this->briefedUsers()->syncWithoutDetaching([$user->id]);
-        } catch (UniqueConstraintViolationException) {
-            // Two concurrent first-time views (e.g. React StrictMode's double-invoked effect) can
-            // both pass syncWithoutDetaching's existence check and then race on the insert. The
-            // unique (pool_id, user_id) index keeps it a single row, so losing that race is a no-op.
-        }
+        // Atomic insert-or-ignore: the unique (pool_id, user_id) index dedupes concurrent first-time
+        // views (e.g. React StrictMode's double-invoked effect) with no read-then-write race and no
+        // thrown unique violation — the latter would poison an enclosing Postgres transaction.
+        $this->briefedUsers()->newPivotStatement()->insertOrIgnore([
+            'pool_id' => $this->id,
+            'user_id' => $user->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 }
