@@ -67,7 +67,7 @@ export function InstallAppSection() {
                 variant="small"
                 title={t('Install app')}
                 description={t(
-                    'Add Brothers Bets to your home screen for quick access.',
+                    'Install Brothers Bets as an app for quick, full-screen access.',
                 )}
             />
             <InstallAction />
