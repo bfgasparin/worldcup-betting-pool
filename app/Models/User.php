@@ -56,24 +56,36 @@ class User extends Authenticatable implements HasLocalePreference, PasskeyUser
     }
 
     /**
-     * The public URL of the user's avatar, or null when none is set.
+     * The URL of the user's avatar, or null when none is set.
+     *
+     * Avatars live on the default disk: the local public disk in development, a private
+     * object-storage bucket in production. Private buckets have no publicly reachable URL,
+     * so we hand out a short-lived signed URL whenever the disk supports temporary URLs.
      */
     protected function avatar(): Attribute
     {
-        return Attribute::get(fn (): ?string => $this->avatar_path
-            ? Storage::disk('public')->url($this->avatar_path)
-            : null);
+        return Attribute::get(function (): ?string {
+            if (! $this->avatar_path) {
+                return null;
+            }
+
+            $disk = Storage::disk();
+
+            return $disk->providesTemporaryUrls()
+                ? $disk->temporaryUrl($this->avatar_path, now()->addHour())
+                : $disk->url($this->avatar_path);
+        });
     }
 
     /**
-     * Store a freshly uploaded avatar on the public disk, discarding any previous one.
+     * Store a freshly uploaded avatar on the default disk, discarding any previous one.
      */
     public function storeAvatar(UploadedFile $file): void
     {
         $this->removeAvatar();
 
         $this->update([
-            'avatar_path' => $file->store("avatars/{$this->id}", 'public'),
+            'avatar_path' => $file->store("avatars/{$this->id}"),
         ]);
     }
 
@@ -86,7 +98,7 @@ class User extends Authenticatable implements HasLocalePreference, PasskeyUser
             return;
         }
 
-        Storage::disk('public')->delete($this->avatar_path);
+        Storage::delete($this->avatar_path);
 
         $this->update(['avatar_path' => null]);
     }

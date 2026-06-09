@@ -4,11 +4,11 @@ namespace Tests\Feature;
 
 use App\Enums\LeaderboardCategory;
 use App\Models\Entry;
-use App\Models\Pool;
 use App\Models\Group;
 use App\Models\GroupPrediction;
 use App\Models\KnockoutPrediction;
 use App\Models\LeaderboardStanding;
+use App\Models\Pool;
 use App\Models\Team;
 use App\Models\Tournament;
 use App\Models\User;
@@ -81,8 +81,6 @@ class PoolCompareTest extends TestCase
 
     public function test_comparison_players_expose_avatar_urls(): void
     {
-        Storage::fake('public');
-
         $opponent = Entry::factory()
             ->for($this->pool)
             ->for(User::factory()->create(['avatar_path' => 'avatars/9/op.jpg']))

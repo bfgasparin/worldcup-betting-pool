@@ -243,7 +243,6 @@ class PoolControllerTest extends TestCase
 
     public function test_pool_preview_and_player_directory_expose_avatar_urls(): void
     {
-        Storage::fake('public');
         $this->seed(WorldCup2026Seeder::class);
         $pool = Tournament::firstOrFail()->pools()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
 
@@ -267,7 +266,6 @@ class PoolControllerTest extends TestCase
 
     public function test_leaderboard_board_rows_expose_avatar_urls(): void
     {
-        Storage::fake('public');
         $this->seed(WorldCup2026Seeder::class);
         $pool = Tournament::firstOrFail()->pools()->where('slug', 'world-cup-2026-ffa')->firstOrFail();
 
