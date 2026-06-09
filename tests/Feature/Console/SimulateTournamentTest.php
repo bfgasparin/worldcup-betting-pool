@@ -79,12 +79,30 @@ class SimulateTournamentTest extends TestCase
         $this->artisan('tournament:simulate', ['--players' => 3, '--predict-only' => true])
             ->assertSuccessful();
 
-        $this->pool->entries->each(function (Entry $entry): void {
+        $exercisedThirdsCut = false;
+
+        $this->pool->entries->each(function (Entry $entry) use (&$exercisedThirdsCut): void {
+            $state = (new TieResolutionState)->forEntry($entry);
+
             $this->assertFalse(
-                (new TieResolutionState)->forEntry($entry)->blocked(),
+                $state->blocked(),
                 "Entry {$entry->id} should have a fully-resolved bracket by default.",
             );
+
+            // A non-empty straddling run means this entry's bracket hid a best-thirds cut tie that
+            // the default had to resolve (here, behind a within-group tie) — the hard case.
+            if ($state->thirds !== []) {
+                $exercisedThirdsCut = true;
+            }
         });
+
+        // Guard the invariant against going vacuous: the fixed default world must actually present
+        // the hard case (a best-thirds cut tie the no-human default resolves), not a tie-free board
+        // that would pass for free if the resolver regressed. One player's bracket reliably does.
+        $this->assertTrue(
+            $exercisedThirdsCut,
+            'Expected the default simulation to exercise a straddling best-thirds cut, but none did.',
+        );
     }
 
     public function test_it_also_simulates_the_phased_bracket_pool(): void
