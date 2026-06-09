@@ -232,6 +232,67 @@ class LiveProjectionTest extends TestCase
         );
     }
 
+    public function test_fixture_picks_expose_scorelines_and_live_points_for_live_fixtures_only(): void
+    {
+        $sharp = $this->entryFor($this->upfront);
+        $blunt = $this->entryFor($this->upfront);
+
+        $live = $this->firstGroupFixture();
+        GroupPrediction::create(['entry_id' => $sharp->id, 'fixture_id' => $live->id, 'home_goals' => 2, 'away_goals' => 0]);
+        GroupPrediction::create(['entry_id' => $blunt->id, 'fixture_id' => $live->id, 'home_goals' => 1, 'away_goals' => 1]);
+
+        // A second fixture is predicted but never taken live — its picks must never ship (anti-cheat).
+        $scheduled = $this->tournament->groups()->orderBy('sort_order')->firstOrFail()
+            ->fixtures()->orderBy('match_number')->skip(1)->firstOrFail();
+        GroupPrediction::create(['entry_id' => $sharp->id, 'fixture_id' => $scheduled->id, 'home_goals' => 3, 'away_goals' => 3]);
+
+        $this->markFixtureLive($live, 2, 0);
+
+        $picks = app(LiveProjection::class)->project($this->upfront)->fixturePicks;
+
+        $this->assertArrayHasKey($live->id, $picks);
+        $this->assertArrayNotHasKey($scheduled->id, $picks);
+
+        $sharpPick = collect($picks[$live->id])->firstWhere('entry_id', $sharp->id);
+        $bluntPick = collect($picks[$live->id])->firstWhere('entry_id', $blunt->id);
+
+        $this->assertSame(2, $sharpPick['home_goals']);
+        $this->assertSame(0, $sharpPick['away_goals']);
+        $this->assertNull($sharpPick['advancing_team_id']);
+        // The sharp 2–0 call against a live 2–0 is earning points now; the blunt 1–1 earns nothing.
+        $this->assertGreaterThan(0, $sharpPick['points']);
+        $this->assertSame(0, $bluntPick['points']);
+    }
+
+    public function test_fixture_picks_carry_the_knockout_advancing_pick(): void
+    {
+        [$home, $away] = $this->tournament->groups()->with('teams')->first()->teams->take(2)->all();
+
+        $ko = $this->tournament->knockoutFixtures()->orderBy('match_number')->firstOrFail();
+        $ko->update(['home_team_id' => $home->id, 'away_team_id' => $away->id]);
+
+        $entry = $this->entryFor($this->phased);
+        KnockoutPrediction::create([
+            'entry_id' => $entry->id,
+            'fixture_id' => $ko->id,
+            'predicted_home_team_id' => $home->id,
+            'predicted_away_team_id' => $away->id,
+            'home_goals' => 1,
+            'away_goals' => 0,
+            'advancing_team_id' => $home->id,
+        ]);
+
+        $this->markFixtureLive($ko, 1, 0);
+
+        $picks = app(LiveProjection::class)->project($this->phased)->fixturePicks;
+        $pick = collect($picks[$ko->id])->firstWhere('entry_id', $entry->id);
+
+        $this->assertSame($home->id, $pick['advancing_team_id']);
+        $this->assertSame(1, $pick['home_goals']);
+        $this->assertSame(0, $pick['away_goals']);
+        $this->assertIsInt($pick['points']);
+    }
+
     private function entryFor(Pool $pool): Entry
     {
         return Entry::factory()->create([

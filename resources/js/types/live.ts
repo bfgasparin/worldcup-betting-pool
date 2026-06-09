@@ -40,6 +40,21 @@ export interface ProjectedRow {
     pending_bonus: number;
 }
 
+/**
+ * One entry's predicted scoreline for a live fixture, plus the points it is earning from that match
+ * right now. Identity (name/avatar/rank) is intentionally omitted — joined client-side from the
+ * pool's board rows via `entry_id`. Only present for live/ended fixtures.
+ */
+export interface FixturePick {
+    entry_id: number;
+    home_goals: number | null;
+    away_goals: number | null;
+    /** Live points this pick is earning from the match now (scoreline; held knockout bonus excluded). */
+    points: number;
+    /** The team this entry sent through (knockout fixtures only); null for group fixtures. */
+    advancing_team_id: number | null;
+}
+
 /** A board's labels, shared across the pools shown on the live page. */
 export interface LiveBoardDescriptor {
     key: string;
@@ -61,6 +76,8 @@ export interface LivePool {
     is_paid: boolean;
     currency: string;
     boards: Record<string, ProjectedRow[]>;
+    /** Predicted scorelines + live points per live fixture id; only carries live/ended fixtures. */
+    fixture_picks: Record<number, FixturePick[]>;
 }
 
 /** A tournament with live matches, on the Live Center landing picker. */

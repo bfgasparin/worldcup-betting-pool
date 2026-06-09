@@ -69,17 +69,22 @@ class LiveController extends Controller
             ],
             'boards' => $this->boardDescriptors(),
             'poll_interval_ms' => (int) config('scoring.live_poll_interval_ms'),
-            'pools' => $pools->map(fn (Pool $pool): array => [
-                'slug' => $pool->slug,
-                'name' => $pool->name,
-                'source' => $pool->source,
-                'accent' => $pool->accent?->value,
-                'scoring_strategy' => $pool->scoring_strategy->value,
-                'scoring_label' => $pool->scoring_strategy->label(),
-                'is_paid' => (float) $pool->entry_price > 0,
-                'currency' => $pool->currency,
-                'boards' => $this->projection->cachedFor($pool)->boards,
-            ])->values(),
+            'pools' => $pools->map(function (Pool $pool): array {
+                $projection = $this->projection->cachedFor($pool);
+
+                return [
+                    'slug' => $pool->slug,
+                    'name' => $pool->name,
+                    'source' => $pool->source,
+                    'accent' => $pool->accent?->value,
+                    'scoring_strategy' => $pool->scoring_strategy->value,
+                    'scoring_label' => $pool->scoring_strategy->label(),
+                    'is_paid' => (float) $pool->entry_price > 0,
+                    'currency' => $pool->currency,
+                    'boards' => $projection->boards,
+                    'fixture_picks' => $projection->fixturePicks,
+                ];
+            })->values(),
             // The live-changing data sits under its own key so the client can partial-reload just
             // this (and the pools' boards) on a poll without re-rendering the static chrome.
             'liveFixtures' => $this->liveFixtures($tournament),
