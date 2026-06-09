@@ -181,7 +181,7 @@ function FixturePicksSheet({
                                 className="shrink-0"
                             />
                         ) : (
-                            <LivePulse className="shrink-0" />
+                            <LiveBadge className="shrink-0" />
                         )}
                     </div>
                     <FixtureScoreline fixture={fixture} />
