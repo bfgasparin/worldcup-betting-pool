@@ -20,6 +20,8 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
+import { useTranslation } from '@/hooks/use-translation';
+import type { Translator } from '@/hooks/use-translation';
 import { tiebreakRule } from '@/lib/leaderboards';
 import type { ScoringRule } from '@/lib/scoring';
 import { scoringRules } from '@/lib/scoring';
@@ -27,7 +29,11 @@ import pools from '@/routes/pools';
 import type { PoolDetail } from '@/types/pools';
 
 /** When predictions lock for this pool, phrased for the viewer's timezone. */
-function lockLine(pool: PoolDetail, tz: string): string | null {
+function lockLine(
+    pool: PoolDetail,
+    tz: string,
+    t: Translator['t'],
+): string | null {
     if (!pool.predictions_lock_at) {
         return null;
     }
@@ -35,8 +41,10 @@ function lockLine(pool: PoolDetail, tz: string): string | null {
     const isOpen = new Date(pool.predictions_lock_at).getTime() > Date.now();
 
     return isOpen
-        ? `Predictions lock on ${formatLongDate(pool.predictions_lock_at, tz)}.`
-        : 'Predictions are locked — your bracket is set.';
+        ? t('Predictions lock on :date.', {
+              date: formatLongDate(pool.predictions_lock_at, tz),
+          })
+        : t('Predictions are locked — your bracket is set.');
 }
 
 function Section({
@@ -60,6 +68,8 @@ function Section({
 }
 
 function PointsRow({ label, rules }: { label: string; rules: ScoringRule[] }) {
+    const { t } = useTranslation();
+
     if (rules.length === 0) {
         return null;
     }
@@ -75,7 +85,7 @@ function PointsRow({ label, rules }: { label: string; rules: ScoringRule[] }) {
                         key={rule.label}
                         className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-secondary-foreground"
                     >
-                        {rule.label}
+                        {t(rule.label)}
                         <b className="font-display text-primary">
                             +{rule.points}
                         </b>
@@ -93,6 +103,7 @@ function PointsRow({ label, rules }: { label: string; rules: ScoringRule[] }) {
  * server-side per user (see {@link pools.briefing.seen}) so it follows the user across devices.
  */
 export function PoolInfoDialog({ pool }: { pool: PoolDetail }) {
+    const { t } = useTranslation();
     const tz = useDisplayTimeZone();
     const { post } = useHttp();
     // Auto-open the first time this user opens the pool; the server tells us whether they've seen it.
@@ -109,7 +120,7 @@ export function PoolInfoDialog({ pool }: { pool: PoolDetail }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pool.slug]);
 
-    const lock = lockLine(pool, tz);
+    const lock = lockLine(pool, tz, t);
     const groupRules = scoringRules(pool.scoring_config, 'group');
     const knockoutRules = scoringRules(pool.scoring_config, 'knockout');
     const isPaid = pool.pricing.entry_price > 0;
@@ -123,14 +134,14 @@ export function PoolInfoDialog({ pool }: { pool: PoolDetail }) {
                 className="gap-1.5"
             >
                 <Info className="size-4" />
-                <span className="hidden sm:inline">How it works</span>
+                <span className="hidden sm:inline">{t('How it works')}</span>
             </Button>
 
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent className="max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="font-display text-xl">
-                            How this pool works
+                            {t('How this pool works')}
                         </DialogTitle>
                         <DialogDescription>
                             {pool.how_to_play.summary}
@@ -140,7 +151,7 @@ export function PoolInfoDialog({ pool }: { pool: PoolDetail }) {
                     <div className="flex flex-col gap-6 py-2">
                         <Section
                             icon={ListChecks}
-                            title="How & when to predict"
+                            title={t('How & when to predict')}
                         >
                             <ol className="flex flex-col gap-2 text-sm text-muted-foreground">
                                 {pool.how_to_play.steps.map((step, index) => (
@@ -160,7 +171,7 @@ export function PoolInfoDialog({ pool }: { pool: PoolDetail }) {
                             )}
                         </Section>
 
-                        <Section icon={Trophy} title="Scoring strategy">
+                        <Section icon={Trophy} title={t('Scoring strategy')}>
                             <Chip
                                 variant="points"
                                 className="w-fit px-3 py-1 text-xs"
@@ -172,33 +183,38 @@ export function PoolInfoDialog({ pool }: { pool: PoolDetail }) {
                             </p>
                         </Section>
 
-                        <Section icon={Coins} title="How points are earned">
+                        <Section
+                            icon={Coins}
+                            title={t('How points are earned')}
+                        >
                             <div className="flex flex-col gap-3">
                                 <PointsRow
-                                    label="Group stage"
+                                    label={t('Group stage')}
                                     rules={groupRules}
                                 />
                                 <PointsRow
-                                    label="Knockouts"
+                                    label={t('Knockouts')}
                                     rules={knockoutRules}
                                 />
                             </div>
                         </Section>
 
                         {pool.leaderboards.length > 0 && (
-                            <Section icon={Medal} title="Leaderboards">
+                            <Section icon={Medal} title={t('Leaderboards')}>
                                 <p className="text-sm text-muted-foreground">
-                                    Compete on every board at once — your
-                                    position updates as results land.
+                                    {t(
+                                        'Compete on every board at once — your position updates as results land.',
+                                    )}
                                     {isPaid && (
                                         <>
                                             {' '}
-                                            Only the{' '}
+                                            {t('Only the')}{' '}
                                             <span className="font-semibold text-foreground">
-                                                Overall
+                                                {t('Overall')}
                                             </span>{' '}
-                                            board pays out the prize pot; the
-                                            rest are for bragging rights.
+                                            {t(
+                                                'board pays out the prize pot; the rest are for bragging rights.',
+                                            )}
                                         </>
                                     )}
                                 </p>
@@ -214,16 +230,19 @@ export function PoolInfoDialog({ pool }: { pool: PoolDetail }) {
                                                     board.awards_prizes && (
                                                         <span className="bg-gold-gradient inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide text-[#3a2600] uppercase">
                                                             <Trophy className="size-2.5" />
-                                                            Prize board
+                                                            {t('Prize board')}
                                                         </span>
                                                     )}
                                             </span>
-                                            <span className="text-sm text-muted-foreground">
+                                            <span className="text-sm font-medium text-foreground">
                                                 {board.description}
                                             </span>
-                                            <span className="inline-flex items-start gap-1 text-xs text-muted-foreground/80">
+                                            <span className="text-sm leading-relaxed text-muted-foreground">
+                                                {board.how_it_scores}
+                                            </span>
+                                            <span className="mt-0.5 inline-flex items-start gap-1 text-xs text-muted-foreground/80">
                                                 <Scale className="mt-px size-3 shrink-0 text-primary/70" />
-                                                {tiebreakRule(board)}
+                                                {tiebreakRule(board, t)}
                                             </span>
                                         </div>
                                     ))}

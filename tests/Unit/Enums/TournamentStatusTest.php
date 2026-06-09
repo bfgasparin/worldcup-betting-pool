@@ -3,7 +3,7 @@
 namespace Tests\Unit\Enums;
 
 use App\Enums\TournamentStatus;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 class TournamentStatusTest extends TestCase
 {

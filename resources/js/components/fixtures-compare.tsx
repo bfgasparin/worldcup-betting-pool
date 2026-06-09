@@ -18,7 +18,9 @@ import {
 } from '@/components/ui/collapsible';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
+import { useTranslation } from '@/hooks/use-translation';
 import { isRevealed, lane, laneLabel } from '@/lib/compare';
+import { formatPlaceholderLabel } from '@/lib/placeholder-label';
 import { cn } from '@/lib/utils';
 import type {
     BracketFixture,
@@ -31,16 +33,22 @@ import type {
 
 /* ------------------------------------------------------------------ atoms */
 
-function code(team: TeamRef | null): string {
-    return team?.code ?? team?.name ?? 'TBD';
+function code(team: TeamRef | null, tbd: string): string {
+    return team?.code ?? team?.name ?? tbd;
 }
 
-function slotLabel(team: TeamRef | null, label: string | null): string {
-    return team ? (team.name ?? team.code ?? 'TBD') : (label ?? 'TBD');
-}
+function slotLabel(
+    team: TeamRef | null,
+    label: string | null,
+    tbd: string,
+    tCountry: (code: string | null | undefined, fallbackName: string) => string,
+    tBracket: (word: string) => string,
+): string {
+    if (team) {
+        return team.name ? tCountry(team.code, team.name) : (team.code ?? tbd);
+    }
 
-function venueLabel(venue: string): string {
-    return venue.replace(/\s+Stadium$/, '');
+    return label ? formatPlaceholderLabel(label, tBracket) : tbd;
 }
 
 /**
@@ -87,6 +95,8 @@ function LaneChip({
     muted?: boolean;
     children: ReactNode;
 }) {
+    const { t } = useTranslation();
+
     return (
         <span
             className={cn(
@@ -99,7 +109,7 @@ function LaneChip({
                 aria-hidden
             />
             <span className="text-muted-foreground" title={player.name}>
-                {laneLabel(player)}
+                {laneLabel(player, t)}
             </span>
             {children}
         </span>
@@ -116,12 +126,14 @@ function EmptyPick({
     player: ComparePlayer;
     hidden: boolean;
 }) {
+    const { t } = useTranslation();
+
     return (
         <LaneChip index={index} player={player} muted>
             {hidden ? (
                 <Lock
                     className="size-3 text-muted-foreground"
-                    aria-label="Hidden until predictions lock"
+                    aria-label={t('Hidden until predictions lock')}
                 />
             ) : (
                 <span className="text-muted-foreground">—</span>
@@ -207,6 +219,7 @@ function OfficialGroupMatchup({
 }: {
     fixture: GroupView['fixtures'][number];
 }) {
+    const { t, tVenue } = useTranslation();
     const tz = useDisplayTimeZone();
     const settled = fixture.home_goals !== null && fixture.away_goals !== null;
 
@@ -220,14 +233,14 @@ function OfficialGroupMatchup({
                     </span>
                 )}
                 {fixture.venue && (
-                    <span className="truncate">
-                        {venueLabel(fixture.venue)}
-                    </span>
+                    <span className="truncate">{tVenue(fixture.venue)}</span>
                 )}
             </div>
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
                 <span className="flex min-w-0 items-center justify-end gap-1.5 text-sm font-bold">
-                    <span className="truncate">{code(fixture.home)}</span>
+                    <span className="truncate">
+                        {code(fixture.home, t('TBD'))}
+                    </span>
                     <Flag team={fixture.home} className="h-4 w-6" />
                 </span>
                 {settled ? (
@@ -241,7 +254,9 @@ function OfficialGroupMatchup({
                 )}
                 <span className="flex min-w-0 items-center gap-1.5 text-sm font-bold">
                     <Flag team={fixture.away} className="h-4 w-6" />
-                    <span className="truncate">{code(fixture.away)}</span>
+                    <span className="truncate">
+                        {code(fixture.away, t('TBD'))}
+                    </span>
                 </span>
             </div>
         </>
@@ -305,6 +320,7 @@ function CompareStandingsPanel({
     official: StandingRow[];
     players: ComparePlayer[];
 }) {
+    const { t } = useTranslation();
     // Phased pools never surface a projected table (the bracket follows real results), so when no
     // player has one, show the official table alone — no toggle. This also tidies the pre-prediction
     // case where nothing has been projected yet.
@@ -321,7 +337,7 @@ function CompareStandingsPanel({
             <StandingsTable standings={official} />
         ) : (
             <p className="py-4 text-center text-sm text-muted-foreground">
-                No results yet.
+                {t('No results yet.')}
             </p>
         );
     }
@@ -351,7 +367,7 @@ function CompareStandingsPanel({
                 className="flex-wrap justify-center"
             >
                 <ToggleGroupItem value="official" className="px-3 text-xs">
-                    Official
+                    {t('Official')}
                 </ToggleGroupItem>
                 {players.map((player, index) => (
                     <ToggleGroupItem
@@ -368,7 +384,7 @@ function CompareStandingsPanel({
                             )}
                             aria-hidden
                         />
-                        {laneLabel(player)}
+                        {laneLabel(player, t)}
                     </ToggleGroupItem>
                 ))}
             </ToggleGroup>
@@ -378,8 +394,8 @@ function CompareStandingsPanel({
             ) : (
                 <p className="py-4 text-center text-sm text-muted-foreground">
                     {effectiveView === 'official'
-                        ? 'No results yet.'
-                        : 'No projected table to show yet.'}
+                        ? t('No results yet.')
+                        : t('No projected table to show yet.')}
                 </p>
             )}
         </div>
@@ -395,17 +411,19 @@ export function CompareGroupCard({
     players: ComparePlayer[];
     windowStatus: PredictionWindowStatus;
 }) {
+    const { t } = useTranslation();
+
     return (
         <div className="card-elevated rounded-3xl p-5">
             <div className="mb-3 flex items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2.5">
                     <GroupBadge name={group.name} />
                     <h3 className="font-display text-base font-semibold whitespace-nowrap">
-                        Group {group.name}
+                        {t('Group :name', { name: group.name })}
                     </h3>
                 </div>
                 <span className="text-[11px] font-bold tracking-wide text-muted-foreground uppercase">
-                    {group.fixtures.length} matches
+                    {t(':count matches', { count: group.fixtures.length })}
                 </span>
             </div>
 
@@ -434,7 +452,7 @@ export function CompareGroupCard({
             {group.standings.length > 0 && (
                 <Collapsible className="mt-2">
                     <CollapsibleTrigger className="flex w-full items-center justify-center gap-1.5 border-t border-border pt-3 font-display text-xs font-semibold tracking-wide text-muted-foreground uppercase transition-colors outline-none hover:text-foreground focus-visible:text-foreground [&[data-state=open]>svg]:rotate-180">
-                        Standings
+                        {t('Standings')}
                         <ChevronDown className="size-4 transition-transform duration-200" />
                     </CollapsibleTrigger>
                     <CollapsibleContent className="pt-2">
@@ -484,7 +502,9 @@ function ComparePickMatchup({
 }
 
 function OfficialKnockout({ fixture }: { fixture: BracketFixture }) {
+    const { t, tCountry, tBracket } = useTranslation();
     const tz = useDisplayTimeZone();
+    const tbd = t('TBD');
     const settled = fixture.home_goals !== null && fixture.away_goals !== null;
     const homeWins =
         fixture.winner_team_id != null &&
@@ -499,7 +519,7 @@ function OfficialKnockout({ fixture }: { fixture: BracketFixture }) {
         <>
             <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
                 <span className="font-display font-semibold">
-                    Match {fixture.match_number}
+                    {t('Match :number', { number: fixture.match_number })}
                 </span>
                 {fixture.kicks_off_at && (
                     <span className="font-semibold whitespace-nowrap">
@@ -518,7 +538,13 @@ function OfficialKnockout({ fixture }: { fixture: BracketFixture }) {
                     )}
                 >
                     <span className="truncate">
-                        {slotLabel(fixture.home, fixture.home_label)}
+                        {slotLabel(
+                            fixture.home,
+                            fixture.home_label,
+                            tbd,
+                            tCountry,
+                            tBracket,
+                        )}
                     </span>
                     <Flag team={fixture.home} className="h-4 w-6" />
                     {isDraw && homeWins && <AdvanceChip />}
@@ -543,7 +569,13 @@ function OfficialKnockout({ fixture }: { fixture: BracketFixture }) {
                     {isDraw && awayWins && <AdvanceChip />}
                     <Flag team={fixture.away} className="h-4 w-6" />
                     <span className="truncate">
-                        {slotLabel(fixture.away, fixture.away_label)}
+                        {slotLabel(
+                            fixture.away,
+                            fixture.away_label,
+                            tbd,
+                            tCountry,
+                            tBracket,
+                        )}
                     </span>
                 </span>
             </div>
@@ -621,7 +653,9 @@ export function CompareFinalCard({
     players: ComparePlayer[];
     windowStatus: PredictionWindowStatus;
 }) {
+    const { t, tCountry, tBracket } = useTranslation();
     const tz = useDisplayTimeZone();
+    const tbd = t('TBD');
     const settled = fixture.home_goals !== null && fixture.away_goals !== null;
 
     return (
@@ -630,7 +664,9 @@ export function CompareFinalCard({
             <div className="relative">
                 <div className="text-3xl">🏆</div>
                 <h3 className="mt-2 font-display text-xs font-bold tracking-[0.18em] text-gold uppercase">
-                    The Final · Match {fixture.match_number}
+                    {t('The Final · Match :number', {
+                        number: fixture.match_number,
+                    })}
                 </h3>
                 {fixture.kicks_off_at && (
                     <div className="mt-1 text-sm font-semibold text-white/60">
@@ -641,7 +677,13 @@ export function CompareFinalCard({
 
                 <div className="mt-5 flex items-center justify-center gap-4">
                     <span className="flex items-center gap-2 font-display text-sm font-semibold">
-                        {slotLabel(fixture.home, fixture.home_label)}
+                        {slotLabel(
+                            fixture.home,
+                            fixture.home_label,
+                            tbd,
+                            tCountry,
+                            tBracket,
+                        )}
                         <Flag
                             team={fixture.home}
                             className="h-8 w-11 rounded-md"
@@ -657,13 +699,19 @@ export function CompareFinalCard({
                             team={fixture.away}
                             className="h-8 w-11 rounded-md"
                         />
-                        {slotLabel(fixture.away, fixture.away_label)}
+                        {slotLabel(
+                            fixture.away,
+                            fixture.away_label,
+                            tbd,
+                            tCountry,
+                            tBracket,
+                        )}
                     </span>
                 </div>
 
                 <div className="mt-5 border-t border-white/10 pt-4">
                     <div className="text-[11px] font-bold tracking-[0.14em] text-white/50 uppercase">
-                        Their final
+                        {t('Their final')}
                     </div>
                     <div className="mt-2.5 flex flex-wrap justify-center gap-2">
                         {players.map((player, index) => {
@@ -690,7 +738,7 @@ export function CompareFinalCard({
                                         className="text-white/60"
                                         title={player.name}
                                     >
-                                        {laneLabel(player)}
+                                        {laneLabel(player, t)}
                                     </span>
                                     {pick ? (
                                         <>
@@ -708,7 +756,9 @@ export function CompareFinalCard({
                                     ) : hidden ? (
                                         <Lock
                                             className="size-3 text-white/50"
-                                            aria-label="Hidden until predictions lock"
+                                            aria-label={t(
+                                                'Hidden until predictions lock',
+                                            )}
                                         />
                                     ) : (
                                         <span className="text-white/50">—</span>

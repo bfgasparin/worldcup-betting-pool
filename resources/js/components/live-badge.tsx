@@ -1,3 +1,4 @@
+import { useTranslation } from '@/hooks/use-translation';
 import { cn } from '@/lib/utils';
 
 /**
@@ -16,7 +17,7 @@ export function LivePulse({ className }: { className?: string }) {
 
 /** A pulsing "LIVE" pill. Use `tone="ft"` for the muted full-time / awaiting-result variant. */
 export function LiveBadge({
-    label = 'LIVE',
+    label,
     tone = 'live',
     className,
 }: {
@@ -24,6 +25,9 @@ export function LiveBadge({
     tone?: 'live' | 'ft';
     className?: string;
 }) {
+    const { t } = useTranslation();
+    const text = label ?? t('LIVE');
+
     if (tone === 'ft') {
         return (
             <span
@@ -32,7 +36,7 @@ export function LiveBadge({
                     className,
                 )}
             >
-                {label}
+                {text}
             </span>
         );
     }
@@ -45,7 +49,7 @@ export function LiveBadge({
             )}
         >
             <LivePulse />
-            {label}
+            {text}
         </span>
     );
 }

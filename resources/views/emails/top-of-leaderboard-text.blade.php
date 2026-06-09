@@ -1,18 +1,18 @@
-Brothers Bets — Milestone
+{{ __('Brothers Bets — Milestone') }}
 
-You're top of the table, {{ $userName }}!
+{{ __('You\'re top of the table, :name!', ['name' => $userName]) }}
 
-1st on the {{ $leaderboardLabel }} leaderboard in {!! $source !!}'s {!! $poolName !!} — {{ $points }} pts, out of {{ $totalEntries }} {{ \Illuminate\Support\Str::plural('player', $totalEntries) }}.
+{!! trans_choice('1st on the :label leaderboard in the pool by :source — :points pts, out of :total player.|1st on the :label leaderboard in the pool by :source — :points pts, out of :total players.', $totalEntries, ['label' => $leaderboardLabel, 'source' => $source, 'points' => $points, 'total' => $totalEntries]) !!}
 @if ($runnerUpName && $leadOverRunnerUp > 0)
 
-You're {{ $leadOverRunnerUp }} pts clear of {{ $runnerUpName }}. Enjoy the view — there's plenty of football still to play.
+{{ __('You\'re :points pts clear of :name. Enjoy the view — there\'s plenty of football still to play.', ['points' => $leadOverRunnerUp, 'name' => $runnerUpName]) }}
 @else
 
-You've taken the lead. Enjoy the view — there's plenty of football still to play.
+{{ __('You\'ve taken the lead. Enjoy the view — there\'s plenty of football still to play.') }}
 @endif
 
-See the table: {{ $url }}
+{{ __('See the table') }}: {{ $url }}
 
-The next round of results could shake things up — there's a long way to the final.
+{{ __('The next round of results could shake things up — there\'s a long way to the final.') }}
 
 — Brothers Bets

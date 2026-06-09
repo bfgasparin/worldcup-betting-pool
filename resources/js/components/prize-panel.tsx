@@ -1,4 +1,5 @@
 import { NoFeeBadge } from '@/components/no-fee-badge';
+import { useTranslation } from '@/hooks/use-translation';
 import { ordinal } from '@/lib/leaderboards';
 import { formatMoney } from '@/lib/money';
 import { placeBadge } from '@/lib/prizes';
@@ -18,6 +19,7 @@ export function PrizePanel({
     pricing: PoolPricing;
     className?: string;
 }) {
+    const { t } = useTranslation();
     const hasMoney = pricing.net > 0;
 
     return (
@@ -29,19 +31,21 @@ export function PrizePanel({
         >
             <div className="flex items-baseline justify-between gap-3">
                 <span className="text-[0.65rem] font-bold tracking-[0.12em] text-muted-foreground uppercase">
-                    Prize pot
+                    {t('Prize pot')}
                 </span>
                 <span className="font-display text-xl font-bold text-foreground">
                     {hasMoney
                         ? formatMoney(pricing.pot, pricing.currency)
-                        : 'Grows as players join'}
+                        : t('Grows as players join')}
                 </span>
             </div>
 
             <p className="-mt-2 text-xs text-muted-foreground">
-                Awarded to the top of the{' '}
-                <span className="font-semibold text-foreground">Overall</span>{' '}
-                leaderboard.
+                {t('Awarded to the top of the')}{' '}
+                <span className="font-semibold text-foreground">
+                    {t('Overall')}
+                </span>{' '}
+                {t('leaderboard.')}
             </p>
 
             {/* Mobile/tablet (full-width): an even 3-up grid keeps the places aligned with no gutters. */}
@@ -77,7 +81,7 @@ export function PrizePanel({
                     >
                         <span className="inline-flex items-center gap-2 font-medium text-foreground">
                             <span aria-hidden>{placeBadge(prize.place)}</span>
-                            {ordinal(prize.place)} place
+                            {t(':place place', { place: ordinal(prize.place) })}
                         </span>
                         <span className="font-display font-bold text-[#8a5a00] dark:text-amber-300">
                             {hasMoney ? (
@@ -100,14 +104,16 @@ export function PrizePanel({
 
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-sm">
                 <span className="text-foreground">
-                    <span className="text-muted-foreground">Buy-in</span>{' '}
+                    <span className="text-muted-foreground">{t('Buy-in')}</span>{' '}
                     <b className="font-display">
                         {formatMoney(pricing.entry_price, pricing.currency)}
                     </b>
                 </span>
                 {pricing.house_fee_percentage > 0 ? (
                     <span className="text-muted-foreground">
-                        Organizer fee {pricing.house_fee_percentage}%
+                        {t('Organizer fee :percentage%', {
+                            percentage: pricing.house_fee_percentage,
+                        })}
                     </span>
                 ) : (
                     <NoFeeBadge />

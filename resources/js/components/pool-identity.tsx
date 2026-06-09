@@ -1,3 +1,4 @@
+import { useTranslation } from '@/hooks/use-translation';
 import { resolveAccent, sourceMonogram } from '@/lib/accents';
 import { cn } from '@/lib/utils';
 
@@ -28,8 +29,13 @@ export function PoolIdentity({
     variant = 'compact',
     className,
 }: PoolIdentityProps) {
+    const { t } = useTranslation();
     const kit = resolveAccent(accent);
-    const subline = [name, scoringLabel].filter(Boolean).join(' · ');
+    // The tournament name is canonical English from the DB; translate it at display time. The
+    // source (e.g. "FF&A") and scoringLabel (already server-resolved) are rendered as-is.
+    const subline = [name ? t(name) : undefined, scoringLabel]
+        .filter(Boolean)
+        .join(' · ');
 
     return (
         <div className={cn('flex items-center gap-3', className)}>
@@ -46,7 +52,7 @@ export function PoolIdentity({
             <div className="flex min-w-0 flex-col">
                 <span className="inline-flex flex-wrap items-center gap-1.5 text-xs font-bold tracking-[0.14em] uppercase">
                     <span className="text-muted-foreground opacity-70">
-                        Pool by
+                        {t('Pool by')}
                     </span>
                     <span className="text-foreground">{source}</span>
                 </span>

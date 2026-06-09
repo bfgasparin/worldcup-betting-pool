@@ -54,11 +54,14 @@ class WindowOpeningNotifier
             $deadline = $this->resolver->lockAtFor($pool, $phase);
 
             foreach ($pool->entries()->with('user')->get() as $entry) {
+                // Pass the phase key + canonical English name; the notification resolves the
+                // localized round name inside toMail() under each recipient's preferred locale.
                 $entry->user?->notify(new PredictionWindowOpenedNotification(
                     $pool->name,
                     $pool->slug,
                     $pool->source,
                     $accent,
+                    $phase->key,
                     $phase->name,
                     $deadline,
                 ));

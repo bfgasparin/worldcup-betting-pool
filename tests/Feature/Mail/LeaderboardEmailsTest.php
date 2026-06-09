@@ -39,10 +39,11 @@ class LeaderboardEmailsTest extends TestCase
         $this->assertStringContainsString('35 pts', $html);
         $this->assertStringContainsString('Aisha', $html);
         $this->assertStringContainsString('Overall leaderboard', $html);
-        // The source leads the hero and footer so the email's pool is unmistakable
+        // The source leads the hero and footer so the email's pool is unmistakable. We name the pool
+        // by its source ("Pool by FF&A") rather than the English possessive, which has no pt-BR form
         // (Blade escapes the ampersand in "FF&A").
         $this->assertStringContainsString('Pool by FF&amp;A', $html);
-        $this->assertStringContainsString("FF&amp;A's World Cup 2026", $html);
+        $this->assertStringContainsString('the pool by FF&amp;A', $html);
         // The pool's accent tints the hero eyebrow (a contrast-safe ink) and the brand bar.
         $this->assertStringContainsString($accent->eyebrowInk(), $html);
         $this->assertStringContainsString($accent->gradientCss(), $html);
@@ -56,7 +57,7 @@ class LeaderboardEmailsTest extends TestCase
 
         $this->assertStringContainsString('1st', $text);
         $this->assertStringContainsString('Overall leaderboard', $text);
-        $this->assertStringContainsString("FF&A's World Cup 2026", $text);
+        $this->assertStringContainsString('pool by FF&A', $text);
         $this->assertStringContainsString('https://ffa.test/pools/world-cup-2026/leaderboard', $text);
         $this->assertStringContainsString('plenty of football still to play', $text);
         $this->assertStringNotContainsString('keep predicting', $text);
@@ -107,7 +108,7 @@ class LeaderboardEmailsTest extends TestCase
         $text = view('emails.rank-change-text', $data)->render();
         $this->assertStringContainsString('4th', $text);
         $this->assertStringContainsString('Overall leaderboard', $text);
-        $this->assertStringContainsString("FF&A's World Cup 2026", $text);
+        $this->assertStringContainsString('pool by FF&A', $text);
         $this->assertStringContainsString('https://ffa.test/pools/world-cup-2026/leaderboard', $text);
         $this->assertStringContainsString('plenty of football still to come', $text);
         $this->assertStringNotContainsString('matchday', $text);

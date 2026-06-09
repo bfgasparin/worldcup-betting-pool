@@ -2,6 +2,7 @@ import { Head, Link } from '@inertiajs/react';
 import { CalendarClock, ClipboardCheck, Radio, Trophy } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from '@/hooks/use-translation';
 import manage from '@/routes/manage';
 import type { BreadcrumbItem } from '@/types/navigation';
 
@@ -36,9 +37,11 @@ function AdminAction({
 }
 
 export default function ManageIndex({ tournaments }: ManageIndexProps) {
+    const { t } = useTranslation();
+
     return (
         <>
-            <Head title="Manage" />
+            <Head title={t('Manage')} />
             <div className="relative min-h-full bg-background">
                 <div className="w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-10">
                     <header className="hero relative mb-6 overflow-hidden rounded-3xl border border-border p-5 sm:mb-8 sm:p-8">
@@ -46,16 +49,16 @@ export default function ManageIndex({ tournaments }: ManageIndexProps) {
                         <div className="relative flex flex-col gap-3">
                             <span className="inline-flex w-fit items-center gap-2 text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">
                                 <Trophy className="size-4 text-primary" />
-                                Admin
+                                {t('Admin')}
                             </span>
                             <h1 className="text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl">
-                                Manage tournaments
+                                {t('Manage tournaments')}
                             </h1>
                             <span className="bg-gold-gradient mt-1 h-1 w-12 rounded-full" />
                             <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
-                                Run a tournament from here — start matches in
-                                Live Control, review and approve scores, and
-                                reschedule fixtures. No pool membership needed.
+                                {t(
+                                    'Run a tournament from here — start matches in Live Control, review and approve scores, and reschedule fixtures. No pool membership needed.',
+                                )}
                             </p>
                         </div>
                     </header>
@@ -69,7 +72,7 @@ export default function ManageIndex({ tournaments }: ManageIndexProps) {
                                 >
                                     <div className="flex items-start justify-between gap-3">
                                         <h2 className="text-xl font-semibold tracking-tight text-balance text-foreground">
-                                            {tournament.name}
+                                            {t(tournament.name)}
                                         </h2>
                                         <span className="shrink-0 rounded-full bg-secondary px-3 py-1 font-display text-xs font-semibold text-secondary-foreground">
                                             {tournament.status_label}
@@ -83,7 +86,7 @@ export default function ManageIndex({ tournaments }: ManageIndexProps) {
                                                 ).url
                                             }
                                             icon={Radio}
-                                            label="Live control"
+                                            label={t('Live control')}
                                         />
                                         <AdminAction
                                             href={
@@ -92,7 +95,7 @@ export default function ManageIndex({ tournaments }: ManageIndexProps) {
                                                 ).url
                                             }
                                             icon={ClipboardCheck}
-                                            label="Review scores"
+                                            label={t('Review scores')}
                                         />
                                         <AdminAction
                                             href={
@@ -101,7 +104,7 @@ export default function ManageIndex({ tournaments }: ManageIndexProps) {
                                                 ).url
                                             }
                                             icon={CalendarClock}
-                                            label="Schedule"
+                                            label={t('Schedule')}
                                         />
                                     </div>
                                 </div>
@@ -109,7 +112,7 @@ export default function ManageIndex({ tournaments }: ManageIndexProps) {
                         </div>
                     ) : (
                         <p className="text-sm text-muted-foreground">
-                            No tournaments yet.
+                            {t('No tournaments yet.')}
                         </p>
                     )}
                 </div>

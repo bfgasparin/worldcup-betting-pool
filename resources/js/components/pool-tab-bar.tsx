@@ -2,6 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import { tournamentNavItems } from '@/components/nav-tournament';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useTranslation } from '@/hooks/use-translation';
 import { cn } from '@/lib/utils';
 import type { JoinedPool, TournamentNavInfo } from '@/types/navigation';
 
@@ -19,6 +20,7 @@ export function PoolTabBar() {
     }>();
     const { isCurrentUrl } = useCurrentUrl();
     const isMobile = useIsMobile();
+    const { t } = useTranslation();
 
     const pool = props.pool;
 
@@ -40,7 +42,7 @@ export function PoolTabBar() {
             }}
         >
             <nav
-                aria-label="Pool sections"
+                aria-label={t('Pool sections')}
                 className="pointer-events-auto inline-flex items-stretch gap-1 rounded-2xl border border-border bg-card/95 p-1.5 shadow-[var(--sh-lg)] backdrop-blur"
             >
                 {items.map((item) => {
@@ -69,7 +71,7 @@ export function PoolTabBar() {
                                     />
                                 )}
                             </span>
-                            {item.title}
+                            {t(item.title)}
                         </Link>
                     );
                 })}

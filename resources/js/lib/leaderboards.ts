@@ -1,20 +1,30 @@
+import type { Translator } from '@/hooks/use-translation';
+
 /**
- * A plain-English tie-break rule for a board, built from its own stat labels so the copy always
+ * A localized tie-break rule for a board, built from its own stat labels so the copy always
  * matches how the board actually ranks (value, then the secondary stat, then entry order). Shared by
  * the Leaderboards page and the "How this pool works" dialog. Boards with no secondary stat (Overall)
- * fall back to entry order.
+ * fall back to entry order. Takes `t` from `useTranslation()` since it's a plain helper, not a hook.
  */
-export function tiebreakRule(board: {
-    primary_stat_label: string;
-    secondary_stat_label: string | null;
-}): string {
+export function tiebreakRule(
+    board: {
+        primary_stat_label: string;
+        secondary_stat_label: string | null;
+    },
+    t: Translator['t'],
+): string {
     const primary = board.primary_stat_label.toLowerCase();
 
     if (board.secondary_stat_label === null) {
-        return `Tied on ${primary}? Whoever joined the pool first ranks higher.`;
+        return t('Tied on :stat? Whoever joined the pool first ranks higher.', {
+            stat: primary,
+        });
     }
 
-    return `Tied on ${primary}? Whoever has more ${board.secondary_stat_label.toLowerCase()} ranks higher.`;
+    return t('Tied on :stat? Whoever has more :secondary ranks higher.', {
+        stat: primary,
+        secondary: board.secondary_stat_label.toLowerCase(),
+    });
 }
 
 /** Format a rank as an English ordinal: 1 → "1st", 2 → "2nd", 3 → "3rd", 11 → "11th". */

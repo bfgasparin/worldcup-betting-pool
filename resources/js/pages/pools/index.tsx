@@ -14,6 +14,8 @@ import type { ComponentType, ReactNode } from 'react';
 import { PrizeSplit } from '@/components/prize-split';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
+import { useTranslation } from '@/hooks/use-translation';
+import type { Translator } from '@/hooks/use-translation';
 import { resolveAccent, sourceMonogram } from '@/lib/accents';
 import type { PoolAccent } from '@/lib/accents';
 import { formatMoney } from '@/lib/money';
@@ -31,18 +33,18 @@ interface TournamentGroup {
     pools: PoolListItem[];
 }
 
-function greeting(): string {
+function greeting(t: Translator['t']): string {
     const hour = new Date().getHours();
 
     if (hour < 12) {
-        return 'Good morning';
+        return t('Good morning');
     }
 
     if (hour < 18) {
-        return 'Good afternoon';
+        return t('Good afternoon');
     }
 
-    return 'Good evening';
+    return t('Good evening');
 }
 
 /**
@@ -94,17 +96,19 @@ function StatPill({
 }
 
 /** "12 players" / "1 player" / "No players yet" — a pool's player count. */
-function playersLabel(count: number): string {
+function playersLabel(count: number, t: Translator['t']): string {
     if (count === 0) {
-        return 'No players yet';
+        return t('No players yet');
     }
 
-    return count === 1 ? '1 player' : `${count} players`;
+    return count === 1 ? t('1 player') : t(':count players', { count });
 }
 
 /** A pool's pool size — its own per-pool stat, the same shape as the tournament stat pills. */
 function PlayersStat({ count }: { count: number }) {
-    return <StatPill icon={Users} label={playersLabel(count)} />;
+    const { t } = useTranslation();
+
+    return <StatPill icon={Users} label={playersLabel(count, t)} />;
 }
 
 /**
@@ -119,6 +123,8 @@ function StatPills({
     pool: PoolListItem;
     playersCount?: number;
 }) {
+    const { t } = useTranslation();
+
     return (
         <div className="flex flex-wrap gap-2">
             <StatPill
@@ -126,12 +132,15 @@ function StatPills({
                 label={<span className="capitalize">{pool.sport}</span>}
             />
             {pool.groups_count != null && (
-                <StatPill icon={Layers} label={`${pool.groups_count} Groups`} />
+                <StatPill
+                    icon={Layers}
+                    label={t(':count Groups', { count: pool.groups_count })}
+                />
             )}
             {pool.fixtures_count != null && (
                 <StatPill
                     icon={Sparkles}
-                    label={`${pool.fixtures_count} Matches`}
+                    label={t(':count Matches', { count: pool.fixtures_count })}
                 />
             )}
             {playersCount != null && <PlayersStat count={playersCount} />}
@@ -140,9 +149,11 @@ function StatPills({
 }
 
 function StatusBadge({ status }: { status: string }) {
+    const { t } = useTranslation();
+
     return (
         <span className="bg-brand-gradient inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-display text-xs font-semibold text-white capitalize shadow-[var(--sh-sm)]">
-            {status.replace('_', ' ')}
+            {t(status.replace('_', ' '))}
         </span>
     );
 }
@@ -163,9 +174,11 @@ function DateRange({ pool }: { pool: PoolListItem }) {
 }
 
 function SourceTag({ source }: { source: string }) {
+    const { t } = useTranslation();
+
     return (
         <span className="inline-flex items-center gap-1.5 text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">
-            <span className="opacity-70">Pool by</span>
+            <span className="opacity-70">{t('Pool by')}</span>
             <span className="bg-gold-gradient rounded-full px-3 py-1 font-display text-sm font-bold tracking-normal text-[#0D2E23] normal-case shadow-[var(--sh-sm)]">
                 {source}
             </span>
@@ -175,6 +188,8 @@ function SourceTag({ source }: { source: string }) {
 
 /** The accent-coloured call-to-action at the foot of a ticket. */
 function EnterButton({ accent }: { accent: PoolAccent }) {
+    const { t } = useTranslation();
+
     return (
         <span
             className={cn(
@@ -184,7 +199,7 @@ function EnterButton({ accent }: { accent: PoolAccent }) {
                 accent.textClass,
             )}
         >
-            View pool
+            {t('View pool')}
             <ArrowRight className="size-5" />
         </span>
     );
@@ -202,6 +217,8 @@ function SourceRail({
     source: string;
     accent: PoolAccent;
 }) {
+    const { t } = useTranslation();
+
     return (
         <div
             className={cn(
@@ -211,7 +228,7 @@ function SourceRail({
             )}
         >
             <span className="font-display text-[0.6rem] font-bold tracking-[0.2em] uppercase opacity-75">
-                Pool by
+                {t('Pool by')}
             </span>
             <span className="font-display text-3xl leading-none font-bold">
                 {sourceMonogram(source)}
@@ -240,6 +257,7 @@ function PoolTicket({
     grouped: boolean;
 }) {
     const accent = resolveAccent(pool.accent, pool.accent_index);
+    const { t } = useTranslation();
 
     return (
         <Link
@@ -274,7 +292,7 @@ function PoolTicket({
                             <DateRange pool={pool} />
                         </div>
                         <h2 className="text-2xl font-semibold tracking-tight text-balance text-foreground sm:text-3xl">
-                            {pool.name}
+                            {t(pool.name)}
                         </h2>
                         <StatPills
                             pool={pool}
@@ -296,7 +314,9 @@ function PoolTicket({
                 <PrizeSplit pricing={pool.pricing} canJoin={pool.can_join} />
 
                 <div className="mt-auto flex flex-wrap items-center gap-3">
-                    {pool.joined && <StatPill icon={Check} label="Joined" />}
+                    {pool.joined && (
+                        <StatPill icon={Check} label={t('Joined')} />
+                    )}
                     <EnterButton accent={accent} />
                 </div>
             </div>
@@ -312,10 +332,18 @@ function PoolTicket({
  */
 function PoolRow({ pool, grouped }: { pool: PoolListItem; grouped: boolean }) {
     const accent = resolveAccent(pool.accent, pool.accent_index);
+    const { t } = useTranslation();
     const money = pool.can_join
-        ? `${formatMoney(pool.pricing.entry_price, pool.pricing.currency)} buy-in`
+        ? t(':amount buy-in', {
+              amount: formatMoney(
+                  pool.pricing.entry_price,
+                  pool.pricing.currency,
+              ),
+          })
         : pool.pricing.net > 0
-          ? `Pot ${formatMoney(pool.pricing.net, pool.pricing.currency)}`
+          ? t('Pot :amount', {
+                amount: formatMoney(pool.pricing.net, pool.pricing.currency),
+            })
           : null;
 
     return (
@@ -336,7 +364,7 @@ function PoolRow({ pool, grouped }: { pool: PoolListItem; grouped: boolean }) {
             <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                     <span className="truncate font-display text-base font-semibold text-foreground">
-                        {grouped ? pool.source : pool.name}
+                        {grouped ? pool.source : t(pool.name)}
                     </span>
                     {pool.joined && (
                         <Check className="size-4 shrink-0 text-primary" />
@@ -356,7 +384,7 @@ function PoolRow({ pool, grouped }: { pool: PoolListItem; grouped: boolean }) {
                         </span>
                     )}
                     {money && <span aria-hidden>·</span>}
-                    <span>{playersLabel(pool.players_count)}</span>
+                    <span>{playersLabel(pool.players_count, t)}</span>
                 </div>
             </div>
 
@@ -373,6 +401,7 @@ function PoolRow({ pool, grouped }: { pool: PoolListItem; grouped: boolean }) {
  */
 function TournamentHeader({ group }: { group: TournamentGroup }) {
     const lead = group.pools[0];
+    const { t } = useTranslation();
 
     return (
         <div className="flex flex-col gap-3 border-b border-border pb-4 sm:pb-5">
@@ -385,16 +414,17 @@ function TournamentHeader({ group }: { group: TournamentGroup }) {
                     variant="outline"
                     className="hidden px-3 py-1 text-xs sm:inline-flex"
                 >
-                    {group.pools.length} pools
+                    {t(':count pools', { count: group.pools.length })}
                 </Chip>
             </div>
             <h2 className="text-xl font-semibold tracking-tight text-balance text-foreground sm:text-3xl">
-                {group.tournament.name}
+                {t(group.tournament.name)}
             </h2>
             <StatPills pool={lead} />
             <p className="max-w-xl text-sm text-muted-foreground">
-                Each pool below scores this competition its own way — play as
-                many as you like.
+                {t(
+                    'Each pool below scores this competition its own way — play as many as you like.',
+                )}
             </p>
         </div>
     );
@@ -443,6 +473,8 @@ function TournamentGroupSection({ group }: { group: TournamentGroup }) {
 
 /** Previous / next controls, shown only when the list spans more than one page. */
 function Pagination({ pools }: { pools: Paginated<PoolListItem> }) {
+    const { t } = useTranslation();
+
     if (pools.last_page <= 1) {
         return null;
     }
@@ -453,30 +485,33 @@ function Pagination({ pools }: { pools: Paginated<PoolListItem> }) {
                 <Button variant="outline" asChild>
                     <Link href={pools.prev_page_url} preserveScroll>
                         <ChevronLeft className="size-4" />
-                        Previous
+                        {t('Previous')}
                     </Link>
                 </Button>
             ) : (
                 <Button variant="outline" disabled>
                     <ChevronLeft className="size-4" />
-                    Previous
+                    {t('Previous')}
                 </Button>
             )}
 
             <span className="text-sm font-medium text-muted-foreground">
-                Page {pools.current_page} of {pools.last_page}
+                {t('Page :current of :last', {
+                    current: pools.current_page,
+                    last: pools.last_page,
+                })}
             </span>
 
             {pools.next_page_url ? (
                 <Button variant="outline" asChild>
                     <Link href={pools.next_page_url} preserveScroll>
-                        Next
+                        {t('Next')}
                         <ChevronRight className="size-4" />
                     </Link>
                 </Button>
             ) : (
                 <Button variant="outline" disabled>
-                    Next
+                    {t('Next')}
                     <ChevronRight className="size-4" />
                 </Button>
             )}
@@ -487,12 +522,13 @@ function Pagination({ pools }: { pools: Paginated<PoolListItem> }) {
 export default function PoolsIndex({ pools }: PoolsIndexProps) {
     const groups = groupByTournament(pools.data);
     const { auth } = usePage().props;
-    const name = auth.user?.name ?? 'there';
+    const { t } = useTranslation();
+    const name = auth.user?.name ?? t('there');
     const firstName = name.split(' ')[0] || name;
 
     return (
         <>
-            <Head title="Pools" />
+            <Head title={t('Pools')} />
             <div className="relative min-h-full bg-background">
                 <div className="relative w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-10">
                     <header className="hero relative mb-6 overflow-hidden rounded-3xl border border-border p-5 sm:mb-8 sm:p-8">
@@ -503,18 +539,19 @@ export default function PoolsIndex({ pools }: PoolsIndexProps) {
                                 Brothers Bets
                             </span>
                             <span className="text-sm font-semibold text-muted-foreground">
-                                {greeting()}, {firstName} 👋
+                                {t(':greeting, :name 👋', {
+                                    greeting: greeting(t),
+                                    name: firstName,
+                                })}
                             </span>
                             <h1 className="text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl">
-                                Join a pool
+                                {t('Join a pool')}
                             </h1>
                             <span className="bg-gold-gradient mt-1 h-1 w-12 rounded-full" />
                             <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
-                                Browse the pools below, check the buy-in and
-                                prize pot, and buy into the ones you fancy.
-                                There’s no picking just one — play as many as
-                                you like, each scoring its tournament its own
-                                way.
+                                {t(
+                                    'Browse the pools below, check the buy-in and prize pot, and buy into the ones you fancy. There’s no picking just one — play as many as you like, each scoring its tournament its own way.',
+                                )}
                             </p>
                         </div>
                     </header>
@@ -530,7 +567,7 @@ export default function PoolsIndex({ pools }: PoolsIndexProps) {
                         </div>
                     ) : (
                         <p className="text-sm text-muted-foreground">
-                            No pools are available yet.
+                            {t('No pools are available yet.')}
                         </p>
                     )}
 

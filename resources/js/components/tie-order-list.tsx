@@ -9,6 +9,7 @@ import {
 import { useRef, useState } from 'react';
 import { Flag } from '@/components/flag';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from '@/hooks/use-translation';
 import { cn } from '@/lib/utils';
 import type { TeamRef } from '@/types/pools';
 
@@ -34,6 +35,7 @@ export function TieOrderList({
     url: string;
     payloadFor: (orderedTeamIds: number[]) => Record<string, string | number[]>;
 }) {
+    const { t, tCountry } = useTranslation();
     const [order, setOrder] = useState<TeamRef[]>(teams);
     const [status, setStatus] = useState<SaveStatus>('idle');
 
@@ -109,13 +111,15 @@ export function TieOrderList({
                         )}
                         <Flag team={team} className="h-4 w-6 shrink-0" />
                         <span className="flex-1 truncate text-sm font-bold">
-                            {team.name}
+                            {tCountry(team.code, team.name)}
                         </span>
                         {editable && (
                             <span className="flex shrink-0 items-center gap-1">
                                 <button
                                     type="button"
-                                    aria-label={`Move ${team.name} up`}
+                                    aria-label={t('Move :team up', {
+                                        team: tCountry(team.code, team.name),
+                                    })}
                                     disabled={index === 0}
                                     onClick={() => move(index, index - 1)}
                                     className="rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-30"
@@ -124,7 +128,9 @@ export function TieOrderList({
                                 </button>
                                 <button
                                     type="button"
-                                    aria-label={`Move ${team.name} down`}
+                                    aria-label={t('Move :team down', {
+                                        team: tCountry(team.code, team.name),
+                                    })}
                                     disabled={index === order.length - 1}
                                     onClick={() => move(index, index + 1)}
                                     className="rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-30"
@@ -149,7 +155,7 @@ export function TieOrderList({
                             variant="outline"
                             onClick={() => save(order)}
                         >
-                            Confirm order
+                            {t('Confirm order')}
                         </Button>
                     )}
                 </div>
@@ -165,11 +171,13 @@ function TieStatus({
     status: SaveStatus;
     resolved: boolean;
 }) {
+    const { t } = useTranslation();
+
     if (status === 'saving') {
         return (
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                 <Loader2 className="size-3.5 animate-spin" />
-                Saving your order…
+                {t('Saving your order…')}
             </span>
         );
     }
@@ -177,7 +185,7 @@ function TieStatus({
     if (status === 'error') {
         return (
             <span className="text-xs font-semibold text-destructive">
-                Couldn&apos;t save — try again.
+                {t("Couldn't save — try again.")}
             </span>
         );
     }
@@ -186,14 +194,14 @@ function TieStatus({
         return (
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-pitch-deep dark:text-primary">
                 <Check className="size-3.5" />
-                Order saved
+                {t('Order saved')}
             </span>
         );
     }
 
     return (
         <span className="text-xs font-semibold text-muted-foreground">
-            Drag to set the order, then confirm.
+            {t('Drag to set the order, then confirm.')}
         </span>
     );
 }

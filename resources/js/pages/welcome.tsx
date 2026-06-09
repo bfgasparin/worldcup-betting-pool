@@ -1,6 +1,7 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import AppLogoIcon from '@/components/app-logo-icon';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from '@/hooks/use-translation';
 import { login } from '@/routes';
 import { index as pools } from '@/routes/pools';
 
@@ -13,10 +14,11 @@ const STATS = [
 export default function Welcome() {
     const { auth } = usePage().props;
     const authed = Boolean(auth.user);
+    const { t } = useTranslation();
 
     return (
         <>
-            <Head title="Welcome" />
+            <Head title={t('Welcome')} />
             <div className="hero relative flex min-h-svh flex-col overflow-hidden">
                 <div className="hero-lines" />
                 {/* Stadium-light glows */}
@@ -39,7 +41,7 @@ export default function Welcome() {
                     </span>
                     <Button asChild size="sm" variant="outline">
                         <Link href={authed ? pools() : login()}>
-                            {authed ? 'Pools' : 'Log in'}
+                            {authed ? t('Pools') : t('Log in')}
                         </Link>
                     </Button>
                 </nav>
@@ -47,24 +49,26 @@ export default function Welcome() {
                 <main className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col items-center justify-center px-6 py-16 text-center">
                     <span className="inline-flex items-center gap-2.5 rounded-full bg-muted px-4 py-1.5 text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">
                         <span className="bg-brand-gradient size-2 rounded-full" />
-                        Members Only · Invite Required
+                        {t('Members Only · Invite Required')}
                     </span>
 
                     <h1 className="mt-6 max-w-3xl text-5xl font-semibold tracking-tight text-balance text-foreground sm:text-6xl lg:text-7xl">
-                        Where the <span className="text-primary">crew</span>{' '}
-                        plays for <span className="text-gold">glory</span>.
+                        {t('Where the')}{' '}
+                        <span className="text-primary">{t('crew')}</span>{' '}
+                        {t('plays for')}{' '}
+                        <span className="text-gold">{t('glory')}</span>.
                     </h1>
 
                     <p className="mt-6 max-w-xl text-lg leading-relaxed text-pretty text-muted-foreground">
-                        Predict the fixtures, climb the leaderboard, and settle
-                        the bragging rights. The private prediction club for the
-                        Brothers crew — every match, every season.
+                        {t(
+                            'Predict the fixtures, climb the leaderboard, and settle the bragging rights. The private prediction club for the Brothers crew — every match, every season.',
+                        )}
                     </p>
 
                     <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row">
                         <Button asChild size="lg" className="group">
                             <Link href={authed ? pools() : login()}>
-                                {authed ? 'Go to Pools' : 'Log in'}
+                                {authed ? t('Go to Pools') : t('Log in')}
                                 <span className="transition-transform group-hover:translate-x-1">
                                     →
                                 </span>
@@ -72,7 +76,7 @@ export default function Welcome() {
                         </Button>
                         {!authed && (
                             <p className="text-sm text-muted-foreground">
-                                Got an invite? Log in to join the action.
+                                {t('Got an invite? Log in to join the action.')}
                             </p>
                         )}
                     </div>
@@ -84,10 +88,10 @@ export default function Welcome() {
                                 className="rounded-2xl border border-border bg-card p-6 shadow-[var(--sh-sm)]"
                             >
                                 <dt className="font-display text-2xl font-semibold text-primary">
-                                    {item.stat}
+                                    {t(item.stat)}
                                 </dt>
                                 <dd className="mt-1 text-sm text-muted-foreground">
-                                    {item.label}
+                                    {t(item.label)}
                                 </dd>
                             </div>
                         ))}
@@ -95,7 +99,7 @@ export default function Welcome() {
                 </main>
 
                 <footer className="relative z-10 mx-auto w-full max-w-6xl px-6 py-8 text-center text-sm text-muted-foreground">
-                    Brothers Bets — a private members' club.
+                    {t("Brothers Bets — a private members' club.")}
                 </footer>
             </div>
         </>

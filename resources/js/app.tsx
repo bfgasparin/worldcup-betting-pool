@@ -6,6 +6,7 @@ import { initializeTimezone } from '@/hooks/use-timezone';
 import AppLayout from '@/layouts/app-layout';
 import AuthLayout from '@/layouts/auth-layout';
 import SettingsLayout from '@/layouts/settings/layout';
+import { initializeLocale } from '@/lib/locale';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Brothers Bets';
 
@@ -48,3 +49,7 @@ initializeTheme();
 
 // Persist the browser timezone in a cookie so the server can render times in it (SSR-ready)...
 initializeTimezone();
+
+// Capture the active locale from the server-rendered <html lang> so Intl date/number formatting
+// matches the app language without threading the locale through every formatter call site.
+initializeLocale();

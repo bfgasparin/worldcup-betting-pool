@@ -5,7 +5,9 @@ namespace Tests\Feature\Auth;
 use App\Actions\Auth\SendLoginCode;
 use App\Models\User;
 use App\Notifications\LoginCodeNotification;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\App;
 use Tests\TestCase;
 
 class LoginCodeNotificationTest extends TestCase
@@ -32,6 +34,29 @@ class LoginCodeNotificationTest extends TestCase
         $this->assertSame('482915', $mail->viewData['code']);
         $this->assertSame(SendLoginCode::TTL_MINUTES, $mail->viewData['expiresInMinutes']);
         $this->assertSame('player@example.com', $mail->viewData['email']);
+    }
+
+    public function test_the_email_follows_the_recipients_preferred_locale(): void
+    {
+        $user = User::factory()->make(['locale' => 'pt_BR', 'email' => 'player@example.com']);
+
+        // The User exposes a preferred locale, so Laravel sets it for the notification send.
+        $this->assertInstanceOf(HasLocalePreference::class, $user);
+        $this->assertSame('pt_BR', $user->preferredLocale());
+
+        // Reproduce that wrap, then assert the rendered email is in Portuguese.
+        App::setLocale($user->preferredLocale());
+        $mail = (new LoginCodeNotification('482915'))->toMail($user);
+        $html = view($mail->view[0], $mail->viewData)->render();
+
+        $this->assertStringContainsString('Código de acesso', $mail->subject);
+        $this->assertStringContainsString('Seu código de acesso', $html);
+
+        // A user with no preference falls back to the English default.
+        App::setLocale('en');
+        $enMail = (new LoginCodeNotification('482915'))->toMail(User::factory()->make(['locale' => null]));
+        $enHtml = view($enMail->view[0], $enMail->viewData)->render();
+        $this->assertStringContainsString('Your login code', $enHtml);
     }
 
     public function test_the_html_email_renders_the_code_with_brand_identity(): void

@@ -2,6 +2,7 @@ import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Flag } from '@/components/flag';
+import { useTranslation } from '@/hooks/use-translation';
 import { cn } from '@/lib/utils';
 import type { StandingRow } from '@/types/pools';
 
@@ -11,8 +12,17 @@ const FORM_STYLES: Record<string, string> = {
     L: 'bg-destructive',
 };
 
-/** Compact W/D/L form chips, oldest first, most recent on the right. */
+/** Full-word tooltips for the form letters; the displayed letter itself comes from t(result). */
+const FORM_LABELS: Record<string, string> = {
+    W: 'Win',
+    D: 'Draw',
+    L: 'Loss',
+};
+
+/** Compact form chips (V/E/D), oldest first, most recent on the right. */
 function FormGuide({ form }: { form: string[] }) {
+    const { t } = useTranslation();
+
     if (form.length === 0) {
         return <span className="text-muted-foreground">—</span>;
     }
@@ -22,13 +32,13 @@ function FormGuide({ form }: { form: string[] }) {
             {form.map((result, index) => (
                 <span
                     key={index}
-                    title={result}
+                    title={t(FORM_LABELS[result] ?? result)}
                     className={cn(
                         'inline-flex size-[18px] items-center justify-center rounded-[5px] font-display text-[10px] font-semibold text-white',
                         FORM_STYLES[result] ?? 'bg-zinc-400',
                     )}
                 >
-                    {result}
+                    {t(result)}
                 </span>
             ))}
         </span>
@@ -37,10 +47,14 @@ function FormGuide({ form }: { form: string[] }) {
 
 /** The "=" badge marking a tie that's level on every tiebreaker — shared by both renderings. */
 function TiedMarker() {
+    const { t } = useTranslation();
+
     return (
         <span
-            aria-label="Tied"
-            title="Level on every tiebreaker — this projected order is just a guess"
+            aria-label={t('Tied')}
+            title={t(
+                'Level on every tiebreaker — this projected order is just a guess',
+            )}
             className="inline-flex size-[15px] shrink-0 items-center justify-center rounded-[4px] bg-muted text-[10px] font-bold text-muted-foreground"
         >
             =
@@ -75,6 +89,8 @@ function Stat({ label, value }: { label: string; value: ReactNode }) {
  * (rank, team, played, points) where tapping a row reveals the rest (W/D/L/GF/GA/GD + form).
  */
 export function StandingsTable({ standings }: { standings: StandingRow[] }) {
+    const { t, tCountry } = useTranslation();
+
     return (
         <div className="text-foreground">
             {/* Desktop / tablet: the full table, unchanged. */}
@@ -83,20 +99,20 @@ export function StandingsTable({ standings }: { standings: StandingRow[] }) {
                     <thead>
                         <tr className="[&>th]:px-1 [&>th]:py-2 [&>th]:text-center [&>th]:text-[10px] [&>th]:font-bold [&>th]:tracking-[0.03em] [&>th]:text-muted-foreground [&>th]:uppercase">
                             <th className="!text-left">#</th>
-                            <th className="!pl-1.5 !text-left">Team</th>
-                            <th title="Played">P</th>
-                            <th title="Won">W</th>
-                            <th title="Drawn">D</th>
-                            <th title="Lost">L</th>
-                            <th title="Goals for">GF</th>
-                            <th title="Goals against">GA</th>
-                            <th title="Goal difference">GD</th>
-                            <th title="Points">Pts</th>
+                            <th className="!pl-1.5 !text-left">{t('Team')}</th>
+                            <th title={t('Played')}>{t('P')}</th>
+                            <th title={t('Won')}>{t('W')}</th>
+                            <th title={t('Drawn')}>{t('D')}</th>
+                            <th title={t('Lost')}>{t('L')}</th>
+                            <th title={t('Goals for')}>{t('GF')}</th>
+                            <th title={t('Goals against')}>{t('GA')}</th>
+                            <th title={t('Goal difference')}>{t('GD')}</th>
+                            <th title={t('Points')}>{t('Pts')}</th>
                             <th
                                 className="!pl-1.5 !text-left"
-                                title="Form (most recent last)"
+                                title={t('Form (most recent last)')}
                             >
-                                Form
+                                {t('Form')}
                             </th>
                         </tr>
                     </thead>
@@ -131,7 +147,12 @@ export function StandingsTable({ standings }: { standings: StandingRow[] }) {
                                                 className="h-3.5 w-5"
                                             />
                                             <span className="truncate">
-                                                {row.team?.name ?? '—'}
+                                                {row.team
+                                                    ? tCountry(
+                                                          row.team.code,
+                                                          row.team.name,
+                                                      )
+                                                    : '—'}
                                             </span>
                                             {row.tied && <TiedMarker />}
                                         </span>
@@ -164,9 +185,9 @@ export function StandingsTable({ standings }: { standings: StandingRow[] }) {
             <div className="sm:hidden">
                 <div className="grid grid-cols-[1.25rem_minmax(0,1fr)_2rem_2.75rem_1.25rem] items-center gap-2 px-1 pb-1 text-[10px] font-bold tracking-[0.03em] text-muted-foreground uppercase">
                     <span>#</span>
-                    <span>Team</span>
-                    <span className="text-center">P</span>
-                    <span className="text-center">Pts</span>
+                    <span>{t('Team')}</span>
+                    <span className="text-center">{t('P')}</span>
+                    <span className="text-center">{t('Pts')}</span>
                     <span aria-hidden />
                 </div>
 
@@ -179,14 +200,14 @@ export function StandingsTable({ standings }: { standings: StandingRow[] }) {
                         aria-hidden
                         className="size-2.5 rounded-[3px] bg-primary"
                     />
-                    Qualify (top 2)
+                    {t('Qualify (top 2)')}
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                     <span
                         aria-hidden
                         className="size-2.5 rounded-[3px] bg-amber"
                     />
-                    Best third-placed spot
+                    {t('Best third-placed spot')}
                 </span>
             </div>
         </div>
@@ -195,6 +216,7 @@ export function StandingsTable({ standings }: { standings: StandingRow[] }) {
 
 /** The mobile rendering: one expandable row per team. */
 function MobileStandings({ standings }: { standings: StandingRow[] }) {
+    const { t, tCountry } = useTranslation();
     const [openKey, setOpenKey] = useState<number | null>(null);
 
     return (
@@ -233,7 +255,9 @@ function MobileStandings({ standings }: { standings: StandingRow[] }) {
                             <span className="inline-flex min-w-0 items-center gap-2">
                                 <Flag team={row.team} className="h-3.5 w-5" />
                                 <span className="truncate text-sm font-bold">
-                                    {row.team?.name ?? '—'}
+                                    {row.team
+                                        ? tCountry(row.team.code, row.team.name)
+                                        : '—'}
                                 </span>
                                 {row.tied && <TiedMarker />}
                             </span>
@@ -255,16 +279,19 @@ function MobileStandings({ standings }: { standings: StandingRow[] }) {
                         {expanded && (
                             <div id={`standing-${key}`} className="px-1 pb-3">
                                 <div className="grid grid-cols-3 gap-x-2 gap-y-2">
-                                    <Stat label="W" value={row.won} />
-                                    <Stat label="D" value={row.drawn} />
-                                    <Stat label="L" value={row.lost} />
-                                    <Stat label="GF" value={row.goals_for} />
+                                    <Stat label={t('W')} value={row.won} />
+                                    <Stat label={t('D')} value={row.drawn} />
+                                    <Stat label={t('L')} value={row.lost} />
                                     <Stat
-                                        label="GA"
+                                        label={t('GF')}
+                                        value={row.goals_for}
+                                    />
+                                    <Stat
+                                        label={t('GA')}
                                         value={row.goals_against}
                                     />
                                     <Stat
-                                        label="GD"
+                                        label={t('GD')}
                                         value={formatGoalDifference(
                                             row.goal_difference,
                                         )}
@@ -272,7 +299,7 @@ function MobileStandings({ standings }: { standings: StandingRow[] }) {
                                 </div>
                                 <div className="mt-2 flex items-center gap-2">
                                     <span className="text-[10px] font-bold tracking-[0.03em] text-muted-foreground uppercase">
-                                        Form
+                                        {t('Form')}
                                     </span>
                                     <FormGuide form={row.form} />
                                 </div>

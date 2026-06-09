@@ -419,6 +419,8 @@ export interface BoardDescriptor {
     key: LeaderboardCategoryKey;
     label: string;
     description: string;
+    /** A fuller explanation with a worked example, shown only in the dialog. */
+    how_it_scores: string;
     primary_stat_label: string;
     secondary_stat_label: string | null;
     /** Whether finishing top of this board wins a share of the prize pot (Overall only). */
