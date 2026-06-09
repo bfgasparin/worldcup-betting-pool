@@ -44,6 +44,7 @@ class LeaderboardCategoryTest extends TestCase
         foreach (LeaderboardCategory::cases() as $category) {
             $this->assertNotSame('', $category->label());
             $this->assertNotSame('', $category->description());
+            $this->assertNotSame('', $category->howItScores());
             $this->assertNotSame('', $category->primaryStatLabel());
         }
 

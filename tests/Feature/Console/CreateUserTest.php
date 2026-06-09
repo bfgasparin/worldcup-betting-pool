@@ -21,6 +21,23 @@ class CreateUserTest extends TestCase
         $this->assertNotNull($user->email_verified_at);
         $this->assertNull($user->password);
         $this->assertNull($user->phone);
+        $this->assertNull($user->locale);
+    }
+
+    public function test_it_stores_an_explicit_locale(): void
+    {
+        $this->artisan('user:create', ['--email' => 'owner@domain.com', '--locale' => 'pt_BR'])
+            ->assertSuccessful();
+
+        $this->assertSame('pt_BR', User::where('email', 'owner@domain.com')->value('locale'));
+    }
+
+    public function test_it_rejects_an_unsupported_locale(): void
+    {
+        $this->artisan('user:create', ['--email' => 'owner@domain.com', '--locale' => 'fr'])
+            ->assertFailed();
+
+        $this->assertDatabaseCount('users', 0);
     }
 
     public function test_it_defaults_the_name_to_the_email_local_part(): void

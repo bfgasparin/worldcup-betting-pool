@@ -552,6 +552,7 @@ class PoolController extends Controller
             'key' => $category->value,
             'label' => $category->label(),
             'description' => $category->description(),
+            'how_it_scores' => $category->howItScores(),
             'primary_stat_label' => $category->primaryStatLabel(),
             'secondary_stat_label' => $category->secondaryStatLabel(),
             'awards_prizes' => $category->awardsPrizes(),

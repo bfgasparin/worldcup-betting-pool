@@ -45,15 +45,29 @@ enum LeaderboardCategory: string
     }
 
     /**
-     * A one-line explanation of how the board ranks, shown in the "How this pool works" dialog and
-     * above each board's table.
+     * A one-line summary of what the board ranks by, shown above each board's table and as the
+     * headline in the "How this pool works" dialog. The worked example lives in {@see howItScores()}.
      */
     public function description(): string
     {
         return match ($this) {
-            self::Overall => __('Total points across every match — the headline leaderboard.'),
-            self::MatchWinners => __('Most match results called correctly — group winners and draws, plus the teams you sent through in the knockouts.'),
-            self::GoalSniper => __('Most individual team goal counts predicted correctly, across every match.'),
+            self::Overall => __('Your total points across the whole tournament — the main, headline board.'),
+            self::MatchWinners => __('How many match results you call right — the winner or a draw, whatever the score.'),
+            self::GoalSniper => __('How many individual team goal counts you predict exactly.'),
+        };
+    }
+
+    /**
+     * A fuller, plain-language explanation of exactly how the board scores — with a worked example —
+     * shown in the "How this pool works" dialog so a player knows precisely what counts. The
+     * tie-break is rendered separately from {@see secondaryStatLabel()}, so it's left out here.
+     */
+    public function howItScores(): string
+    {
+        return match ($this) {
+            self::Overall => __('Adds up the points from every prediction across the tournament — the more precise your call, the more it is worth (an exact scoreline scores far more than just naming the winner). It is the only board that pays out the prize pot. Example: you predict Brazil 2–1; a spot-on 2–1 banks the full points, while 3–1 still earns for calling the win.'),
+            self::MatchWinners => __('Counts the matches where you called the result correctly — just who won, or that it was a draw, no matter the scoreline. In the knockouts, that is picking the team that actually goes through. Example: you predict Brazil 2–1 France but it finishes 3–0 Brazil — the score is wrong, yet you still nailed the winner, so it counts here.'),
+            self::GoalSniper => __('Counts how many individual team goal tallies you predict exactly — each team in each match is judged on its own, so a game is worth 0, 1 or 2. Example: you predict Brazil 2–1 France but it ends 2–3 — you still nailed Brazil’s 2, so that is one hit, even though the result went the other way.'),
         };
     }
 

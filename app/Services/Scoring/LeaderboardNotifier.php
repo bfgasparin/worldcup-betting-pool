@@ -63,7 +63,7 @@ class LeaderboardNotifier
                     $totalEntries,
                     $runnerUp?->user?->name,
                     $this->gap($entry, $runnerUp),
-                    LeaderboardCategory::Overall->label(),
+                    LeaderboardCategory::Overall,
                 ));
 
                 // The milestone replaces the generic climb email — never send both.
@@ -86,7 +86,7 @@ class LeaderboardNotifier
                     $entry->total_points,
                     $ahead?->user?->name,
                     $this->gap($ahead, $entry),
-                    LeaderboardCategory::Overall->label(),
+                    LeaderboardCategory::Overall,
                 ));
             }
         }

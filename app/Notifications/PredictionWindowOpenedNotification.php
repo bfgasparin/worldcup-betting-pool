@@ -2,12 +2,15 @@
 
 namespace App\Notifications;
 
+use App\Enums\PhaseKey;
 use App\Enums\PoolAccent;
+use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Illuminate\Support\Facades\Lang;
 
 /**
  * Sent to every player in a phased-bracket pool the moment a new knockout round's prediction window
@@ -24,9 +27,22 @@ class PredictionWindowOpenedNotification extends Notification implements ShouldQ
         public string $poolSlug,
         public string $source,
         public PoolAccent $accent,
-        public string $roundName,
+        public PhaseKey $phaseKey,
+        public string $roundNameEn,
         public ?CarbonInterface $deadline = null,
     ) {}
+
+    /**
+     * The localized round name, resolved at render time so it honors the recipient's preferred
+     * locale (set for the send via {@see User::preferredLocale()}); falls back to the
+     * canonical English phase name when the active locale has no translation.
+     */
+    private function roundName(): string
+    {
+        $key = 'phases.'.$this->phaseKey->value;
+
+        return Lang::has($key) ? __($key) : $this->roundNameEn;
+    }
 
     /**
      * Get the notification's delivery channels.
@@ -44,10 +60,11 @@ class PredictionWindowOpenedNotification extends Notification implements ShouldQ
     public function toMail(object $notifiable): MailMessage
     {
         $deadline = $this->deadline?->timezone(config('app.timezone'));
+        $roundName = $this->roundName();
 
         return (new MailMessage)
             ->subject(__("🎯 :round predictions are open in :source's :pool", [
-                'round' => $this->roundName,
+                'round' => $roundName,
                 'source' => $this->source,
                 'pool' => $this->poolName,
             ]))
@@ -57,7 +74,7 @@ class PredictionWindowOpenedNotification extends Notification implements ShouldQ
                 'accentGradient' => $this->accent->gradientCss(),
                 'accentSolid' => $this->accent->solidHex(),
                 'accentInk' => $this->accent->eyebrowInk(),
-                'roundName' => $this->roundName,
+                'roundName' => $roundName,
                 'deadlineLabel' => $deadline?->isoFormat('ddd D MMM YYYY, HH:mm'),
                 'deadlineZone' => $deadline?->format('T'),
                 'userName' => $notifiable->name,

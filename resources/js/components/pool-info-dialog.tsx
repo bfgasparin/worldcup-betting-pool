@@ -234,10 +234,13 @@ export function PoolInfoDialog({ pool }: { pool: PoolDetail }) {
                                                         </span>
                                                     )}
                                             </span>
-                                            <span className="text-sm text-muted-foreground">
+                                            <span className="text-sm font-medium text-foreground">
                                                 {board.description}
                                             </span>
-                                            <span className="inline-flex items-start gap-1 text-xs text-muted-foreground/80">
+                                            <span className="text-sm leading-relaxed text-muted-foreground">
+                                                {board.how_it_scores}
+                                            </span>
+                                            <span className="mt-0.5 inline-flex items-start gap-1 text-xs text-muted-foreground/80">
                                                 <Scale className="mt-px size-3 shrink-0 text-primary/70" />
                                                 {tiebreakRule(board, t)}
                                             </span>

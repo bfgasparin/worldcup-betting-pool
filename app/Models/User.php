@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Builder;
@@ -16,9 +17,9 @@ use Illuminate\Support\Facades\Storage;
 use Laravel\Fortify\Contracts\PasskeyUser;
 use Laravel\Fortify\PasskeyAuthenticatable;
 
-#[Fillable(['name', 'email', 'phone', 'avatar_path'])]
+#[Fillable(['name', 'email', 'phone', 'avatar_path', 'locale'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
-class User extends Authenticatable implements PasskeyUser
+class User extends Authenticatable implements HasLocalePreference, PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, PasskeyAuthenticatable;
@@ -42,6 +43,16 @@ class User extends Authenticatable implements PasskeyUser
             'onboarded_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * The user's preferred locale for notifications (e.g. the login code email). Null means no
+     * explicit choice — the queued notification then renders in the app's default locale, since a
+     * background job has no browser/Accept-Language to read. {@see HasLocalePreference}
+     */
+    public function preferredLocale(): ?string
+    {
+        return $this->locale;
     }
 
     /**
