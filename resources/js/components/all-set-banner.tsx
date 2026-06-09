@@ -1,6 +1,7 @@
 import { CheckCircle2 } from 'lucide-react';
 import { formatMatchDate, formatMatchTime } from '@/components/fixtures';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
+import { useTranslation } from '@/hooks/use-translation';
 import type { CompletionWindow } from '@/types/pools';
 
 /**
@@ -9,6 +10,7 @@ import type { CompletionWindow } from '@/types/pools';
  * without re-popping the modal. Mirrors the pool page's reminder banner, inverted to a settled tone.
  */
 export function AllSetBanner({ windows }: { windows: CompletionWindow[] }) {
+    const { t } = useTranslation();
     const tz = useDisplayTimeZone();
 
     return (
@@ -21,11 +23,12 @@ export function AllSetBanner({ windows }: { windows: CompletionWindow[] }) {
             </span>
             <div className="space-y-1.5">
                 <p className="font-semibold text-foreground">
-                    All set — waiting for official scores
+                    {t('All set — waiting for official scores')}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                    Your predictions are complete. We'll score them as the
-                    results come in.
+                    {t(
+                        "Your predictions are complete. We'll score them as the results come in.",
+                    )}
                 </p>
                 {windows.some((window) => window.deadline) && (
                     <ul className="space-y-1 text-xs text-muted-foreground">
@@ -34,12 +37,21 @@ export function AllSetBanner({ windows }: { windows: CompletionWindow[] }) {
                             .map((window) => (
                                 <li key={window.phase_key}>
                                     <span className="font-medium text-foreground">
-                                        {window.label}
+                                        {t(window.label)}
                                     </span>{' '}
-                                    locks{' '}
-                                    {formatMatchDate(window.deadline!, tz)},{' '}
-                                    {formatMatchTime(window.deadline!, tz)} —
-                                    you can still tweak until then.
+                                    {t(
+                                        'locks :date, :time — you can still tweak until then.',
+                                        {
+                                            date: formatMatchDate(
+                                                window.deadline!,
+                                                tz,
+                                            ),
+                                            time: formatMatchTime(
+                                                window.deadline!,
+                                                tz,
+                                            ),
+                                        },
+                                    )}
                                 </li>
                             ))}
                     </ul>

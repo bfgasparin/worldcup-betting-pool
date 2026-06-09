@@ -1,10 +1,12 @@
 @extends('emails.layout')
 
-@section('title', $roundName . ' predictions are open')
+@section('title', __(':round predictions are open', ['round' => $roundName]))
 
-@section('preheader', "The {$roundName} match-ups are set in {$source}'s {$poolName} — get your picks in" . ($deadlineLabel ? " before {$deadlineLabel} {$deadlineZone}." : '.'))
+@section('preheader', $deadlineLabel
+    ? __('The :round match-ups are set in the pool by :source — get your picks in before :deadline :zone.', ['round' => $roundName, 'source' => $source, 'deadline' => $deadlineLabel, 'zone' => $deadlineZone])
+    : __('The :round match-ups are set in the pool by :source — get your picks in.', ['round' => $roundName, 'source' => $source]))
 
-@section('headerTag', 'New round')
+@section('headerTag', __('New round'))
 
 @section('accentBarSolid', $accentSolid)
 @section('accentBarGradient', $accentGradient)
@@ -14,8 +16,8 @@
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
             <td class="ffa-pad" align="center" style="padding:36px 32px 4px;text-align:center;">
-                <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:{{ $accentInk }};">Pool by {{ $source }} &middot; New predictions</p>
-                <h1 class="ffa-h1" style="margin:12px 0 0;font-family:'Fredoka','Trebuchet MS',Verdana,sans-serif;font-size:30px;font-weight:600;line-height:1.1;letter-spacing:-0.02em;color:#0D2E23;">{{ $roundName }} is open</h1>
+                <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:{{ $accentInk }};">{{ __('Pool by :source · New predictions', ['source' => $source]) }}</p>
+                <h1 class="ffa-h1" style="margin:12px 0 0;font-family:'Fredoka','Trebuchet MS',Verdana,sans-serif;font-size:30px;font-weight:600;line-height:1.1;letter-spacing:-0.02em;color:#0D2E23;">{{ __(':round is open', ['round' => $roundName]) }}</h1>
             </td>
         </tr>
     </table>
@@ -35,7 +37,7 @@
                                 </table>
                             </td>
                             <td valign="middle" style="padding:16px 6px;">
-                                <div style="font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#7A847E;">Predictions close</div>
+                                <div style="font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#7A847E;">{{ __('Predictions close') }}</div>
                                 <div style="margin-top:2px;font-family:'Fredoka','Trebuchet MS',Verdana,sans-serif;font-size:16px;font-weight:600;color:#0D2E23;">{{ $deadlineLabel }} {{ $deadlineZone }}</div>
                             </td>
                         </tr>
@@ -49,22 +51,24 @@
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
             <td class="ffa-pad-narrow" align="center" style="padding:14px 48px 0;text-align:center;">
-                <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#5E6B64;">The {{ $roundName }} match-ups are locked in. Head in and call every tie before the window closes{{ $deadlineLabel ? '' : ' — kick-off comes round fast' }}.</p>
+                <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#5E6B64;">{{ $deadlineLabel
+                    ? __('The :round match-ups are locked in. Head in and call every tie before the window closes.', ['round' => $roundName])
+                    : __('The :round match-ups are locked in. Head in and call every tie before the window closes — kick-off comes round fast.', ['round' => $roundName]) }}</p>
             </td>
         </tr>
         <tr>
             <td align="center" style="padding:24px 32px 6px;text-align:center;">
-                @include('emails.partials.button', ['url' => $url, 'label' => 'Make your picks →', 'variant' => 'pitch'])
+                @include('emails.partials.button', ['url' => $url, 'label' => __('Make your picks →'), 'variant' => 'pitch'])
             </td>
         </tr>
         <tr>
             <td class="ffa-pad-narrow" align="center" style="padding:14px 48px 34px;text-align:center;">
-                <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12.5px;line-height:1.55;color:#7A847E;">Miss the deadline and the round locks with no pick — don't leave points on the table.</p>
+                <p style="margin:0;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12.5px;line-height:1.55;color:#7A847E;">{{ __('Miss the deadline and the round locks with no pick — don\'t leave points on the table.') }}</p>
             </td>
         </tr>
     </table>
 @endsection
 
 @section('footerNote')
-    You're getting this because you're playing <b style="color:#5E6B64;font-weight:700;">{{ $source }}'s {{ $poolName }}</b> on Brothers Bets. We only email when a new round opens for you to predict.
+    {!! __('You\'re getting this because you\'re playing :pool on Brothers Bets. We only email when a new round opens for you to predict.', ['pool' => '<b style="color:#5E6B64;font-weight:700;">' . __('the pool by :source', ['source' => e($source)]) . '</b>']) !!}
 @endsection

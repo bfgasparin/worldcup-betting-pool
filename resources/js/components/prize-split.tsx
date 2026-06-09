@@ -1,5 +1,6 @@
 import { Trophy } from 'lucide-react';
 import { NoFeeBadge } from '@/components/no-fee-badge';
+import { useTranslation } from '@/hooks/use-translation';
 import { ordinal } from '@/lib/leaderboards';
 import { formatMoney } from '@/lib/money';
 import { placeBadge } from '@/lib/prizes';
@@ -44,6 +45,7 @@ export function PrizeSplit({
     canJoin: boolean;
     className?: string;
 }) {
+    const { t } = useTranslation();
     // Raw amounts only once joining has closed and a pool actually exists; otherwise the percentage
     // share (which also avoids a row of R$0,00 before anyone has joined).
     const showRaw = !canJoin && pricing.net > 0;
@@ -64,7 +66,9 @@ export function PrizeSplit({
     // player isn't surprised the figures apply to the net pool.
     const feeNote =
         pricing.house_fee_percentage > 0
-            ? `after ${pricing.house_fee_percentage}% organizer fee`
+            ? t('after :percentage% organizer fee', {
+                  percentage: pricing.house_fee_percentage,
+              })
             : null;
 
     // A closed pool leads with its now-final total (see the header below), so the footnote is just
@@ -73,8 +77,8 @@ export function PrizeSplit({
         ? feeNote
         : [
               canJoin
-                  ? 'Prize pot grows as players join'
-                  : 'A share of the prize pot',
+                  ? t('Prize pot grows as players join')
+                  : t('A share of the prize pot'),
               feeNote,
           ]
               .filter(Boolean)
@@ -91,7 +95,7 @@ export function PrizeSplit({
                 <div className="flex flex-col gap-1">
                     <span className="inline-flex items-center gap-1.5 text-[0.65rem] font-bold tracking-[0.14em] text-muted-foreground uppercase">
                         <Trophy className="size-3.5 text-accent" />
-                        Prize pot
+                        {t('Prize pot')}
                     </span>
                     <span className="bg-gold-gradient w-fit bg-clip-text font-display text-3xl leading-none font-bold text-transparent sm:text-4xl">
                         {formatMoney(pricing.net, pricing.currency)}
@@ -100,7 +104,7 @@ export function PrizeSplit({
             ) : (
                 <span className="inline-flex items-center gap-1.5 text-[0.65rem] font-bold tracking-[0.14em] text-muted-foreground uppercase">
                     <Trophy className="size-3.5 text-accent" />
-                    Prize split
+                    {t('Prize split')}
                 </span>
             )}
 
@@ -127,7 +131,9 @@ export function PrizeSplit({
                         className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
                     >
                         <span className="sr-only">
-                            {ordinal(prize.place)} place:{' '}
+                            {t(':place place:', {
+                                place: ordinal(prize.place),
+                            })}{' '}
                         </span>
                         <span aria-hidden>{placeBadge(prize.place)}</span>
                         <b className="font-display font-semibold text-[#8a5a00] dark:text-amber-300">
@@ -148,7 +154,7 @@ export function PrizeSplit({
             {canJoin && (
                 <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-3">
                     <span className="text-[0.65rem] font-bold tracking-[0.12em] text-muted-foreground uppercase">
-                        Buy-in
+                        {t('Buy-in')}
                     </span>
                     <span className="font-display text-base font-bold text-foreground">
                         {formatMoney(pricing.entry_price, pricing.currency)}

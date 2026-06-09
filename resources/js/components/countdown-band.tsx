@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { formatMatchDate, formatMatchTime } from '@/components/fixtures';
 import { useCountdown } from '@/hooks/use-countdown';
 import type { Countdown } from '@/hooks/use-countdown';
+import { useTranslation } from '@/hooks/use-translation';
 import { cn } from '@/lib/utils';
 
 /** Urgency tier from the live countdown: calm far out, amber under a day, coral under an hour. */
@@ -167,6 +168,8 @@ function LockedNote({
     joined: boolean;
     className?: string;
 }) {
+    const { t } = useTranslation();
+
     return (
         <p
             className={cn(
@@ -176,8 +179,8 @@ function LockedNote({
         >
             <Lock className="size-4 shrink-0 text-primary" />
             {joined
-                ? 'Locked in — points unlock as results land.'
-                : 'Joining has closed — predictions are locked.'}
+                ? t('Locked in — points unlock as results land.')
+                : t('Joining has closed — predictions are locked.')}
         </p>
     );
 }
@@ -206,6 +209,7 @@ export function CountdownBand({
     hasScores: boolean;
     className?: string;
 }) {
+    const { t } = useTranslation();
     const countdown = useCountdown(lockAt);
 
     // Once official results are landing the standings/leaderboard carry the context; the hero's
@@ -221,9 +225,12 @@ export function CountdownBand({
 
     const inviteToJoin = !joined && canJoin;
     const eyebrow = inviteToJoin
-        ? 'Join before predictions lock'
-        : 'Predictions lock in';
-    const subline = `Locks ${formatMatchDate(lockAt, tz)} · ${formatMatchTime(lockAt, tz)}`;
+        ? t('Join before predictions lock')
+        : t('Predictions lock in');
+    const subline = t('Locks :date · :time', {
+        date: formatMatchDate(lockAt, tz),
+        time: formatMatchTime(lockAt, tz),
+    });
 
     // Pre-mount / SSR: the live value isn't available yet. Render placeholder tiles (fixed height →
     // no hydration jump) with the deterministic lock date as the readable line.

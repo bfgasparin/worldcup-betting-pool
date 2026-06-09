@@ -8,6 +8,7 @@ import { TieResolutionPanel } from '@/components/tie-resolution-panel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { useTranslation } from '@/hooks/use-translation';
 import manage from '@/routes/manage';
 import type { BreadcrumbItem } from '@/types/navigation';
 import type { StandingRow, TeamRef, TiedCluster } from '@/types/pools';
@@ -61,6 +62,7 @@ function toNumberOrNull(value: string): number | null {
 }
 
 function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
+    const { t, tCountry } = useTranslation();
     const [home, setHome] = useState(
         row.proposal?.home_goals?.toString() ?? '',
     );
@@ -140,21 +142,21 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
     };
 
     const stateLabel = row.has_ended
-        ? 'Full time'
+        ? t('Full time')
         : row.status === 'finished'
-          ? 'Finished'
+          ? t('Finished')
           : row.status === 'live'
-            ? 'Live'
-            : 'Scheduled';
+            ? t('Live')
+            : t('Scheduled');
 
     return (
         <div className="flex flex-col gap-3 border-b border-border p-4 last:border-0">
             <div className="flex flex-wrap items-center gap-2">
                 <span className="font-display text-sm font-semibold">
-                    Match {row.match_number}
+                    {t('Match :number', { number: row.match_number })}
                 </span>
                 <span className="text-[11px] font-medium text-muted-foreground">
-                    {row.phase}
+                    {t(row.phase)}
                 </span>
                 <span className="inline-flex w-fit items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
                     {stateLabel}
@@ -172,7 +174,11 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
                             handleScore('home', event.target.value)
                         }
                         className="h-9 w-14 text-center"
-                        aria-label={`${row.home?.name ?? 'Home'} goals`}
+                        aria-label={t(':team goals', {
+                            team: row.home
+                                ? tCountry(row.home.code, row.home.name)
+                                : t('Home'),
+                        })}
                     />
                 </TeamScoreRow>
                 <TeamScoreRow team={row.away} label={row.away_label}>
@@ -185,7 +191,11 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
                             handleScore('away', event.target.value)
                         }
                         className="h-9 w-14 text-center"
-                        aria-label={`${row.away?.name ?? 'Away'} goals`}
+                        aria-label={t(':team goals', {
+                            team: row.away
+                                ? tCountry(row.away.code, row.away.name)
+                                : t('Away'),
+                        })}
                     />
                 </TeamScoreRow>
             </div>
@@ -194,16 +204,16 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
                 <div className="flex flex-wrap items-center gap-2">
                     {!teamsKnown ? (
                         <span className="text-xs text-muted-foreground italic">
-                            Teams not set yet.
+                            {t('Teams not set yet.')}
                         </span>
                     ) : !bothScored ? (
                         <span className="text-xs text-muted-foreground italic">
-                            Enter the score to set who advances.
+                            {t('Enter the score to set who advances.')}
                         </span>
                     ) : isDraw ? (
                         <>
                             <span className="text-[0.65rem] font-semibold tracking-wide text-muted-foreground uppercase">
-                                Advances
+                                {t('Advances')}
                             </span>
                             <ToggleGroup
                                 type="single"
@@ -211,7 +221,7 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
                                 size="sm"
                                 value={winner}
                                 onValueChange={(value) => setWinner(value)}
-                                aria-label="Advancing team"
+                                aria-label={t('Advancing team')}
                             >
                                 <ToggleGroupItem
                                     value={String(row.home!.id)}
@@ -232,7 +242,7 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
                     ) : (
                         <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-pitch-deep dark:text-primary">
                             <span className="text-[0.65rem] font-semibold tracking-wide text-muted-foreground uppercase">
-                                Advances
+                                {t('Advances')}
                             </span>
                             <Flag team={winnerTeam} className="h-4 w-6" />
                             {winnerTeam?.code ?? winnerTeam?.name}
@@ -244,12 +254,12 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
             <div className="flex flex-wrap items-center justify-end gap-2">
                 {saved && !rejected && (
                     <span className="text-xs font-semibold text-pitch-deep dark:text-primary">
-                        Saved
+                        {t('Saved')}
                     </span>
                 )}
                 {rejected && (
                     <span className="text-xs font-semibold text-muted-foreground">
-                        Skipped
+                        {t('Skipped')}
                     </span>
                 )}
                 <Button
@@ -258,7 +268,7 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
                     disabled={saving}
                     onClick={() => save(false)}
                 >
-                    {saving ? 'Saving…' : 'Save'}
+                    {saving ? t('Saving…') : t('Save')}
                 </Button>
                 <Button
                     size="sm"
@@ -266,7 +276,7 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
                     disabled={saving}
                     onClick={() => save(true)}
                 >
-                    Skip
+                    {t('Skip')}
                 </Button>
             </div>
         </div>
@@ -282,6 +292,8 @@ function TieResolutionSection({
     tiedGroups: TiedGroupData[];
     thirdsTie: ThirdsTieData | null;
 }) {
+    const { t } = useTranslation();
+
     if (tiedGroups.length === 0 && !thirdsTie) {
         return null;
     }
@@ -292,12 +304,12 @@ function TieResolutionSection({
         <div className="flex flex-col gap-5 rounded-3xl border border-amber/40 bg-card p-5">
             <div>
                 <h2 className="font-display text-lg font-semibold">
-                    Resolve tied teams
+                    {t('Resolve tied teams')}
                 </h2>
                 <p className="max-w-2xl text-sm text-muted-foreground">
-                    These results are level on every tiebreaker. Drag the tied
-                    teams into the official finishing order before approving —
-                    the bracket can&apos;t be published until you do.
+                    {t(
+                        "These results are level on every tiebreaker. Drag the tied teams into the official finishing order before approving — the bracket can't be published until you do.",
+                    )}
                 </p>
             </div>
 
@@ -322,12 +334,14 @@ function TieResolutionSection({
                 return (
                     <div key={group.name} className="flex flex-col gap-3">
                         <h3 className="font-display text-sm font-semibold">
-                            Group {group.name}
+                            {t('Group :name', { name: group.name })}
                         </h3>
                         <StandingsTable standings={group.standings} />
                         <TieResolutionPanel
-                            title="Order the tied teams"
-                            description="Drag to set the official finishing order."
+                            title={t('Order the tied teams')}
+                            description={t(
+                                'Drag to set the official finishing order.',
+                            )}
                             clusters={clusters}
                             editable
                             url={orderingUrl}
@@ -343,8 +357,10 @@ function TieResolutionSection({
 
             {thirdsTie && (
                 <TieResolutionPanel
-                    title="Order the tied third-placed teams"
-                    description="These third-placed teams are level across the qualifying cut. Drag them into order — the highest take the last spots."
+                    title={t('Order the tied third-placed teams')}
+                    description={t(
+                        'These third-placed teams are level across the qualifying cut. Drag them into order — the highest take the last spots.',
+                    )}
                     clusters={[
                         {
                             teams: thirdsTie.teams,
@@ -369,6 +385,7 @@ export default function ScoreReview({
     tied_groups: tiedGroups,
     thirds_tie: thirdsTie,
 }: ReviewPageProps) {
+    const { t } = useTranslation();
     const [approving, setApproving] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -386,7 +403,7 @@ export default function ScoreReview({
 
     return (
         <>
-            <Head title={`Review scores · ${tournament.name}`} />
+            <Head title={`${t('Review scores')} · ${t(tournament.name)}`} />
             <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
                 <header className="hero relative overflow-hidden rounded-3xl border border-border p-8">
                     <div className="hero-lines" />
@@ -394,21 +411,22 @@ export default function ScoreReview({
                         <div className="flex flex-col gap-3">
                             <span className="inline-flex items-center gap-2 text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">
                                 <ClipboardCheck className="size-4 text-primary" />
-                                Score review
+                                {t('Score review')}
                             </span>
                             <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-                                {tournament.name}
+                                {t(tournament.name)}
                             </h1>
                             <p className="max-w-xl text-sm text-muted-foreground">
-                                Enter or correct each final score, set the
-                                advancing team for knockout matches, then
-                                approve to publish results and update everyone's
-                                points.
+                                {t(
+                                    "Enter or correct each final score, set the advancing team for knockout matches, then approve to publish results and update everyone's points.",
+                                )}
                             </p>
                         </div>
                         <Button onClick={approve} disabled={approving}>
                             <Trophy className="size-4" />
-                            {approving ? 'Approving…' : 'Approve & publish'}
+                            {approving
+                                ? t('Approving…')
+                                : t('Approve & publish')}
                         </Button>
                     </div>
                 </header>
@@ -439,11 +457,12 @@ export default function ScoreReview({
                     <div className="flex min-h-44 flex-col items-center justify-center gap-2 rounded-3xl border border-dashed border-border p-8 text-center">
                         <ClipboardCheck className="size-6 text-muted-foreground" />
                         <p className="font-display font-semibold">
-                            Nothing to review
+                            {t('Nothing to review')}
                         </p>
                         <p className="max-w-sm text-sm text-muted-foreground">
-                            No finished matches are waiting for a score right
-                            now. Matches appear here once they have ended.
+                            {t(
+                                'No finished matches are waiting for a score right now. Matches appear here once they have ended.',
+                            )}
                         </p>
                     </div>
                 )}

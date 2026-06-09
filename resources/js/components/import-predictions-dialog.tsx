@@ -10,6 +10,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { useTranslation } from '@/hooks/use-translation';
 import { cn } from '@/lib/utils';
 import pools from '@/routes/pools';
 import type { ImportSource } from '@/types/pools';
@@ -35,6 +36,7 @@ export function ImportPredictionsDialog({
     onOpenChange,
     onBeforeImport,
 }: ImportPredictionsDialogProps) {
+    const { t } = useTranslation();
     const [selected, setSelected] = useState<string | null>(
         sources[0]?.slug ?? null,
     );
@@ -67,11 +69,11 @@ export function ImportPredictionsDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Import predictions</DialogTitle>
+                    <DialogTitle>{t('Import predictions')}</DialogTitle>
                     <DialogDescription>
-                        Copy your picks from another pool of this tournament.
-                        This replaces what you have entered for the windows that
-                        are open now.
+                        {t(
+                            'Copy your picks from another pool of this tournament. This replaces what you have entered for the windows that are open now.',
+                        )}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -90,11 +92,17 @@ export function ImportPredictionsDialog({
                                     )}
                                 >
                                     <span className="font-semibold text-foreground">
-                                        {source.source} · {source.name}
+                                        {source.source} · {t(source.name)}
                                     </span>
                                     <span className="text-xs text-muted-foreground">
                                         {source.phase_labels.join(', ')} ·{' '}
-                                        {source.predictions_count} picks
+                                        {source.predictions_count === 1
+                                            ? t(':count pick', {
+                                                  count: source.predictions_count,
+                                              })
+                                            : t(':count picks', {
+                                                  count: source.predictions_count,
+                                              })}
                                     </span>
                                 </button>
                             </li>
@@ -104,11 +112,17 @@ export function ImportPredictionsDialog({
                     chosen && (
                         <div className="rounded-2xl border border-border px-4 py-3">
                             <p className="font-semibold text-foreground">
-                                {chosen.source} · {chosen.name}
+                                {chosen.source} · {t(chosen.name)}
                             </p>
                             <p className="text-xs text-muted-foreground">
                                 {chosen.phase_labels.join(', ')} ·{' '}
-                                {chosen.predictions_count} picks
+                                {chosen.predictions_count === 1
+                                    ? t(':count pick', {
+                                          count: chosen.predictions_count,
+                                      })
+                                    : t(':count picks', {
+                                          count: chosen.predictions_count,
+                                      })}
                             </p>
                         </div>
                     )
@@ -121,7 +135,7 @@ export function ImportPredictionsDialog({
                         onClick={() => onOpenChange(false)}
                         disabled={processing}
                     >
-                        Cancel
+                        {t('Cancel')}
                     </Button>
                     <Button
                         type="button"
@@ -134,7 +148,11 @@ export function ImportPredictionsDialog({
                         ) : (
                             <Download className="size-4" />
                         )}
-                        {chosen ? `Import from ${chosen.source}` : 'Import'}
+                        {chosen
+                            ? t('Import from :source', {
+                                  source: chosen.source,
+                              })
+                            : t('Import')}
                     </Button>
                 </DialogFooter>
             </DialogContent>

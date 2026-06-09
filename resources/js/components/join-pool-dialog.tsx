@@ -10,6 +10,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { useTranslation } from '@/hooks/use-translation';
 import { formatMoney } from '@/lib/money';
 import pools from '@/routes/pools';
 import type { PoolDetail } from '@/types/pools';
@@ -27,6 +28,7 @@ export function JoinPoolDialog({
     pool: PoolDetail;
     className?: string;
 }) {
+    const { t } = useTranslation();
     const [open, setOpen] = useState(false);
     const form = useForm({});
     const buyIn = formatMoney(pool.pricing.entry_price, pool.pricing.currency);
@@ -46,19 +48,19 @@ export function JoinPoolDialog({
                 className={className}
             >
                 <Coins className="size-4" />
-                Join for {buyIn}
+                {t('Join for :amount', { amount: buyIn })}
             </Button>
 
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle className="font-display text-xl">
-                            Join {pool.source}&apos;s pool
+                            {t("Join :source's pool", { source: pool.source })}
                         </DialogTitle>
                         <DialogDescription>
-                            Payment is arranged directly with the organizer —
-                            there&apos;s no payment inside the app. Join to lock
-                            in your spot and start predicting.
+                            {t(
+                                "Payment is arranged directly with the organizer — there's no payment inside the app. Join to lock in your spot and start predicting.",
+                            )}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -67,7 +69,7 @@ export function JoinPoolDialog({
                             {buyIn}
                         </span>
                         <span className="text-[0.65rem] font-bold tracking-[0.14em] text-muted-foreground uppercase">
-                            Buy-in
+                            {t('Buy-in')}
                         </span>
                     </div>
 
@@ -77,14 +79,14 @@ export function JoinPoolDialog({
                             onClick={() => setOpen(false)}
                             disabled={form.processing}
                         >
-                            Cancel
+                            {t('Cancel')}
                         </Button>
                         <Button
                             variant="gold"
                             onClick={confirm}
                             disabled={form.processing}
                         >
-                            {form.processing ? 'Joining…' : "I'm in"}
+                            {form.processing ? t('Joining…') : t("I'm in")}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

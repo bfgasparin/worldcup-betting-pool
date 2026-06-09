@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useInitials } from '@/hooks/use-initials';
+import { useTranslation } from '@/hooks/use-translation';
 import { edit } from '@/routes/profile';
 import type { Auth } from '@/types';
 
@@ -16,6 +17,7 @@ type PageProps = {
 };
 
 function ProfilePhoto({ user }: { user: Auth['user'] }) {
+    const { t } = useTranslation();
     const getInitials = useInitials();
     const form = useForm<{ avatar: File | null }>({ avatar: null });
 
@@ -41,8 +43,8 @@ function ProfilePhoto({ user }: { user: Auth['user'] }) {
         <div className="space-y-6">
             <Heading
                 variant="small"
-                title="Photo"
-                description="Help others recognise you on the leaderboard"
+                title={t('Photo')}
+                description={t('Help others recognise you on the leaderboard')}
             />
 
             <div className="flex flex-col items-start gap-4">
@@ -62,7 +64,7 @@ function ProfilePhoto({ user }: { user: Auth['user'] }) {
                         disabled={form.processing || !form.data.avatar}
                         onClick={save}
                     >
-                        Save photo
+                        {t('Save photo')}
                     </Button>
 
                     {user.avatar && (
@@ -72,7 +74,7 @@ function ProfilePhoto({ user }: { user: Auth['user'] }) {
                             disabled={form.processing}
                             onClick={remove}
                         >
-                            Remove photo
+                            {t('Remove photo')}
                         </Button>
                     )}
                 </div>
@@ -82,13 +84,14 @@ function ProfilePhoto({ user }: { user: Auth['user'] }) {
 }
 
 export default function Profile() {
+    const { t } = useTranslation();
     const { auth } = usePage<PageProps>().props;
 
     return (
         <>
-            <Head title="Profile settings" />
+            <Head title={t('Profile settings')} />
 
-            <h1 className="sr-only">Profile settings</h1>
+            <h1 className="sr-only">{t('Profile settings')}</h1>
 
             <div className="space-y-12">
                 <ProfilePhoto user={auth.user} />
@@ -96,8 +99,8 @@ export default function Profile() {
                 <div className="space-y-6">
                     <Heading
                         variant="small"
-                        title="Profile"
-                        description="Update your name and email address"
+                        title={t('Profile')}
+                        description={t('Update your name and email address')}
                     />
 
                     <Form
@@ -110,7 +113,7 @@ export default function Profile() {
                         {({ processing, errors }) => (
                             <>
                                 <div className="grid gap-2">
-                                    <Label htmlFor="name">Name</Label>
+                                    <Label htmlFor="name">{t('Name')}</Label>
 
                                     <Input
                                         id="name"
@@ -119,7 +122,7 @@ export default function Profile() {
                                         name="name"
                                         required
                                         autoComplete="name"
-                                        placeholder="Full name"
+                                        placeholder={t('Full name')}
                                     />
 
                                     <InputError
@@ -129,7 +132,9 @@ export default function Profile() {
                                 </div>
 
                                 <div className="grid gap-2">
-                                    <Label htmlFor="email">Email address</Label>
+                                    <Label htmlFor="email">
+                                        {t('Email address')}
+                                    </Label>
 
                                     <Input
                                         id="email"
@@ -139,7 +144,7 @@ export default function Profile() {
                                         name="email"
                                         required
                                         autoComplete="username"
-                                        placeholder="Email address"
+                                        placeholder={t('Email address')}
                                     />
 
                                     <InputError
@@ -153,7 +158,7 @@ export default function Profile() {
                                         disabled={processing}
                                         data-test="update-profile-button"
                                     >
-                                        Save
+                                        {t('Save')}
                                     </Button>
                                 </div>
                             </>

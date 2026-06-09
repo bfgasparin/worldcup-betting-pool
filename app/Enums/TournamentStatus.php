@@ -14,9 +14,9 @@ enum TournamentStatus: string
     public function label(): string
     {
         return match ($this) {
-            self::Upcoming => 'Upcoming',
-            self::InProgress => 'In Progress',
-            self::Completed => 'Completed',
+            self::Upcoming => __('Upcoming'),
+            self::InProgress => __('In Progress'),
+            self::Completed => __('Completed'),
         };
     }
 }

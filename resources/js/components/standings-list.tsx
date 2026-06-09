@@ -5,6 +5,7 @@ import { LeaderboardRow } from '@/components/leaderboard-row';
 import type { LeaderboardEntry } from '@/components/leaderboard-row';
 import { MovementArrow } from '@/components/movement-arrow';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from '@/hooks/use-translation';
 import { cn } from '@/lib/utils';
 
 const INITIAL_ROWS = 25;
@@ -34,6 +35,7 @@ export function StandingsList({
     /** Where the floating "Jump to me" bar sits — defaults to clearing the mobile pool tab bar. */
     stickyOffsetClassName?: string;
 }) {
+    const { t } = useTranslation();
     const [visibleCount, setVisibleCount] = useState(INITIAL_ROWS);
     const [meVisible, setMeVisible] = useState(false);
 
@@ -127,7 +129,10 @@ export function StandingsList({
                         className="flex items-center justify-center gap-2 border-t border-border py-4 text-xs font-medium text-muted-foreground"
                     >
                         <Loader2 className="size-4 animate-spin" />
-                        Loading more — {visibleCount} of {entries.length}
+                        {t('Loading more — :shown of :total', {
+                            shown: visibleCount,
+                            total: entries.length,
+                        })}
                     </div>
                 )}
             </div>
@@ -145,7 +150,7 @@ export function StandingsList({
                         </span>
                         <div className="min-w-0 flex-1">
                             <p className="font-display text-sm font-semibold">
-                                Your position
+                                {t('Your position')}
                             </p>
                             <p className="truncate text-xs text-muted-foreground">
                                 {formatValue(myEntry.primary)}{' '}
@@ -167,7 +172,7 @@ export function StandingsList({
                             className="shrink-0"
                         >
                             <LocateFixed className="size-4" />
-                            Jump to me
+                            {t('Jump to me')}
                         </Button>
                     </div>
                 </div>

@@ -2,6 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import { manageNavItems, manageSlugFromUrl } from '@/components/nav-manage';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useTranslation } from '@/hooks/use-translation';
 import { cn } from '@/lib/utils';
 
 /**
@@ -11,6 +12,7 @@ import { cn } from '@/lib/utils';
  * the sections one thumb-tap away. Renders nothing on desktop or outside a manage-tournament page.
  */
 export function ManageTabBar() {
+    const { t } = useTranslation();
     const { url } = usePage();
     const { isCurrentUrl } = useCurrentUrl();
     const isMobile = useIsMobile();
@@ -32,7 +34,7 @@ export function ManageTabBar() {
             }}
         >
             <nav
-                aria-label="Tournament admin sections"
+                aria-label={t('Tournament admin sections')}
                 className="pointer-events-auto inline-flex items-stretch gap-1 rounded-2xl border border-border bg-card/95 p-1.5 shadow-[var(--sh-lg)] backdrop-blur"
             >
                 {items.map((item) => {
@@ -53,7 +55,7 @@ export function ManageTabBar() {
                             )}
                         >
                             <Icon className="size-5" />
-                            {item.title}
+                            {t(item.title)}
                         </Link>
                     );
                 })}

@@ -38,9 +38,9 @@ enum LeaderboardCategory: string
     public function label(): string
     {
         return match ($this) {
-            self::Overall => 'Overall',
-            self::MatchWinners => 'Match Winners',
-            self::GoalSniper => 'Goal Sniper',
+            self::Overall => __('Overall'),
+            self::MatchWinners => __('Match Winners'),
+            self::GoalSniper => __('Goal Sniper'),
         };
     }
 
@@ -51,9 +51,9 @@ enum LeaderboardCategory: string
     public function description(): string
     {
         return match ($this) {
-            self::Overall => 'Total points across every match — the headline leaderboard.',
-            self::MatchWinners => 'Most match results called correctly — group winners and draws, plus the teams you sent through in the knockouts.',
-            self::GoalSniper => 'Most individual team goal counts predicted correctly, across every match.',
+            self::Overall => __('Total points across every match — the headline leaderboard.'),
+            self::MatchWinners => __('Most match results called correctly — group winners and draws, plus the teams you sent through in the knockouts.'),
+            self::GoalSniper => __('Most individual team goal counts predicted correctly, across every match.'),
         };
     }
 
@@ -63,9 +63,9 @@ enum LeaderboardCategory: string
     public function primaryStatLabel(): string
     {
         return match ($this) {
-            self::Overall => 'Points',
-            self::MatchWinners => 'Winners',
-            self::GoalSniper => 'Team goals',
+            self::Overall => __('Points'),
+            self::MatchWinners => __('Winners'),
+            self::GoalSniper => __('Team goals'),
         };
     }
 
@@ -77,8 +77,8 @@ enum LeaderboardCategory: string
     {
         return match ($this) {
             self::Overall => null,
-            self::MatchWinners => 'Team goals',
-            self::GoalSniper => 'Winners',
+            self::MatchWinners => __('Team goals'),
+            self::GoalSniper => __('Winners'),
         };
     }
 

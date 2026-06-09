@@ -4,7 +4,7 @@ namespace Tests\Unit\Enums;
 
 use App\Enums\LeaderboardCategory;
 use App\Services\Scoring\LeaderboardMetrics;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 class LeaderboardCategoryTest extends TestCase
 {

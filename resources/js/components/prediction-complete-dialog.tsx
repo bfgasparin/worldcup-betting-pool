@@ -11,6 +11,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
+import { useTranslation } from '@/hooks/use-translation';
 import pools from '@/routes/pools';
 import type { CompletionWindow } from '@/types/pools';
 
@@ -32,6 +33,7 @@ export function PredictionCompleteDialog({
     poolSlug: string;
     windows: CompletionWindow[];
 }) {
+    const { t } = useTranslation();
     const tz = useDisplayTimeZone();
 
     return (
@@ -42,12 +44,12 @@ export function PredictionCompleteDialog({
                         <PartyPopper className="size-7" />
                     </span>
                     <DialogTitle className="font-display text-2xl">
-                        You're all set!
+                        {t("You're all set!")}
                     </DialogTitle>
                     <DialogDescription>
-                        Every prediction is in. There's nothing left to do but
-                        sit back and wait for the matches to play out — we'll
-                        score your picks as the official results land.
+                        {t(
+                            "Every prediction is in. There's nothing left to do but sit back and wait for the matches to play out — we'll score your picks as the official results land.",
+                        )}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -63,12 +65,21 @@ export function PredictionCompleteDialog({
                                     <CalendarClock className="size-4 shrink-0 text-primary" />
                                     <span>
                                         <span className="font-medium text-foreground">
-                                            {window.label}
+                                            {t(window.label)}
                                         </span>{' '}
-                                        locks{' '}
-                                        {formatMatchDate(window.deadline!, tz)},{' '}
-                                        {formatMatchTime(window.deadline!, tz)}{' '}
-                                        — you can still tweak until then.
+                                        {t(
+                                            'locks :date, :time — you can still tweak until then.',
+                                            {
+                                                date: formatMatchDate(
+                                                    window.deadline!,
+                                                    tz,
+                                                ),
+                                                time: formatMatchTime(
+                                                    window.deadline!,
+                                                    tz,
+                                                ),
+                                            },
+                                        )}
                                     </span>
                                 </li>
                             ))}
@@ -80,11 +91,11 @@ export function PredictionCompleteDialog({
                         variant="outline"
                         onClick={() => onOpenChange(false)}
                     >
-                        Done
+                        {t('Done')}
                     </Button>
                     <Button variant="gold" asChild>
                         <Link href={pools.leaderboard(poolSlug)}>
-                            View leaderboard
+                            {t('View leaderboard')}
                         </Link>
                     </Button>
                 </DialogFooter>

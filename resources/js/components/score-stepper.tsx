@@ -1,3 +1,4 @@
+import { useTranslation } from '@/hooks/use-translation';
 import { cn } from '@/lib/utils';
 
 type StepperSize = 'sm' | 'md';
@@ -38,6 +39,7 @@ export function ScoreStepper({
     label: string;
     size?: StepperSize;
 }) {
+    const { t } = useTranslation();
     const s = SIZES[size];
 
     const step = (delta: number): void => {
@@ -53,7 +55,7 @@ export function ScoreStepper({
             <button
                 type="button"
                 tabIndex={-1}
-                aria-label={`Decrease ${label}`}
+                aria-label={t('Decrease :label', { label })}
                 disabled={disabled}
                 onClick={() => step(-1)}
                 className={cn(STEP_BUTTON, s.btn)}
@@ -87,7 +89,7 @@ export function ScoreStepper({
             <button
                 type="button"
                 tabIndex={-1}
-                aria-label={`Increase ${label}`}
+                aria-label={t('Increase :label', { label })}
                 disabled={disabled}
                 onClick={() => step(1)}
                 className={cn(STEP_BUTTON, s.btn)}

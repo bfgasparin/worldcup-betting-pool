@@ -6,6 +6,7 @@ use App\Enums\PhaseKey;
 use App\Enums\PhaseType;
 use App\Models\Phase;
 use App\Models\Tournament;
+use Illuminate\Support\Facades\Lang;
 
 /**
  * Derives a tournament's ordered list of {@see Matchday}s — the timeline a player travels along on
@@ -107,7 +108,7 @@ class MatchdayCatalog
             $number = $roundIndex + 1;
             $matchdays[] = new Matchday(
                 key: "group-{$number}",
-                label: "Matchday {$number}",
+                label: __('Matchday :number', ['number' => $number]),
                 shortLabel: "MD{$number}",
                 kind: 'group',
                 fixtureIds: $fixtureIds,
@@ -138,9 +139,13 @@ class MatchdayCatalog
                 continue;
             }
 
+            $phaseKey = 'phases.'.$phase->key->value;
+
             $matchdays[] = new Matchday(
                 key: $phase->key->value,
-                label: $phase->name,
+                // Localized phase name, falling back to the canonical English name when the active
+                // locale has no translation (e.g. the English-pinned test suite).
+                label: Lang::has($phaseKey) ? __($phaseKey) : $phase->name,
                 shortLabel: $this->knockoutShortLabel($phase),
                 kind: 'knockout',
                 fixtureIds: $fixtureIds,

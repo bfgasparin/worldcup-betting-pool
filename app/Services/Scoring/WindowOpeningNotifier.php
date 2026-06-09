@@ -9,6 +9,7 @@ use App\Enums\PredictionWindowStatus;
 use App\Models\Pool;
 use App\Notifications\PredictionWindowOpenedNotification;
 use App\Services\Predictions\PredictionWindowResolver;
+use Illuminate\Support\Facades\Lang;
 
 /**
  * After a result batch is approved, emails the players of a phased-bracket pool about every knockout
@@ -53,13 +54,18 @@ class WindowOpeningNotifier
 
             $deadline = $this->resolver->lockAtFor($pool, $phase);
 
+            // Localized round name for the email, falling back to the canonical English phase name
+            // when the active locale has no translation (e.g. the English-pinned test suite).
+            $phaseKey = 'phases.'.$phase->key->value;
+            $roundName = Lang::has($phaseKey) ? __($phaseKey) : $phase->name;
+
             foreach ($pool->entries()->with('user')->get() as $entry) {
                 $entry->user?->notify(new PredictionWindowOpenedNotification(
                     $pool->name,
                     $pool->slug,
                     $pool->source,
                     $accent,
-                    $phase->name,
+                    $roundName,
                     $deadline,
                 ));
             }

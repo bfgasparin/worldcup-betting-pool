@@ -22,6 +22,7 @@ import { UserMenuContent } from '@/components/user-menu-content';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { useInitials } from '@/hooks/use-initials';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useTranslation } from '@/hooks/use-translation';
 import { resolveAccent, sourceMonogram } from '@/lib/accents';
 import { cn } from '@/lib/utils';
 import live from '@/routes/live';
@@ -67,10 +68,12 @@ export function MobileTopNav() {
  * sits neutral otherwise, tapping through to the Live Center.
  */
 function LiveButton({ hasLive }: { hasLive: boolean }) {
+    const { t } = useTranslation();
+
     return (
         <Link
             href={live.index()}
-            aria-label="Live Center"
+            aria-label={t('Live Center')}
             className="pointer-events-auto flex size-9 items-center justify-center rounded-full border border-border bg-card/95 shadow-[var(--sh-md)] backdrop-blur"
         >
             {hasLive ? (
@@ -91,6 +94,7 @@ function PoolSwitcher({
 }) {
     const [open, setOpen] = useState(false);
     const { isCurrentUrl } = useCurrentUrl();
+    const { t } = useTranslation();
 
     // Which in-pool section we're on, so a switch can land on the same section for the new pool.
     const currentItems = pool ? tournamentNavItems(pool.slug) : null;
@@ -126,7 +130,7 @@ function PoolSwitcher({
                         </span>
                     )}
                     <span className="truncate font-display text-sm font-semibold">
-                        {pool ? pool.name : 'Pools'}
+                        {pool ? t(pool.name) : t('Pools')}
                     </span>
                     <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
                     {anyAttention && (
@@ -143,10 +147,10 @@ function PoolSwitcher({
             >
                 <SheetHeader className="p-0">
                     <SheetTitle className="font-display text-base">
-                        Switch pool
+                        {t('Switch pool')}
                     </SheetTitle>
                     <SheetDescription className="sr-only">
-                        Switch between your pools or browse all pools.
+                        {t('Switch between your pools or browse all pools.')}
                     </SheetDescription>
                 </SheetHeader>
                 <ul className="flex flex-col gap-1">
@@ -177,7 +181,7 @@ function PoolSwitcher({
                                             {sourceMonogram(entry.source)}
                                         </span>
                                         <span className="min-w-0 flex-1 truncate font-display font-semibold">
-                                            {entry.name}
+                                            {t(entry.name)}
                                         </span>
                                         {entry.needs_attention && (
                                             <span
@@ -204,7 +208,7 @@ function PoolSwitcher({
                                     <LayoutGrid className="size-4" />
                                 </span>
                                 <span className="font-display font-semibold">
-                                    All pools
+                                    {t('All pools')}
                                 </span>
                             </Link>
                         </SheetClose>
@@ -217,13 +221,14 @@ function PoolSwitcher({
 
 function UserMenuButton({ user }: { user: User }) {
     const getInitials = useInitials();
+    const { t } = useTranslation();
 
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <button
                     type="button"
-                    aria-label="Account menu"
+                    aria-label={t('Account menu')}
                     className="pointer-events-auto rounded-full border border-border bg-card/95 p-0.5 shadow-[var(--sh-md)] backdrop-blur"
                 >
                     <Avatar className="size-9 overflow-hidden rounded-full">

@@ -13,6 +13,9 @@ import {
 import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useDisplayTimeZone } from '@/hooks/use-timezone';
+import { useTranslation } from '@/hooks/use-translation';
+import { getActiveLocale } from '@/lib/locale';
+import { formatPlaceholderLabel } from '@/lib/placeholder-label';
 import { cn } from '@/lib/utils';
 import type {
     BracketFixture,
@@ -24,13 +27,16 @@ import type {
 
 /* ------------------------------------------------------------------ dates */
 
-/** All formatters render in the viewer's timezone (`tz` from useDisplayTimeZone). */
+/**
+ * All formatters render in the viewer's timezone (`tz` from useDisplayTimeZone) and the active
+ * locale (from the server-rendered `<html lang>`), so month/weekday names match the app language.
+ */
 function fmt(
     iso: string,
     options: Intl.DateTimeFormatOptions,
     tz: string,
 ): string {
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat(getActiveLocale(), {
         ...options,
         timeZone: tz,
     }).format(new Date(iso));
@@ -119,10 +125,12 @@ export function GroupBadge({
 }
 
 export function TeamChip({ team }: { team: GroupTeam | TeamRef }) {
+    const { tCountry } = useTranslation();
+
     return (
         <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-bold text-foreground">
             <Flag team={team} className="h-3.5 w-5" />
-            {team.name}
+            {tCountry(team.code, team.name)}
         </span>
     );
 }
@@ -163,8 +171,18 @@ export function slotAbbrev(label: string | null): string {
 function teamCode(
     team: TeamRef | null,
     fallback: string | null = null,
+    tCountry?: (
+        code: string | null | undefined,
+        fallbackName: string,
+    ) => string,
 ): string {
-    return team?.code ?? team?.name ?? fallback ?? 'TBD';
+    if (team) {
+        return (
+            team.code ?? (tCountry ? tCountry(team.code, team.name) : team.name)
+        );
+    }
+
+    return fallback ?? 'TBD';
 }
 
 /**
@@ -179,8 +197,10 @@ export function TeamMatchupName({
     team: TeamRef | null;
     label?: string | null;
 }) {
-    const short = team?.code ?? team?.name ?? slotAbbrev(label);
-    const full = team?.name ?? team?.code ?? label ?? 'TBD';
+    const { t, tCountry } = useTranslation();
+    const teamName = team ? tCountry(team.code, team.name) : null;
+    const short = team?.code ?? teamName ?? slotAbbrev(label);
+    const full = teamName ?? team?.code ?? label ?? t('TBD');
 
     return (
         <>
@@ -188,11 +208,6 @@ export function TeamMatchupName({
             <span className="hidden truncate lg:inline">{full}</span>
         </>
     );
-}
-
-/** Display label for a venue — drops the generic " Stadium" suffix (e.g. "Mexico City"). */
-function venueLabel(venue: string): string {
-    return venue.replace(/\s+Stadium$/, '');
 }
 
 type GoalOutcome = 'home' | 'away' | 'draw';
@@ -247,6 +262,7 @@ function MatchRow({
     showTimes: boolean;
 }) {
     const tz = useDisplayTimeZone();
+    const { t, tCountry, tVenue } = useTranslation();
     const { home_goals: homeGoals, away_goals: awayGoals } = fixture;
     const settled = homeGoals !== null && awayGoals !== null;
     const outcome = settled ? goalOutcome(homeGoals, awayGoals) : null;
@@ -282,7 +298,7 @@ function MatchRow({
                             )}
                         >
                             <span className="truncate">
-                                {teamCode(fixture.home)}
+                                {teamCode(fixture.home, null, tCountry)}
                             </span>
                             <Flag team={fixture.home} className="h-4 w-6" />
                         </span>
@@ -305,13 +321,13 @@ function MatchRow({
                         >
                             <Flag team={fixture.away} className="h-4 w-6" />
                             <span className="truncate">
-                                {teamCode(fixture.away)}
+                                {teamCode(fixture.away, null, tCountry)}
                             </span>
                         </span>
                     </div>
                     {fixture.prediction ? (
                         <div className="text-[11px] text-muted-foreground">
-                            You{' '}
+                            {t('You')}{' '}
                             <span className="font-semibold tabular-nums">
                                 {fixture.prediction.home_goals}–
                                 {fixture.prediction.away_goals}
@@ -319,7 +335,7 @@ function MatchRow({
                         </div>
                     ) : (
                         <div className="text-[11px] font-medium text-muted-foreground/70">
-                            No prediction
+                            {t('No prediction')}
                         </div>
                     )}
                 </div>
@@ -345,7 +361,7 @@ function MatchRow({
                         </>
                     )}
                     {fixture.kicks_off_at && fixture.venue ? ' · ' : ''}
-                    {fixture.venue ? venueLabel(fixture.venue) : ''}
+                    {fixture.venue ? tVenue(fixture.venue) : ''}
                 </div>
             )}
         </div>
@@ -366,6 +382,7 @@ function StandingsPanel({
     /** Undefined = no comparison; null = comparison offered but nothing predicted yet. */
     predicted?: StandingRow[] | null;
 }) {
+    const { t } = useTranslation();
     const [view, setView] = useState<'official' | 'predicted'>('official');
 
     if (predicted === undefined) {
@@ -387,10 +404,10 @@ function StandingsPanel({
                 className="self-center"
             >
                 <ToggleGroupItem value="official" className="px-4 text-xs">
-                    Official
+                    {t('Official')}
                 </ToggleGroupItem>
                 <ToggleGroupItem value="predicted" className="px-4 text-xs">
-                    Predicted
+                    {t('Predicted')}
                 </ToggleGroupItem>
             </ToggleGroup>
 
@@ -400,7 +417,7 @@ function StandingsPanel({
                 <StandingsTable standings={predicted} />
             ) : (
                 <p className="py-4 text-center text-sm text-muted-foreground">
-                    No prediction yet for this group.
+                    {t('No prediction yet for this group.')}
                 </p>
             )}
         </div>
@@ -415,12 +432,14 @@ export function ShowTimesToggle({
     open: boolean;
     onToggle: () => void;
 }) {
+    const { t } = useTranslation();
+
     return (
         <button
             type="button"
             onClick={onToggle}
             aria-expanded={open}
-            aria-label="Show kickoff times"
+            aria-label={t('Show kickoff times')}
             className="inline-flex shrink-0 items-center gap-0.5 rounded-full p-1 text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:text-foreground"
         >
             <Clock className="size-3.5" />
@@ -452,6 +471,7 @@ export function GroupFixtureCard({
      */
     predictedStandings?: StandingRow[] | null;
 }) {
+    const { t } = useTranslation();
     const [showTimes, setShowTimes] = useState(false);
 
     return (
@@ -460,12 +480,12 @@ export function GroupFixtureCard({
                 <div className="flex min-w-0 items-center gap-2.5">
                     <GroupBadge name={name} />
                     <h3 className="font-display text-base font-semibold whitespace-nowrap">
-                        Group {name}
+                        {t('Group :name', { name })}
                     </h3>
                 </div>
                 <div className="flex items-center gap-1.5">
                     <span className="text-[11px] font-bold tracking-wide text-muted-foreground uppercase">
-                        {fixtures.length} matches
+                        {t(':count matches', { count: fixtures.length })}
                     </span>
                     <ShowTimesToggle
                         open={showTimes}
@@ -493,7 +513,7 @@ export function GroupFixtureCard({
             {standings && standings.length > 0 && (
                 <Collapsible className="mt-2">
                     <CollapsibleTrigger className="flex w-full items-center justify-center gap-1.5 border-t border-border pt-3 font-display text-xs font-semibold tracking-wide text-muted-foreground uppercase transition-colors outline-none hover:text-foreground focus-visible:text-foreground [&[data-state=open]>svg]:rotate-180">
-                        Standings
+                        {t('Standings')}
                         <ChevronDown className="size-4 transition-transform duration-200" />
                     </CollapsibleTrigger>
                     <CollapsibleContent className="pt-2">
@@ -517,12 +537,14 @@ function KnockoutSlot({
     team: TeamRef | null;
     label: string | null;
 }) {
+    const { t, tCountry, tBracket } = useTranslation();
+
     if (team) {
         return (
             <div className="flex items-center gap-3 py-1.5">
                 <Flag team={team} className="h-7 w-10 rounded-md" />
                 <span className="truncate font-display text-sm font-semibold">
-                    {team.name}
+                    {tCountry(team.code, team.name)}
                 </span>
             </div>
         );
@@ -534,17 +556,21 @@ function KnockoutSlot({
                 {slotAbbrev(label)}
             </span>
             <span className="text-sm font-semibold text-muted-foreground">
-                {label ?? 'To be decided'}
+                {label
+                    ? formatPlaceholderLabel(label, tBracket)
+                    : t('To be decided')}
             </span>
         </div>
     );
 }
 
 export function AdvanceChip({ tone = 'light' }: { tone?: 'light' | 'dark' }) {
+    const { t } = useTranslation();
+
     return (
         <span
-            aria-label="Advances"
-            title="Advances"
+            aria-label={t('Advances')}
+            title={t('Advances')}
             className={cn(
                 'font-body inline-flex shrink-0 items-center rounded-full px-1 py-0.5 text-[9.5px] font-bold tracking-wide uppercase sm:px-2',
                 tone === 'dark'
@@ -554,7 +580,7 @@ export function AdvanceChip({ tone = 'light' }: { tone?: 'light' | 'dark' }) {
         >
             {/* Tight match-up rows can't fit the word on phones, so collapse to a glyph below sm. */}
             <ChevronUp className="size-3 sm:hidden" aria-hidden />
-            <span className="hidden sm:inline">Advances</span>
+            <span className="hidden sm:inline">{t('Advances')}</span>
         </span>
     );
 }
@@ -573,6 +599,8 @@ function SettledKnockoutTeam({
     /** A level scoreline decided on penalties/extra time — the only case that needs the chip. */
     isDraw: boolean;
 }) {
+    const { tCountry, tBracket } = useTranslation();
+
     return (
         <div className="flex items-center justify-between gap-3 py-2">
             <span
@@ -584,7 +612,13 @@ function SettledKnockoutTeam({
                 )}
             >
                 <Flag team={team} className="h-7 w-10 rounded-md" />
-                <span className="truncate">{team?.name ?? label}</span>
+                <span className="truncate">
+                    {team
+                        ? tCountry(team.code, team.name)
+                        : label
+                          ? formatPlaceholderLabel(label, tBracket)
+                          : ''}
+                </span>
                 {advancing && isDraw && <AdvanceChip />}
             </span>
             <span
@@ -633,6 +667,7 @@ export function KnockoutPickMatchup({
     officialAway?: TeamRef | null;
     tone?: 'light' | 'dark';
 }) {
+    const { tCountry } = useTranslation();
     const hasScore = homeGoals !== null && awayGoals !== null;
     const isDraw = hasScore && homeGoals === awayGoals;
     const predictsTeams = predictedHome != null || predictedAway != null;
@@ -662,7 +697,9 @@ export function KnockoutPickMatchup({
                         advHome ? advanced : muted,
                     )}
                 >
-                    <span className="truncate">{teamCode(predictedHome)}</span>
+                    <span className="truncate">
+                        {teamCode(predictedHome, null, tCountry)}
+                    </span>
                     <Flag team={predictedHome} className="h-3.5 w-5" />
                     {isDraw && advHome && <AdvanceChip tone={tone} />}
                 </span>
@@ -675,7 +712,9 @@ export function KnockoutPickMatchup({
                 >
                     {isDraw && advAway && <AdvanceChip tone={tone} />}
                     <Flag team={predictedAway} className="h-3.5 w-5" />
-                    <span className="truncate">{teamCode(predictedAway)}</span>
+                    <span className="truncate">
+                        {teamCode(predictedAway, null, tCountry)}
+                    </span>
                 </span>
             </span>
         );
@@ -703,7 +742,7 @@ export function KnockoutPickMatchup({
                     className={cn('inline-flex items-center gap-1', advanced)}
                 >
                     <Flag team={advancing} className="h-3.5 w-5" />
-                    {teamCode(advancing)}
+                    {teamCode(advancing, null, tCountry)}
                     {isDraw && <AdvanceChip tone={tone} />}
                 </span>
             )}
@@ -727,6 +766,7 @@ function PredictionFoot({
     away: TeamRef | null;
     showPoints?: boolean;
 }) {
+    const { t } = useTranslation();
     const hasPick =
         prediction != null &&
         prediction.home_goals !== null &&
@@ -740,7 +780,7 @@ function PredictionFoot({
             <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-muted-foreground">
                 {hasContent ? (
                     <>
-                        <span className="shrink-0">Your pick</span>
+                        <span className="shrink-0">{t('Your pick')}</span>
                         <KnockoutPickMatchup
                             homeGoals={prediction.home_goals}
                             awayGoals={prediction.away_goals}
@@ -752,7 +792,7 @@ function PredictionFoot({
                         />
                     </>
                 ) : (
-                    'No prediction'
+                    t('No prediction')
                 )}
             </div>
             {showPoints && (
@@ -764,6 +804,7 @@ function PredictionFoot({
 
 function KnockoutCardHeader({ fixture }: { fixture: BracketFixture }) {
     const tz = useDisplayTimeZone();
+    const { t, tVenue } = useTranslation();
 
     return (
         <div className="mb-2 flex items-start justify-between gap-2">
@@ -771,7 +812,7 @@ function KnockoutCardHeader({ fixture }: { fixture: BracketFixture }) {
                 <LiveBadge />
             ) : (
                 <span className="font-display text-xs font-semibold text-muted-foreground">
-                    Match {fixture.match_number}
+                    {t('Match :number', { number: fixture.match_number })}
                 </span>
             )}
             {fixture.kicks_off_at && (
@@ -782,7 +823,7 @@ function KnockoutCardHeader({ fixture }: { fixture: BracketFixture }) {
                     </span>
                     {fixture.venue && (
                         <span className="block font-medium normal-case">
-                            {venueLabel(fixture.venue)}
+                            {tVenue(fixture.venue)}
                         </span>
                     )}
                 </span>
@@ -792,6 +833,7 @@ function KnockoutCardHeader({ fixture }: { fixture: BracketFixture }) {
 }
 
 export function KnockoutSlotCard({ fixture }: { fixture: BracketFixture }) {
+    const { t } = useTranslation();
     const { home_goals: homeGoals, away_goals: awayGoals } = fixture;
 
     if (homeGoals !== null && awayGoals !== null) {
@@ -825,8 +867,10 @@ export function KnockoutSlotCard({ fixture }: { fixture: BracketFixture }) {
                 />
                 {penalties && (
                     <div className="mt-1 text-[11px] font-semibold text-muted-foreground">
-                        Penalties {fixture.home_penalties}–
-                        {fixture.away_penalties}
+                        {t('Penalties :home–:away', {
+                            home: fixture.home_penalties!,
+                            away: fixture.away_penalties!,
+                        })}
                     </div>
                 )}
                 <PredictionFoot
@@ -845,7 +889,7 @@ export function KnockoutSlotCard({ fixture }: { fixture: BracketFixture }) {
             <div className="my-1 flex items-center gap-2.5">
                 <span className="h-px flex-1 bg-border" />
                 <span className="font-display text-[11px] tracking-[0.1em] text-muted-foreground">
-                    VS
+                    {t('VS')}
                 </span>
                 <span className="h-px flex-1 bg-border" />
             </div>
@@ -872,6 +916,8 @@ function FinalSlot({
     team: TeamRef | null;
     label: string | null;
 }) {
+    const { tCountry, tBracket } = useTranslation();
+
     return (
         <div className="flex flex-col items-center gap-2">
             {team ? (
@@ -885,7 +931,11 @@ function FinalSlot({
                 </span>
             )}
             <small className="font-medium text-white/60">
-                {team ? team.name : label}
+                {team
+                    ? tCountry(team.code, team.name)
+                    : label
+                      ? formatPlaceholderLabel(label, tBracket)
+                      : ''}
             </small>
         </div>
     );
@@ -900,6 +950,8 @@ function FinalResultTeam({
     label: string | null;
     champion: boolean;
 }) {
+    const { tCountry, tBracket } = useTranslation();
+
     return (
         <div
             className={cn(
@@ -923,7 +975,11 @@ function FinalResultTeam({
                     champion ? 'text-gold' : 'text-white/70',
                 )}
             >
-                {team?.name ?? label}
+                {team
+                    ? tCountry(team.code, team.name)
+                    : label
+                      ? formatPlaceholderLabel(label, tBracket)
+                      : ''}
             </small>
         </div>
     );
@@ -931,6 +987,8 @@ function FinalResultTeam({
 
 /** The points line for the dark final card — gold for a haul, red for a scored zero. */
 function FinalPoints({ points }: { points: number | null }) {
+    const { t } = useTranslation();
+
     if (points === null) {
         return <span className="text-white/40">—</span>;
     }
@@ -942,13 +1000,16 @@ function FinalPoints({ points }: { points: number | null }) {
                 points > 0 ? 'text-gold' : 'text-red-300',
             )}
         >
-            {points > 0 ? `+${points}` : '0'} pts
+            {t(':points pts', {
+                points: points > 0 ? `+${points}` : '0',
+            })}
         </span>
     );
 }
 
 export function FinalCard({ fixture }: { fixture: BracketFixture }) {
     const tz = useDisplayTimeZone();
+    const { t, tCountry, tVenue } = useTranslation();
     const { home_goals: homeGoals, away_goals: awayGoals } = fixture;
 
     if (homeGoals !== null && awayGoals !== null) {
@@ -972,7 +1033,9 @@ export function FinalCard({ fixture }: { fixture: BracketFixture }) {
                 <div className="relative">
                     <div className="text-4xl">🏆</div>
                     <h3 className="mt-2 font-display text-xs font-bold tracking-[0.18em] text-gold uppercase">
-                        Champions · Match {fixture.match_number}
+                        {t('Champions · Match :number', {
+                            number: fixture.match_number,
+                        })}
                     </h3>
                     {fixture.kicks_off_at && (
                         <div className="mt-1 text-sm font-semibold text-white/60">
@@ -996,19 +1059,29 @@ export function FinalCard({ fixture }: { fixture: BracketFixture }) {
                     </div>
                     {penalties && (
                         <div className="mt-1 text-xs font-semibold text-white/60">
-                            Won on penalties ({fixture.home_penalties}–
-                            {fixture.away_penalties})
+                            {t('Won on penalties (:home–:away)', {
+                                home: fixture.home_penalties!,
+                                away: fixture.away_penalties!,
+                            })}
                         </div>
                     )}
                     {champion && (
                         <div className="mt-3 font-display text-base font-semibold text-gold">
-                            🏆 {champion.name} are World Champions
+                            🏆{' '}
+                            {t(':champion are World Champions', {
+                                champion: tCountry(
+                                    champion.code,
+                                    champion.name,
+                                ),
+                            })}
                         </div>
                     )}
                     {hasContent ? (
                         <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/10 pt-4 text-sm font-medium text-white/60">
                             <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                                <span className="shrink-0">Your pick</span>
+                                <span className="shrink-0">
+                                    {t('Your pick')}
+                                </span>
                                 <KnockoutPickMatchup
                                     homeGoals={pick.home_goals}
                                     awayGoals={pick.away_goals}
@@ -1024,7 +1097,7 @@ export function FinalCard({ fixture }: { fixture: BracketFixture }) {
                         </div>
                     ) : (
                         <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/10 pt-4 text-sm font-medium text-white/60">
-                            <span>No prediction</span>
+                            <span>{t('No prediction')}</span>
                             <FinalPoints
                                 points={pick?.points_awarded ?? null}
                             />
@@ -1041,26 +1114,28 @@ export function FinalCard({ fixture }: { fixture: BracketFixture }) {
             <div className="relative">
                 <div className="text-4xl">🏆</div>
                 <h3 className="mt-2 font-display text-xs font-bold tracking-[0.18em] text-gold uppercase">
-                    The Final · Match {fixture.match_number}
+                    {t('The Final · Match :number', {
+                        number: fixture.match_number,
+                    })}
                 </h3>
                 {fixture.kicks_off_at && (
                     <div className="mt-1 text-sm font-semibold text-white/60">
                         {formatLongDate(fixture.kicks_off_at, tz)} ·{' '}
                         {formatMatchTime(fixture.kicks_off_at, tz)}
-                        {fixture.venue ? ` · ${venueLabel(fixture.venue)}` : ''}
+                        {fixture.venue ? ` · ${tVenue(fixture.venue)}` : ''}
                     </div>
                 )}
                 <div className="mt-6 flex items-center justify-center gap-6">
                     <FinalSlot team={fixture.home} label={fixture.home_label} />
                     <span className="font-display text-xl text-white/50">
-                        v
+                        {t('v')}
                     </span>
                     <FinalSlot team={fixture.away} label={fixture.away_label} />
                 </div>
                 {/* Upfront-bracket tournaments: preview the final the player called. */}
                 {fixture.prediction?.predicted_home != null && (
                     <div className="mt-6 flex flex-wrap items-center justify-center gap-2 border-t border-white/10 pt-4 text-sm font-medium text-white/60">
-                        <span className="shrink-0">Your pick</span>
+                        <span className="shrink-0">{t('Your pick')}</span>
                         <KnockoutPickMatchup
                             homeGoals={fixture.prediction.home_goals}
                             awayGoals={fixture.prediction.away_goals}
@@ -1097,10 +1172,12 @@ export function PhaseTabs({
     active: string;
     onSelect: (id: string) => void;
 }) {
+    const { t } = useTranslation();
+
     return (
         <div className="sticky top-0 z-30 -mx-4 border-b border-border bg-background/85 px-4 py-3 backdrop-blur">
             <SegmentedTabs
-                aria-label="Phases"
+                aria-label={t('Phases')}
                 value={active}
                 onChange={onSelect}
                 items={phases.map((phase) => ({

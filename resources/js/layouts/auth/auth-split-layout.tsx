@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react';
 import AppLogoIcon from '@/components/app-logo-icon';
+import { useTranslation } from '@/hooks/use-translation';
 import { home } from '@/routes';
 import type { AuthLayoutProps } from '@/types';
 
@@ -22,6 +23,10 @@ export default function AuthSplitLayout({
     title,
     description,
 }: AuthLayoutProps) {
+    // `title`/`description` arrive as English keys from each auth page's `.layout` config (evaluated
+    // at module load, before React) — translate them here at render time.
+    const { t } = useTranslation();
+
     return (
         <div className="grid min-h-svh lg:grid-cols-2">
             <div className="hero relative hidden flex-col justify-between overflow-hidden p-10 lg:flex xl:p-14">
@@ -50,15 +55,18 @@ export default function AuthSplitLayout({
                 <div className="relative z-10 flex flex-col gap-6">
                     <span className="inline-flex w-fit items-center gap-2.5 rounded-full bg-muted px-4 py-1.5 text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">
                         <span className="bg-brand-gradient size-2 rounded-full" />
-                        Members Only · Invite Required
+                        {t('Members Only · Invite Required')}
                     </span>
                     <h2 className="max-w-md font-display text-4xl font-semibold tracking-tight text-balance text-foreground xl:text-5xl">
-                        Where the <span className="text-primary">pool</span>{' '}
-                        plays for <span className="text-gold">glory</span>.
+                        {t('Where')}{' '}
+                        <span className="text-primary">{t('the pool')}</span>{' '}
+                        {t('plays for')}{' '}
+                        <span className="text-gold">{t('glory')}</span>.
                     </h2>
                     <p className="max-w-sm text-pretty text-muted-foreground">
-                        Predict the fixtures, climb the leaderboard, and settle
-                        the bragging rights — every match, every season.
+                        {t(
+                            'Predict the fixtures, climb the leaderboard, and settle the bragging rights — every match, every season.',
+                        )}
                     </p>
                 </div>
 
@@ -69,10 +77,10 @@ export default function AuthSplitLayout({
                             className="rounded-2xl border border-border bg-card/70 p-4 shadow-[var(--sh-sm)] backdrop-blur"
                         >
                             <dt className="font-display text-lg font-semibold text-primary">
-                                {item.stat}
+                                {t(item.stat)}
                             </dt>
                             <dd className="mt-0.5 text-xs text-muted-foreground">
-                                {item.label}
+                                {t(item.label)}
                             </dd>
                         </div>
                     ))}
@@ -95,11 +103,11 @@ export default function AuthSplitLayout({
 
                     <div className="flex flex-col gap-2">
                         <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground">
-                            {title}
+                            {title && t(title)}
                         </h1>
                         {description && (
                             <p className="text-sm text-muted-foreground">
-                                {description}
+                                {t(description)}
                             </p>
                         )}
                     </div>

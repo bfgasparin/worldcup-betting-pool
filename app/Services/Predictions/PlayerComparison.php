@@ -98,7 +98,7 @@ class PlayerComparison
         return [
             'entry_id' => $entry?->id,
             'user_id' => $entry?->user_id,
-            'name' => $isViewer ? 'You' : ($entry?->user->name ?? 'Player'),
+            'name' => $isViewer ? __('You') : ($entry?->user->name ?? __('Player')),
             'initials' => $this->initials($entry?->user->name ?? ''),
             'avatar' => $entry?->user->avatar,
             'is_viewer' => $isViewer,

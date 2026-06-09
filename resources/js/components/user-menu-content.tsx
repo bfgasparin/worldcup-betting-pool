@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { UserInfo } from '@/components/user-info';
 import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
+import { useTranslation } from '@/hooks/use-translation';
 import { logout } from '@/routes';
 import manage from '@/routes/manage';
 import { edit } from '@/routes/profile';
@@ -20,6 +21,7 @@ type Props = {
 export function UserMenuContent({ user }: Props) {
     const cleanup = useMobileNavigation();
     const isAdmin = usePage().props.auth.isAdmin;
+    const { t } = useTranslation();
 
     const handleLogout = () => {
         cleanup();
@@ -43,7 +45,7 @@ export function UserMenuContent({ user }: Props) {
                             onClick={cleanup}
                         >
                             <Wrench className="mr-2" />
-                            Manage
+                            {t('Manage')}
                         </Link>
                     </DropdownMenuItem>
                 )}
@@ -55,7 +57,7 @@ export function UserMenuContent({ user }: Props) {
                         onClick={cleanup}
                     >
                         <Settings className="mr-2" />
-                        Settings
+                        {t('Settings')}
                     </Link>
                 </DropdownMenuItem>
             </DropdownMenuGroup>
@@ -69,7 +71,7 @@ export function UserMenuContent({ user }: Props) {
                     data-test="logout-button"
                 >
                     <LogOut className="mr-2" />
-                    Log out
+                    {t('Log out')}
                 </Link>
             </DropdownMenuItem>
         </>
