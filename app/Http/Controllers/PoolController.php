@@ -597,7 +597,7 @@ class PoolController extends Controller
      * identity (slug/name/source/accent/scoring style {@see BuildsPoolIdentity}) while the
      * lifecycle, sport and dates come from the shared competition it is played over.
      *
-     * @return array{slug: string, name: string, source: string, accent: ?string, scoring_label: string, sport: string, status: string, starts_on: ?string, ends_on: ?string}
+     * @return array{slug: string, name: string, source: string, tournament_name: string, accent: ?string, scoring_label: string, sport: string, status: string, starts_on: ?string, ends_on: ?string}
      */
     private function poolHeader(Pool $pool): array
     {

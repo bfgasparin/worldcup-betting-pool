@@ -12,8 +12,8 @@ use Illuminate\Support\Number;
 
 /**
  * Sent when a player makes a significant move (up or down) on a pool's leaderboard. Leads with the
- * pool's source and accent so a player can tell which pool the email is about (pools over the same
- * tournament share a name).
+ * pool's name and accent so a player can tell which pool the email is about; the source is shown as
+ * secondary context.
  */
 class LeaderboardRankChangedNotification extends Notification implements ShouldQueue
 {
@@ -52,8 +52,8 @@ class LeaderboardRankChangedNotification extends Notification implements ShouldQ
         $ordinal = Number::ordinal($this->rank);
 
         $subject = $this->direction === 'up'
-            ? __("📈 You climbed to :rank in :source's :pool", ['rank' => $ordinal, 'source' => $this->source, 'pool' => $this->poolName])
-            : __("You slipped to :rank in :source's :pool", ['rank' => $ordinal, 'source' => $this->source, 'pool' => $this->poolName]);
+            ? __('📈 You climbed to :rank in :pool', ['rank' => $ordinal, 'pool' => $this->poolName])
+            : __('You slipped to :rank in :pool', ['rank' => $ordinal, 'pool' => $this->poolName]);
 
         return (new MailMessage)
             ->subject($subject)

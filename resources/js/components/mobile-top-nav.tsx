@@ -130,7 +130,7 @@ function PoolSwitcher({
                         </span>
                     )}
                     <span className="truncate font-display text-sm font-semibold">
-                        {pool ? t(pool.name) : t('Pools')}
+                        {pool ? pool.name : t('Pools')}
                     </span>
                     <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
                     {anyAttention && (
@@ -181,7 +181,7 @@ function PoolSwitcher({
                                             {sourceMonogram(entry.source)}
                                         </span>
                                         <span className="min-w-0 flex-1 truncate font-display font-semibold">
-                                            {t(entry.name)}
+                                            {entry.name}
                                         </span>
                                         {entry.needs_attention && (
                                             <span

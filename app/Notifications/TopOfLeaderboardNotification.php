@@ -11,8 +11,8 @@ use Illuminate\Notifications\Notification;
 
 /**
  * Sent to the player who newly reaches rank #1 on a pool's leaderboard. Leads with the pool's
- * source and accent so a player can tell which pool the email is about (pools over the same
- * tournament share a name).
+ * name and accent so a player can tell which pool the email is about; the source is shown as
+ * secondary context.
  */
 class TopOfLeaderboardNotification extends Notification implements ShouldQueue
 {
@@ -46,7 +46,7 @@ class TopOfLeaderboardNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject(__("🏆 You're top of :source's :pool", ['source' => $this->source, 'pool' => $this->poolName]))
+            ->subject(__("🏆 You're top of :pool", ['pool' => $this->poolName]))
             ->view(['emails.top-of-leaderboard', 'emails.top-of-leaderboard-text'], [
                 'poolName' => $this->poolName,
                 'source' => $this->source,

@@ -545,10 +545,12 @@ function ProjectedBoard({
 
 function PoolLiveSection({
     pool,
+    tournamentName,
     boards,
     meId,
 }: {
     pool: LivePool;
+    tournamentName: string;
     boards: LiveBoardDescriptor[];
     meId: number;
 }) {
@@ -562,6 +564,7 @@ function PoolLiveSection({
                 <PoolIdentity
                     source={pool.source}
                     name={pool.name}
+                    tournament={tournamentName}
                     scoringLabel={pool.scoring_label}
                     accent={pool.accent}
                     variant="banner"
@@ -674,7 +677,7 @@ export default function LiveShow({
                                                         pool.source,
                                                     )}
                                                 </span>
-                                                {t(pool.name)}
+                                                {pool.name}
                                             </span>
                                         ),
                                     };
@@ -688,6 +691,7 @@ export default function LiveShow({
                             <PoolLiveSection
                                 key={selectedPool.slug}
                                 pool={selectedPool}
+                                tournamentName={tournament.name}
                                 boards={boards}
                                 meId={meId}
                             />

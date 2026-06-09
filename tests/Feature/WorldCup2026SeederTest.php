@@ -226,14 +226,14 @@ class WorldCup2026SeederTest extends TestCase
         $pool = Pool::where('slug', 'world-cup-2026-ffa')->firstOrFail();
 
         $this->assertTrue($pool->tournament->is($tournament));
-        $this->assertSame('World Cup 2026', $pool->name);
-        $this->assertSame('FF&A', $pool->source);
+        $this->assertSame('Bolão Copa - FF&A', $pool->name);
+        $this->assertSame('Wagner Figueiredo', $pool->source);
         $this->assertSame(PoolAccent::Pitch, $pool->accent);
         $this->assertSame(ScoringStrategy::UpfrontBracket, $pool->scoring_strategy);
         $this->assertSame(20, $pool->scoring_config['group']['exact_score']);
 
         // The buy-in, currency, house fee and 70/20/10 prize split.
-        $this->assertSame('30.00', $pool->entry_price);
+        $this->assertSame('50.00', $pool->entry_price);
         $this->assertSame('BRL', $pool->currency);
         $this->assertSame('11.00', $pool->house_fee_percentage);
         $this->assertSame(
@@ -250,8 +250,8 @@ class WorldCup2026SeederTest extends TestCase
         $pool = Pool::where('slug', 'world-cup-2026-brothers')->firstOrFail();
 
         $this->assertTrue($pool->tournament->is($tournament));
-        $this->assertSame('World Cup 2026', $pool->name);
-        $this->assertSame('Brothers Association', $pool->source);
+        $this->assertSame('Bolão dos Brothers - Copa', $pool->name);
+        $this->assertSame('Bruno Gasparin', $pool->source);
         $this->assertSame(PoolAccent::Teal, $pool->accent);
         $this->assertSame(ScoringStrategy::PhasedBracket, $pool->scoring_strategy);
 
@@ -262,7 +262,7 @@ class WorldCup2026SeederTest extends TestCase
 
         // A cheaper buy-in, no house fee (the whole pot goes to players), and a flatter 50/30/20
         // split so 2nd and 3rd are worth chasing.
-        $this->assertSame('20.00', $pool->entry_price);
+        $this->assertSame('37.00', $pool->entry_price);
         $this->assertSame('0.00', $pool->house_fee_percentage);
         $this->assertSame(
             [50, 30, 20],

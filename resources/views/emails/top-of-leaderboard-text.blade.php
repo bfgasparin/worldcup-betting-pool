@@ -2,7 +2,7 @@
 
 {{ __('You\'re top of the table, :name!', ['name' => $userName]) }}
 
-{!! trans_choice('1st on the :label leaderboard in the pool by :source — :points pts, out of :total player.|1st on the :label leaderboard in the pool by :source — :points pts, out of :total players.', $totalEntries, ['label' => $leaderboardLabel, 'source' => $source, 'points' => $points, 'total' => $totalEntries]) !!}
+{!! trans_choice('1st in :pool — :points pts, out of :total player.|1st in :pool — :points pts, out of :total players.', $totalEntries, ['pool' => $poolName, 'points' => $points, 'total' => $totalEntries]) !!}
 @if ($runnerUpName && $leadOverRunnerUp > 0)
 
 {{ __('You\'re :points pts clear of :name. Enjoy the view — there\'s plenty of football still to play.', ['points' => $leadOverRunnerUp, 'name' => $runnerUpName]) }}

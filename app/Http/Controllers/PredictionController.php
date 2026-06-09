@@ -228,7 +228,7 @@ class PredictionController extends Controller
 
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => __('Predictions imported from :source.', ['source' => $request->sourcePool()->source]),
+            'message' => __('Predictions imported from :pool.', ['pool' => $request->sourcePool()->name]),
         ]);
 
         return to_route('pools.predict.edit', $pool);

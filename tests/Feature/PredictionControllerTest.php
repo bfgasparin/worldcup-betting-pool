@@ -63,7 +63,9 @@ class PredictionControllerTest extends TestCase
                 ->where('pool.slug', 'world-cup-2026-ffa')
                 ->where('pool.can_edit', true)
                 // The predict page (and its sidebar) carries the pool identity to disambiguate siblings.
-                ->where('pool.source', 'FF&A')
+                ->where('pool.name', 'Bolão Copa - FF&A')
+                ->where('pool.source', 'Wagner Figueiredo')
+                ->where('pool.tournament_name', 'World Cup 2026')
                 ->where('pool.accent', 'pitch')
                 ->where('pool.scoring_label', 'Upfront Bracket')
                 ->has('groups', 12)

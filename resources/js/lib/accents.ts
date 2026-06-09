@@ -83,7 +83,7 @@ export function resolveAccent(
 
 /**
  * A compact, uppercase emblem for a pool's source. Multi-word sources become their initials
- * ("Brothers Association" → "BA"); a single token is trimmed to its first three alphanumerics
+ * ("Bruno Gasparin" → "BG"); a single token is trimmed to its first three alphanumerics
  * ("FF&A" → "FFA"). Falls back to "?" for an empty source.
  */
 export function sourceMonogram(source: string): string {

@@ -61,9 +61,11 @@ class PoolControllerTest extends TestCase
                 ->where('pools.data.0.accent_index', 0)
                 ->where('pools.data.1.accent_index', 1)
                 // Each pool also carries its own stored accent colour, distinct per sibling.
-                ->where('pools.data.0.source', 'FF&A')
+                ->where('pools.data.0.source', 'Wagner Figueiredo')
                 ->where('pools.data.0.accent', 'pitch')
-                ->where('pools.data.1.source', 'Brothers Association')
+                ->where('pools.data.0.name', 'Bolão Copa - FF&A')
+                ->where('pools.data.1.name', 'Bolão dos Brothers - Copa')
+                ->where('pools.data.1.source', 'Bruno Gasparin')
                 ->where('pools.data.1.accent', 'teal')
                 ->where('pools.current_page', 1)
                 ->where('pools.last_page', 1)
@@ -505,10 +507,12 @@ class PoolControllerTest extends TestCase
         $this->seed(WorldCup2026Seeder::class);
         $this->actingAs(User::factory()->create());
 
-        // The source, accent and scoring style let a player tell which pool they're in even though
-        // sibling pools share the "World Cup 2026" name.
+        // The pool's own name leads its identity; the source, tournament, accent and scoring style
+        // follow as secondary context so sibling pools over the one tournament stay distinct.
         $identity = fn (AssertableInertia $page) => $page
-            ->where('pool.source', 'FF&A')
+            ->where('pool.name', 'Bolão Copa - FF&A')
+            ->where('pool.source', 'Wagner Figueiredo')
+            ->where('pool.tournament_name', 'World Cup 2026')
             ->where('pool.accent', 'pitch')
             ->where('pool.scoring_label', 'Upfront Bracket');
 

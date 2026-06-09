@@ -14,8 +14,10 @@ export interface Paginated<T> {
 export interface PoolSummary {
     slug: string;
     name: string;
-    /** The group/source that created the pool, e.g. "FF&A". */
+    /** The group/source that created the pool, e.g. "Wagner Figueiredo". */
     source: string;
+    /** The tournament this pool is played over (canonical English; translated at display time). */
+    tournament_name: string;
     /** The pool's colour identity key (pitch|teal|gold|violet); null falls back to a positional colour. */
     accent?: string | null;
     /** Short human-readable scoring style, e.g. "Upfront Bracket". */
@@ -592,8 +594,10 @@ export interface ThirdRanking {
 export interface PredictPoolDetail {
     slug: string;
     name: string;
-    /** The group/source that created the pool, e.g. "FF&A". */
+    /** The group/source that created the pool, e.g. "Wagner Figueiredo". */
     source: string;
+    /** The tournament this pool is played over (canonical English; translated at display time). */
+    tournament_name: string;
     /** The pool's colour identity key (pitch|teal|gold|violet); null falls back to a positional colour. */
     accent?: string | null;
     /** Short human-readable scoring style, e.g. "Upfront Bracket". */
@@ -618,7 +622,7 @@ export interface PredictPoolDetail {
 export interface ImportSource {
     slug: string;
     name: string;
-    /** The group/source that created the pool, e.g. "FF&A". */
+    /** The group/source that created the pool, e.g. "Wagner Figueiredo". */
     source: string;
     /** The pool's colour identity key; null falls back to a positional colour. */
     accent?: string | null;

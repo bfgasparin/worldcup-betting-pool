@@ -69,7 +69,7 @@ class PoolFactory extends Factory
      * The phased-bracket strategy: the group stage is predicted upfront, each knockout round is
      * predicted against the official match-ups once known, and scores carry rising round
      * multipliers. The scoring_config below is duplicated verbatim in {@see WorldCup2026Seeder}
-     * for the Brothers Association pool — keep them in sync.
+     * for the phased "Bolão dos Brothers - Copa" pool — keep them in sync.
      */
     public function phasedBracket(): static
     {
