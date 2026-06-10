@@ -1236,7 +1236,7 @@ export default function Predict({
         <>
             <Head title={poolTitle(pool.name, pool.source, t('Predict'))} />
             <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
-                <header className="hero relative overflow-hidden rounded-3xl border border-border p-6 sm:p-8">
+                <header className="hero relative hidden overflow-hidden rounded-3xl border border-border p-6 sm:p-8 md:block">
                     <div className="hero-lines" />
                     <div className="relative flex flex-col gap-3">
                         <div className="flex flex-wrap items-center gap-3">
@@ -1333,6 +1333,18 @@ export default function Predict({
                     </div>
                 )}
 
+                {/* Import is page-level (not per-step), so on mobile it sits above the step tabs. */}
+                {canImport && (
+                    <button
+                        type="button"
+                        onClick={() => setImportOpen(true)}
+                        className="press inline-flex w-fit items-center gap-1.5 self-end text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline md:hidden"
+                    >
+                        <Download className="size-4" />
+                        {t('Import from another pool')}
+                    </button>
+                )}
+
                 <div className="flex flex-col gap-3">
                     <SegmentedTabs
                         aria-label={t('Prediction steps')}
@@ -1350,6 +1362,14 @@ export default function Predict({
                             };
                         })}
                     />
+
+                    {/* The hero's per-step legend, relocated under the step tabs on mobile. */}
+                    <div className="md:hidden">
+                        <ScoringLegend
+                            config={pool.scoring_config}
+                            step={step}
+                        />
+                    </div>
 
                     {anyOpen && (
                         <div className="flex flex-wrap items-center gap-2">

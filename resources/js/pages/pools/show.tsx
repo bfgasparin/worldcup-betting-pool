@@ -14,6 +14,7 @@ import {
 import { useState } from 'react';
 import { AddPlayerDialog } from '@/components/add-player-dialog';
 import { CompareDock } from '@/components/compare-dock';
+import { CompareFab } from '@/components/compare-fab';
 import { CompareStrip } from '@/components/compare-strip';
 import { CountdownBand } from '@/components/countdown-band';
 import {
@@ -42,6 +43,7 @@ import {
 import type { TimeFilter } from '@/components/fixtures-schedule';
 import { JoinPoolDialog } from '@/components/join-pool-dialog';
 import { LeaderboardRow } from '@/components/leaderboard-row';
+import { MobilePoolHeader } from '@/components/mobile-pool-header';
 import { MovementArrow } from '@/components/movement-arrow';
 import PlayerAvatar from '@/components/player-avatar';
 import { PoolIdentity } from '@/components/pool-identity';
@@ -578,12 +580,14 @@ function FeaturedBoards({
     selecting,
     selectedIds,
     onToggle,
+    className,
 }: {
     pool: PoolDetail;
     boards: FeaturedBoard[];
     selecting: boolean;
     selectedIds: number[];
     onToggle: (entryId: number) => void;
+    className?: string;
 }) {
     const { t } = useTranslation();
     const headline = boards[0];
@@ -596,7 +600,7 @@ function FeaturedBoards({
     const cardProps = { pool, selecting, selectedIds, onToggle };
 
     return (
-        <section className="flex flex-col gap-3">
+        <section className={cn('flex flex-col gap-3', className)}>
             {selecting && (
                 <span className="font-display text-sm font-semibold text-muted-foreground">
                     {t('Tap')} <Plus className="inline size-3.5" />{' '}
@@ -749,12 +753,14 @@ function BoardSummaries({
     selecting,
     selectedIds,
     onToggle,
+    className,
 }: {
     pool: PoolDetail;
     summaries: BoardSummary[];
     selecting: boolean;
     selectedIds: number[];
     onToggle: (entryId: number) => void;
+    className?: string;
 }) {
     const { t } = useTranslation();
 
@@ -765,7 +771,7 @@ function BoardSummaries({
     const cardProps = { pool, selecting, selectedIds, onToggle };
 
     return (
-        <section className="flex flex-col gap-3">
+        <section className={cn('flex flex-col gap-3', className)}>
             <h2 className="font-display text-xl font-semibold tracking-tight">
                 {t('More leaderboards')}
             </h2>
@@ -815,9 +821,9 @@ function applyTimeFilter<T extends TimedFixture>(
 type FixturesViewMode = 'groups' | 'matchdays' | 'schedule';
 
 const VIEW_FILTER_OPTIONS: { value: FixturesViewMode; label: string }[] = [
-    { value: 'groups', label: 'Groups' },
-    { value: 'matchdays', label: 'Matchdays' },
     { value: 'schedule', label: 'Schedule' },
+    { value: 'matchdays', label: 'Matchdays' },
+    { value: 'groups', label: 'Groups' },
 ];
 
 const TIME_FILTER_OPTIONS: { value: TimeFilter; label: string }[] = [
@@ -931,7 +937,7 @@ function FixturesView({
 }) {
     const { t, tPhase } = useTranslation();
     const tz = useDisplayTimeZone();
-    const [view, setView] = useState<FixturesViewMode>('groups');
+    const [view, setView] = useState<FixturesViewMode>('schedule');
     const [filter, setFilter] = useState<TimeFilter>('all');
     // The view + time filter persist into compare mode: every view (including Matchdays/Schedule)
     // renders each player's picks per fixture, so comparison is no longer confined to the Groups view.
@@ -1025,14 +1031,14 @@ function FixturesView({
                         }
                     }}
                 >
-                    <ToggleGroupItem value="groups" className="px-4 text-xs">
-                        {t('Groups')}
+                    <ToggleGroupItem value="schedule" className="px-4 text-xs">
+                        {t('Schedule')}
                     </ToggleGroupItem>
                     <ToggleGroupItem value="matchdays" className="px-4 text-xs">
                         {t('Matchdays')}
                     </ToggleGroupItem>
-                    <ToggleGroupItem value="schedule" className="px-4 text-xs">
-                        {t('Schedule')}
+                    <ToggleGroupItem value="groups" className="px-4 text-xs">
+                        {t('Groups')}
                     </ToggleGroupItem>
                 </ToggleGroup>
 
@@ -1363,20 +1369,29 @@ export default function PoolShow({
     return (
         <>
             <Head title={poolTitle(pool.name, pool.source)} />
-            <div className="flex h-full flex-1 flex-col gap-10 p-4 sm:p-6 lg:p-8">
-                <DashboardBanner
-                    pool={pool}
-                    standings={standings}
-                    canCompare={
-                        !compareActive &&
-                        !selecting &&
-                        standings.participants > 1
-                    }
-                    onCompare={startSelecting}
-                />
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 md:gap-10 lg:p-8">
+                {/* Desktop keeps the full hero; below md it collapses to the compact header. */}
+                <div className="hidden md:block">
+                    <DashboardBanner
+                        pool={pool}
+                        standings={standings}
+                        canCompare={
+                            !compareActive &&
+                            !selecting &&
+                            standings.participants > 1
+                        }
+                        onCompare={startSelecting}
+                    />
+                </div>
+                <MobilePoolHeader pool={pool} standings={standings} />
 
                 <PredictionReminder pool={pool} attention={attention} />
 
+                {/*
+                  The leaderboard preview is desktop-only — on mobile it's a tap away on the bottom
+                  tab bar, so the Overview shows just the fixtures. Compare mode's head-to-head strip
+                  is a distinct, user-triggered surface, so it stays visible on mobile.
+                */}
                 {compareActive ? (
                     <CompareStrip
                         players={comparison.players}
@@ -1391,6 +1406,7 @@ export default function PoolShow({
                         selecting={selecting}
                         selectedIds={selectedIds}
                         onToggle={toggleSelect}
+                        className="hidden md:flex"
                     />
                 )}
 
@@ -1401,6 +1417,7 @@ export default function PoolShow({
                         selecting={selecting}
                         selectedIds={selectedIds}
                         onToggle={toggleSelect}
+                        className="hidden md:flex"
                     />
                 )}
 
@@ -1434,6 +1451,11 @@ export default function PoolShow({
                     onEdit={startSelecting}
                     onExit={exitCompare}
                 />
+            )}
+
+            {/* Mobile-only floating entry into compare mode; the dock above replaces it once active. */}
+            {!selecting && !compareActive && standings.participants > 1 && (
+                <CompareFab onClick={startSelecting} />
             )}
 
             <AddPlayerDialog
