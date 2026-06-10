@@ -8,6 +8,7 @@ import AppLayout from '@/layouts/app-layout';
 import AuthLayout from '@/layouts/auth-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 import { initializeLocale } from '@/lib/locale';
+import { initPressFeedback } from '@/lib/press-feedback';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Brothers Bets';
 
@@ -45,11 +46,10 @@ createInertiaApp({
 // a stale snapshot captured before a join or a prediction change.
 router.on('navigate', () => router.flushAll());
 
-// Touch devices have no :hover, so every tappable element gets a visible press animation via the
-// `.press` utility (see app.css). iOS Safari only fires `:active` on non-button elements (e.g. Radix
-// menu/select items, which render as role-divs) when a touch listener exists on the document — this
-// passive no-op is the canonical enabler. Harmless on devices that already fire `:active` natively.
-document.addEventListener('touchstart', () => {}, { passive: true });
+// Touch devices have no :hover, so every tappable element (`.press` / `.press-soft`) gets a visible
+// tap-press bounce. A pointer-driven controller plays the full down-and-up even when the tapped
+// control immediately disables (processing spinner) or navigates — see lib/press-feedback.
+initPressFeedback();
 
 // This will set light / dark mode on load...
 initializeTheme();
