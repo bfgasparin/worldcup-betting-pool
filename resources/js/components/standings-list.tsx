@@ -11,6 +11,12 @@ import { cn } from '@/lib/utils';
 const INITIAL_ROWS = 25;
 const ROW_STEP = 25;
 
+// Treat the viewer's row as off-screen until a little of it scrolls in, so the floating "Jump to me"
+// card keeps offering a shortcut while the row is essentially out of sight. Kept well under a row's
+// height (~60px) so even the LAST row — which can only reach the viewport's bottom edge — clears this
+// line and lets the card hide, instead of being pinned behind it.
+const ME_OBSERVER_BOTTOM_TRIM = 40; // px trimmed off the observer root's bottom edge
+
 function formatValue(value: number | null): string {
     return value === null ? '—' : value.toLocaleString();
 }
@@ -60,8 +66,9 @@ export function StandingsList({
 
         const observer = new IntersectionObserver(
             ([entry]) => setMeVisible(entry.isIntersecting),
-            // Trim the bottom so a row hidden behind the sticky bar still counts as off-screen.
-            { rootMargin: '0px 0px -96px 0px' },
+            // Trim the bottom so a row only just peeking in still counts as off-screen (see
+            // ME_OBSERVER_BOTTOM_TRIM) — small enough that even the last row clears it and hides the card.
+            { rootMargin: `0px 0px -${ME_OBSERVER_BOTTOM_TRIM}px 0px` },
         );
 
         observer.observe(element);
