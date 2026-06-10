@@ -7,6 +7,7 @@ use App\Enums\LiveStatus;
 use App\Models\Entry;
 use App\Models\Fixture;
 use App\Models\FixtureLiveState;
+use App\Models\Group;
 use App\Models\GroupPrediction;
 use App\Models\Pool;
 use App\Models\Tournament;
@@ -89,6 +90,43 @@ class LiveControllerTest extends TestCase
                 ->has('pools.0.boards.overall', 1)
                 ->has('pools.0.boards.overall.0.live_gain')
                 ->has('liveFixtures', 1));
+    }
+
+    public function test_show_exposes_per_fixture_picks_scoped_to_the_pool_for_live_fixtures_only(): void
+    {
+        $user = User::factory()->create();
+        $other = User::factory()->create();
+        $tournament = Tournament::factory()->create();
+        $pool = Pool::factory()->for($tournament)->phasedBracket()->create();
+
+        $mine = Entry::factory()->create(['pool_id' => $pool->id, 'user_id' => $user->id]);
+        $theirs = Entry::factory()->create(['pool_id' => $pool->id, 'user_id' => $other->id]);
+
+        // Anchor both fixtures to a group OF THIS tournament so the projection reaches them — the
+        // FixtureFactory's default group belongs to its own fresh tournament.
+        $group = Group::factory()->for($tournament)->create();
+        $live = Fixture::factory()->for($tournament)->for($group)->create(['status' => FixtureStatus::Live]);
+        $scheduled = Fixture::factory()->for($tournament)->for($group)->create(['status' => FixtureStatus::Scheduled]);
+
+        GroupPrediction::create(['entry_id' => $mine->id, 'fixture_id' => $live->id, 'home_goals' => 2, 'away_goals' => 0]);
+        GroupPrediction::create(['entry_id' => $theirs->id, 'fixture_id' => $live->id, 'home_goals' => 1, 'away_goals' => 1]);
+        // A prediction on a not-live fixture must never leak through the picks map.
+        GroupPrediction::create(['entry_id' => $theirs->id, 'fixture_id' => $scheduled->id, 'home_goals' => 5, 'away_goals' => 5]);
+
+        FixtureLiveState::factory()->for($live)->create(['status' => LiveStatus::Live, 'home_goals' => 2, 'away_goals' => 0]);
+
+        $this->actingAs($user)
+            ->get(route('live.show', $tournament))
+            ->assertInertia(fn ($page) => $page
+                ->component('live/show', false)
+                ->has("pools.0.fixture_picks.{$live->id}", 2)
+                ->missing("pools.0.fixture_picks.{$scheduled->id}")
+                ->where("pools.0.fixture_picks.{$live->id}", fn ($picks) => collect($picks)->contains(
+                    fn ($pick) => $pick['entry_id'] === $mine->id
+                        && $pick['home_goals'] === 2
+                        && $pick['away_goals'] === 0
+                        && array_key_exists('points', $pick),
+                )));
     }
 
     private function liveTournamentJoinedBy(User $user): Tournament
