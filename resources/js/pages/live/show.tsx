@@ -1,5 +1,13 @@
 import { Head, usePage } from '@inertiajs/react';
-import { ArrowDown, ArrowUp, Crown, Radio, TrendingDown } from 'lucide-react';
+import {
+    ArrowDown,
+    ArrowUp,
+    Check,
+    ChevronDown,
+    Crown,
+    Radio,
+    TrendingDown,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { AvatarStack } from '@/components/avatar-stack';
@@ -14,10 +22,20 @@ import { StandingsList } from '@/components/standings-list';
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
 import { SegmentedTabs } from '@/components/ui/segmented-tabs';
+import {
+    Sheet,
+    SheetClose,
+    SheetContent,
+    SheetDescription,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
+} from '@/components/ui/sheet';
 import { useLivePoll } from '@/hooks/use-live-poll';
 import { useTranslation } from '@/hooks/use-translation';
 import { resolveAccent, sourceMonogram } from '@/lib/accents';
@@ -184,6 +202,11 @@ function FixturePicksSheet({
                             <LiveBadge className="shrink-0" />
                         )}
                     </div>
+                    <DialogDescription className="sr-only">
+                        {t(
+                            "Every player's prediction for this match and the points it's earning now.",
+                        )}
+                    </DialogDescription>
                     <FixtureScoreline fixture={fixture} />
                 </DialogHeader>
 
@@ -834,27 +857,124 @@ function PoolLiveSection({
     tournamentName,
     boards,
     meId,
+    pools,
+    selectedSlug,
+    onSelectPool,
 }: {
     pool: LivePool;
     tournamentName: string;
     boards: LiveBoardDescriptor[];
     meId: number;
+    pools: LivePool[];
+    selectedSlug: string;
+    onSelectPool: (slug: string) => void;
 }) {
     const { t } = useTranslation();
     const [boardKey, setBoardKey] = useState(boards[0]?.key ?? 'overall');
     const board = boards.find((item) => item.key === boardKey) ?? boards[0];
+    const canSwitch = pools.length > 1;
+
+    const identity = (
+        <PoolIdentity
+            source={pool.source}
+            name={pool.name}
+            tournament={tournamentName}
+            scoringLabel={pool.scoring_label}
+            accent={pool.accent}
+            variant="banner"
+            className="min-w-0 flex-1"
+        />
+    );
 
     return (
         <section className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <PoolIdentity
-                    source={pool.source}
-                    name={pool.name}
-                    tournament={tournamentName}
-                    scoringLabel={pool.scoring_label}
-                    accent={pool.accent}
-                    variant="banner"
-                />
+                {canSwitch ? (
+                    <>
+                        {/* Mobile: tap the pool header to switch which pool's live data shows. */}
+                        <Sheet>
+                            <SheetTrigger asChild>
+                                <button
+                                    type="button"
+                                    aria-label={t('Switch pool')}
+                                    className="press flex w-full items-center gap-2 rounded-2xl border border-border bg-card px-3 py-2.5 text-left shadow-[var(--sh-sm)] md:hidden"
+                                >
+                                    {identity}
+                                    <ChevronDown className="size-5 shrink-0 text-muted-foreground" />
+                                </button>
+                            </SheetTrigger>
+                            <SheetContent
+                                side="bottom"
+                                className="rounded-t-3xl px-4 pt-5 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
+                            >
+                                <SheetHeader className="p-0">
+                                    <SheetTitle className="font-display text-base">
+                                        {t('Switch pool')}
+                                    </SheetTitle>
+                                    <SheetDescription className="sr-only">
+                                        {t(
+                                            "Choose which pool's live standings to follow.",
+                                        )}
+                                    </SheetDescription>
+                                </SheetHeader>
+                                <ul className="flex flex-col gap-1">
+                                    {pools.map((entry) => {
+                                        const kit = resolveAccent(entry.accent);
+                                        const current =
+                                            entry.slug === selectedSlug;
+
+                                        return (
+                                            <li key={entry.slug}>
+                                                <SheetClose asChild>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            onSelectPool(
+                                                                entry.slug,
+                                                            )
+                                                        }
+                                                        className={cn(
+                                                            'press flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors',
+                                                            current
+                                                                ? 'bg-secondary'
+                                                                : 'hover:bg-muted',
+                                                        )}
+                                                    >
+                                                        <span
+                                                            className={cn(
+                                                                'flex size-8 shrink-0 items-center justify-center rounded-lg font-display text-xs font-bold',
+                                                                kit.railClass,
+                                                                kit.textClass,
+                                                            )}
+                                                            aria-hidden
+                                                        >
+                                                            {sourceMonogram(
+                                                                entry.source,
+                                                            )}
+                                                        </span>
+                                                        <span className="min-w-0 flex-1 truncate font-display font-semibold">
+                                                            {entry.name}
+                                                        </span>
+                                                        {current && (
+                                                            <Check className="size-4 shrink-0 text-primary" />
+                                                        )}
+                                                    </button>
+                                                </SheetClose>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            </SheetContent>
+                        </Sheet>
+
+                        {/* Desktop: plain identity; the pool tabs above handle switching. */}
+                        <div className="hidden min-w-0 md:block">
+                            {identity}
+                        </div>
+                    </>
+                ) : (
+                    identity
+                )}
                 <span className="font-display text-xs font-semibold text-muted-foreground">
                     {t('Projected · if scores hold')}
                 </span>
@@ -909,7 +1029,7 @@ export default function LiveShow({
             />
             <div className="relative min-h-full bg-background">
                 <div className="w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-10">
-                    <header className="hero relative mb-6 overflow-hidden rounded-3xl border border-border p-5 sm:mb-8 sm:p-8">
+                    <header className="hero relative mb-6 hidden overflow-hidden rounded-3xl border border-border p-5 sm:mb-8 sm:p-8 md:block">
                         <div className="hero-lines" />
                         <div className="relative flex flex-wrap items-end justify-between gap-4">
                             <div className="flex flex-col gap-3">
@@ -933,9 +1053,20 @@ export default function LiveShow({
                         </div>
                     </header>
 
+                    {/* Mobile: a simple tournament title in place of the hidden hero. */}
+                    <h1 className="mb-4 font-display text-2xl font-semibold tracking-tight text-foreground md:hidden">
+                        {t(tournament.name)}
+                    </h1>
+
                     <div className="flex flex-col gap-8">
                         <section className="flex flex-col gap-4">
-                            <h2 className="font-display text-lg font-semibold">
+                            <h2 className="flex items-center gap-2 font-display text-lg font-semibold">
+                                {/* The hero's "live now" signal, kept beside this heading on mobile. */}
+                                {liveCount > 0 && (
+                                    <span className="md:hidden">
+                                        <LivePulse />
+                                    </span>
+                                )}
                                 {t('Live scores')}
                             </h2>
                             <LiveScoreboard
@@ -946,8 +1077,10 @@ export default function LiveShow({
                             />
                         </section>
 
+                        {/* Desktop only: the pool tabs. On mobile, the pool header below is tappable. */}
                         {pools.length > 1 && (
                             <SegmentedTabs
+                                className="hidden md:flex"
                                 aria-label={t('Your pools')}
                                 items={pools.map((pool) => {
                                     const kit = resolveAccent(pool.accent);
@@ -985,6 +1118,9 @@ export default function LiveShow({
                                 tournamentName={tournament.name}
                                 boards={boards}
                                 meId={meId}
+                                pools={pools}
+                                selectedSlug={poolSlug}
+                                onSelectPool={setPoolSlug}
                             />
                         ) : (
                             <p className="text-sm text-muted-foreground">
