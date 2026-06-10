@@ -52,5 +52,19 @@
     </head>
     <body class="font-sans antialiased">
         <x-inertia::app />
+
+        {{-- Portrait-only PWA gate. iOS ignores the manifest `orientation` lock, so when the
+             installed app is held in landscape on a phone we cover the screen with this notice.
+             Pure CSS show/hide (see the `pwa-landscape` variant in app.css) — no JS, so it works
+             before hydration and on every page. Hidden by default and in normal browser tabs. --}}
+        <div class="orientation-gate hidden pwa-landscape:flex bg-brand-gradient fixed inset-0 z-[100] flex-col items-center justify-center gap-4 p-8 text-center text-white">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                 class="opacity-90" aria-hidden="true">
+                <rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>
+            </svg>
+            <p class="font-display text-xl font-semibold">{{ __('Rotate your device to portrait') }}</p>
+            <p class="max-w-xs text-sm text-white/80">{{ __('Brothers Bets works best held upright.') }}</p>
+        </div>
     </body>
 </html>
