@@ -751,6 +751,20 @@ export function KnockoutPickMatchup({
 }
 
 /**
+ * Whether a knockout pick has something to preview: the teams the player called (upfront pools)
+ * or a predicted scoreline (phased pools, where the match-up is the official one shown on the card).
+ */
+function knockoutPickHasContent(
+    prediction: BracketFixture['prediction'],
+): prediction is NonNullable<BracketFixture['prediction']> {
+    return (
+        prediction != null &&
+        (prediction.predicted_home != null ||
+            (prediction.home_goals !== null && prediction.away_goals !== null))
+    );
+}
+
+/**
  * The knockout-card footer: the viewer's pick and, once the match is scored, the points it earned.
  * Set `showPoints` to false for an unplayed match, where there is no score yet — the footer then
  * just previews the match-up the player called.
@@ -767,13 +781,8 @@ function PredictionFoot({
     showPoints?: boolean;
 }) {
     const { t } = useTranslation();
-    const hasPick =
-        prediction != null &&
-        prediction.home_goals !== null &&
-        prediction.away_goals !== null;
-    // Upfront picks carry predicted teams (shown even before a score); phased picks show once scored.
-    const hasContent =
-        prediction != null && (prediction.predicted_home != null || hasPick);
+    // Upfront picks carry predicted teams (shown even before a score); phased picks show their scoreline.
+    const hasContent = knockoutPickHasContent(prediction);
 
     return (
         <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-3">
@@ -894,8 +903,9 @@ export function KnockoutSlotCard({ fixture }: { fixture: BracketFixture }) {
                 <span className="h-px flex-1 bg-border" />
             </div>
             <KnockoutSlot team={fixture.away} label={fixture.away_label} />
-            {/* Upfront-bracket tournaments: preview the player's pick before the match-up is set. */}
-            {fixture.prediction?.predicted_home != null && (
+            {/* Preview the player's pick before the match is settled: the teams they called
+                (upfront) or the scoreline they predicted against the official match-up (phased). */}
+            {knockoutPickHasContent(fixture.prediction) && (
                 <PredictionFoot
                     prediction={fixture.prediction}
                     home={fixture.home}
@@ -1020,12 +1030,8 @@ export function FinalCard({ fixture }: { fixture: BracketFixture }) {
         const penalties =
             fixture.home_penalties !== null && fixture.away_penalties !== null;
         const pick = fixture.prediction;
-        const hasPick =
-            pick != null &&
-            pick.home_goals !== null &&
-            pick.away_goals !== null;
-        const hasContent =
-            pick != null && (pick.predicted_home != null || hasPick);
+        const hasContent = knockoutPickHasContent(pick);
+        const points = pick?.points_awarded ?? null;
 
         return (
             <div className="relative mx-auto max-w-xl overflow-hidden rounded-3xl border border-accent/30 bg-ink p-6 text-center text-white sm:p-9">
@@ -1093,14 +1099,12 @@ export function FinalCard({ fixture }: { fixture: BracketFixture }) {
                                     tone="dark"
                                 />
                             </div>
-                            <FinalPoints points={pick.points_awarded ?? null} />
+                            <FinalPoints points={points} />
                         </div>
                     ) : (
                         <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/10 pt-4 text-sm font-medium text-white/60">
                             <span>{t('No prediction')}</span>
-                            <FinalPoints
-                                points={pick?.points_awarded ?? null}
-                            />
+                            <FinalPoints points={points} />
                         </div>
                     )}
                 </div>
@@ -1132,8 +1136,8 @@ export function FinalCard({ fixture }: { fixture: BracketFixture }) {
                     </span>
                     <FinalSlot team={fixture.away} label={fixture.away_label} />
                 </div>
-                {/* Upfront-bracket tournaments: preview the final the player called. */}
-                {fixture.prediction?.predicted_home != null && (
+                {/* Preview the final the player called (upfront) or the scoreline they predicted (phased). */}
+                {knockoutPickHasContent(fixture.prediction) && (
                     <div className="mt-6 flex flex-wrap items-center justify-center gap-2 border-t border-white/10 pt-4 text-sm font-medium text-white/60">
                         <span className="shrink-0">{t('Your pick')}</span>
                         <KnockoutPickMatchup
