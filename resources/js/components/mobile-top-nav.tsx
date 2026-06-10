@@ -242,7 +242,7 @@ function UserMenuButton({ user }: { user: User }) {
             <DropdownMenuContent
                 align="end"
                 side="bottom"
-                className="min-w-56 rounded-lg"
+                className="min-w-56 rounded-lg [&_[data-slot=dropdown-menu-item]]:py-3"
             >
                 <UserMenuContent user={user} />
             </DropdownMenuContent>
