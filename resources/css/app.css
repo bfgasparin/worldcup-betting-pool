@@ -48,6 +48,10 @@
     --color-input: var(--input);
     --color-ring: var(--ring);
 
+    /* Soft-field input surfaces — filled, borderless inputs (resting + focus) */
+    --color-field: var(--field);
+    --color-field-focus: var(--field-focus);
+
     --color-chart-1: var(--chart-1);
     --color-chart-2: var(--chart-2);
     --color-chart-3: var(--chart-3);
@@ -97,6 +101,8 @@
     --border: #e4eae5; /* line */
     --input: #e4eae5;
     --ring: #0fa968;
+    --field: #eef2ee; /* soft input fill — distinct on both white cards and paper */
+    --field-focus: #f6f9f5; /* one step lighter on focus */
     --chart-1: #0fa968;
     --chart-2: #ffc23c;
     --chart-3: #2bb3c9;
@@ -160,6 +166,8 @@
     --border: rgba(255, 255, 255, 0.1);
     --input: rgba(255, 255, 255, 0.14);
     --ring: #2fd189;
+    --field: rgba(255, 255, 255, 0.06); /* soft input fill on dark surfaces */
+    --field-focus: rgba(255, 255, 255, 0.1); /* one step lighter on focus */
     --chart-1: #2fd189;
     --chart-2: #ffc645;
     --chart-3: #4cc6da;
@@ -190,6 +198,12 @@
 
     body {
         @apply bg-background text-foreground;
+    }
+
+    /* Keep the native datetime value text + calendar/spinner indicators legible
+       on the dark soft-field fill (UA defaults to a light color-scheme). */
+    .dark input[type='datetime-local'] {
+        color-scheme: dark;
     }
 
     /* Display type — Fredoka — for headlines, scorelines & the wordmark */
