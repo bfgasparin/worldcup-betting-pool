@@ -257,7 +257,7 @@ function PoolTicket({
         <Link
             href={show(pool.slug)}
             className={cn(
-                'group card-elevated flex flex-col overflow-hidden rounded-3xl transition-transform duration-200 hover:-translate-y-1',
+                'press-soft group card-elevated flex flex-col overflow-hidden rounded-3xl transition-transform duration-200 hover:-translate-y-1',
                 accent.ringClass,
             )}
         >
@@ -346,7 +346,7 @@ function PoolRow({ pool, grouped }: { pool: PoolListItem; grouped: boolean }) {
     return (
         <Link
             href={show(pool.slug)}
-            className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50"
+            className="press-soft flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50"
         >
             <span
                 className={cn(

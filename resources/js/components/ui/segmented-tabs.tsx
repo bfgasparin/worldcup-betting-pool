@@ -93,7 +93,7 @@ export function SegmentedTabs<T extends string>({
                             }
                         }}
                         className={cn(
-                            'inline-flex items-center justify-center gap-2 rounded-full border-[1.5px] font-display font-semibold whitespace-nowrap transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                            'press inline-flex items-center justify-center gap-2 rounded-full border-[1.5px] font-display font-semibold whitespace-nowrap transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
                             SIZE_CLASSES[size],
                             overflowing ? 'shrink-0' : 'flex-1',
                             on

@@ -375,7 +375,7 @@ function LiveFixtureCard({
                     <button
                         type="button"
                         onClick={() => setPicksOpen(true)}
-                        className="rounded-xl border border-border py-2 font-display text-xs font-semibold text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                        className="press rounded-xl border border-border py-2 font-display text-xs font-semibold text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                     >
                         {t('See all picks')}
                     </button>

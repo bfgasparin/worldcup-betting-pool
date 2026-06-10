@@ -41,7 +41,7 @@ function LaneCard({
                     aria-label={t('Remove :name from the comparison', {
                         name: player.name,
                     })}
-                    className="absolute top-2 right-2 grid size-6 cursor-pointer place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="press absolute top-2 right-2 grid size-6 cursor-pointer place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                     <X className="size-3.5" />
                 </button>
@@ -91,7 +91,7 @@ function BoardTotals({
 
     return (
         <Collapsible>
-            <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-center gap-1.5 font-display text-xs font-semibold tracking-wide text-muted-foreground uppercase transition-colors outline-none hover:text-foreground focus-visible:text-foreground [&[data-state=open]>svg]:rotate-180">
+            <CollapsibleTrigger className="press flex w-full cursor-pointer items-center justify-center gap-1.5 font-display text-xs font-semibold tracking-wide text-muted-foreground uppercase transition-colors outline-none hover:text-foreground focus-visible:text-foreground [&[data-state=open]>svg]:rotate-180">
                 {t('Board totals')}
                 <ChevronDown className="size-4 transition-transform duration-200" />
             </CollapsibleTrigger>

@@ -427,3 +427,69 @@
         );
     }
 }
+
+/* Tap-press feedback — touch devices only. Touch has no `:hover`, so a tap returns almost no
+   feedback; this gives every tappable element a visible "push down, then spring back". Opt in with
+   `.press` (buttons, links, controls, menu/selection items) or `.press-soft` (large full-bleed
+   surfaces — cards/rows — scaled less so they don't look rubbery). The bottom nav bars never opt in.
+
+   Driven by a global pointer controller (resources/js/lib/press-feedback.ts) that toggles a
+   `data-pressing` attribute on touch `pointerdown` — NOT the CSS `:active` pseudo-class. `:active`
+   is cleared the instant a control disables (a processing spinner) or navigates away, so action
+   buttons (login, join, wizard "next"…) only ever showed a shallow, interrupted dip. A fire-and-
+   forget keyframe plays the full down-and-up regardless of the control's lifecycle, as long as it
+   stays mounted. Unlayered so the `animation` reliably wins over Tailwind utilities; desktop is
+   media-gated out; `prefers-reduced-motion` disables it. */
+@media (hover: none) and (pointer: coarse) {
+    .press,
+    .press-soft {
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .press[data-pressing] {
+        animation: press-bounce 280ms ease-out;
+    }
+
+    .press-soft[data-pressing] {
+        animation: press-bounce-soft 280ms ease-out;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .press[data-pressing],
+        .press-soft[data-pressing] {
+            animation: none;
+        }
+    }
+}
+
+/* The "down then up": a fast scale-down, a slight overshoot past 1.0, then settle. */
+@keyframes press-bounce {
+    0% {
+        transform: scale(1);
+    }
+    25% {
+        transform: scale(0.92);
+    }
+    55% {
+        transform: scale(1.03);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+@keyframes press-bounce-soft {
+    0% {
+        transform: scale(1);
+    }
+    25% {
+        transform: scale(0.96);
+    }
+    55% {
+        transform: scale(1.015);
+    }
+    100% {
+        transform: scale(1);
+    }
+}

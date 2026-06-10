@@ -95,7 +95,7 @@ export function InstallBanner() {
                     <button
                         type="button"
                         onClick={dismiss}
-                        className="-mr-1 inline-flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        className="press -mr-1 inline-flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                     >
                         <X className="size-4" />
                         <span className="sr-only">{t('Not now')}</span>
