@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { LayoutGrid, Radio, Wrench } from 'lucide-react';
+import { LayoutGrid, Radio, Users, Wrench } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { LivePulse } from '@/components/live-badge';
 import { manageNavItems, manageSlugFromUrl } from '@/components/nav-manage';
@@ -129,9 +129,30 @@ export function AppSidebar() {
                                     </Link>
                                 </SidebarMenuButton>
 
-                                {manageSlug && (
-                                    <SidebarMenuSub>
-                                        {manageNavItems(manageSlug).map(
+                                <SidebarMenuSub>
+                                    {/* Players is global (tournament-less), so it's always present
+                                        for admins; the tournament tools appear only in-context. */}
+                                    <SidebarMenuSubItem>
+                                        <SidebarMenuSubButton
+                                            asChild
+                                            isActive={isCurrentUrl(
+                                                manage.players.index().url,
+                                            )}
+                                        >
+                                            <Link
+                                                href={
+                                                    manage.players.index().url
+                                                }
+                                                prefetch
+                                            >
+                                                <Users />
+                                                <span>{t('Players')}</span>
+                                            </Link>
+                                        </SidebarMenuSubButton>
+                                    </SidebarMenuSubItem>
+
+                                    {manageSlug &&
+                                        manageNavItems(manageSlug).map(
                                             (item) => (
                                                 <SidebarMenuSubItem
                                                     key={item.title}
@@ -155,8 +176,7 @@ export function AppSidebar() {
                                                 </SidebarMenuSubItem>
                                             ),
                                         )}
-                                    </SidebarMenuSub>
-                                )}
+                                </SidebarMenuSub>
                             </SidebarMenuItem>
                         )}
                     </SidebarMenu>
