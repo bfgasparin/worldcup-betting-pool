@@ -735,7 +735,7 @@ function LiveMovers({
                 meId={meId}
             />
             <MoverCard
-                title={t('Climber')}
+                title={t('Biggest climber')}
                 icon={ArrowUp}
                 toneClassName="text-primary"
                 result={climber}
@@ -745,7 +745,7 @@ function LiveMovers({
                 meId={meId}
             />
             <MoverCard
-                title={t('Faller')}
+                title={t('Biggest faller')}
                 icon={ArrowDown}
                 toneClassName="text-destructive"
                 result={faller}

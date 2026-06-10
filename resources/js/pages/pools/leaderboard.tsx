@@ -500,12 +500,12 @@ export default function Leaderboard({
                                 showName
                             />
                             <MoverCard
-                                title={t('Climber')}
+                                title={t('Biggest climber')}
                                 direction="up"
                                 card={cards.biggest_climber}
                             />
                             <MoverCard
-                                title={t('Faller')}
+                                title={t('Biggest faller')}
                                 direction="down"
                                 card={cards.biggest_faller}
                             />
