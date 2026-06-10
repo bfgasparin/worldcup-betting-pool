@@ -1,3 +1,4 @@
+import { usePage } from '@inertiajs/react';
 import { usePasskeyRegister } from '@laravel/passkeys/react';
 import { useState } from 'react';
 import InputError from '@/components/input-error';
@@ -12,6 +13,7 @@ type Props = {
 
 export default function PasskeyRegistration({ onSuccess }: Props) {
     const { t } = useTranslation();
+    const { name: appName } = usePage().props;
     const [name, setName] = useState(() => {
         const ua = navigator.userAgent;
 
@@ -23,7 +25,9 @@ export default function PasskeyRegistration({ onSuccess }: Props) {
             new RegExp(os).test(ua),
         );
 
-        return [browser, os].filter(Boolean).join(t(' on ')) || '';
+        const device = [browser, os].filter(Boolean).join(t(' on '));
+
+        return device ? `${appName} — ${device}` : appName;
     });
 
     const [showForm, setShowForm] = useState(false);
