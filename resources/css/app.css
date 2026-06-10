@@ -7,6 +7,17 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* True only inside an installed PWA window that is phone-sized and held in landscape
+   (phone landscape height ≈ 360–480; tablets ≈ 744+). Drives the portrait-only gate in
+   app.blade.php — iOS ignores the manifest `orientation` lock, so we cover the screen with
+   a "rotate to portrait" notice instead. Android PWAs are already portrait-locked, so this
+   never matches there. Requires iOS 16.4+ for `display-mode: standalone` in CSS. */
+@custom-variant pwa-landscape {
+    @media (display-mode: standalone) and (orientation: landscape) and (max-height: 600px) {
+        @slot;
+    }
+}
+
 @theme {
     /* Type — Fredoka (display) × Plus Jakarta Sans (body) */
     --font-sans:
