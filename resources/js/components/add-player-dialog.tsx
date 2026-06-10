@@ -106,7 +106,7 @@ export function AddPlayerDialog({
                                             }
                                             aria-pressed={selected}
                                             className={cn(
-                                                'flex w-full cursor-pointer items-center gap-3 rounded-xl border px-3 py-2 text-left transition-colors',
+                                                'press flex w-full cursor-pointer items-center gap-3 rounded-xl border px-3 py-2 text-left transition-colors',
                                                 selected
                                                     ? 'border-primary/40 bg-primary/[0.06]'
                                                     : 'border-transparent hover:bg-muted',

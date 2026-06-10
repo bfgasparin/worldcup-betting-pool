@@ -240,7 +240,7 @@ function MobileStandings({ standings }: { standings: StandingRow[] }) {
                             aria-expanded={expanded}
                             aria-controls={`standing-${key}`}
                             onClick={() => setOpenKey(expanded ? null : key)}
-                            className="grid w-full grid-cols-[1.25rem_minmax(0,1fr)_2rem_2.75rem_1.25rem] items-center gap-2 px-1 py-2.5 text-left outline-none focus-visible:bg-muted/40"
+                            className="press-soft grid w-full grid-cols-[1.25rem_minmax(0,1fr)_2rem_2.75rem_1.25rem] items-center gap-2 px-1 py-2.5 text-left outline-none focus-visible:bg-muted/40"
                         >
                             <span
                                 className={cn(

@@ -440,7 +440,7 @@ export function ShowTimesToggle({
             onClick={onToggle}
             aria-expanded={open}
             aria-label={t('Show kickoff times')}
-            className="inline-flex shrink-0 items-center gap-0.5 rounded-full p-1 text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:text-foreground"
+            className="press inline-flex shrink-0 items-center gap-0.5 rounded-full p-1 text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:text-foreground"
         >
             <Clock className="size-3.5" />
             <ChevronDown

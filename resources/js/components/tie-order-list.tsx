@@ -122,7 +122,7 @@ export function TieOrderList({
                                     })}
                                     disabled={index === 0}
                                     onClick={() => move(index, index - 1)}
-                                    className="rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-30"
+                                    className="press rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-30"
                                 >
                                     <ChevronUp className="size-4" />
                                 </button>
@@ -133,7 +133,7 @@ export function TieOrderList({
                                     })}
                                     disabled={index === order.length - 1}
                                     onClick={() => move(index, index + 1)}
-                                    className="rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-30"
+                                    className="press rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-30"
                                 >
                                     <ChevronDown className="size-4" />
                                 </button>

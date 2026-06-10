@@ -1253,7 +1253,7 @@ export default function Predict({
                                 <button
                                     type="button"
                                     onClick={() => setImportOpen(true)}
-                                    className="inline-flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                                    className="press inline-flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                                 >
                                     <Download className="size-4" />
                                     {t('Import from another pool')}

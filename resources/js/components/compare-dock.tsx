@@ -97,7 +97,7 @@ function SelectingDock({
                             aria-label={t('Remove :name', {
                                 name: player?.name ?? t('player'),
                             })}
-                            className="grid size-5 cursor-pointer place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                            className="press grid size-5 cursor-pointer place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                         >
                             <X className="size-3.5" />
                         </button>

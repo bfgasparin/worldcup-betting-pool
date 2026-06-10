@@ -17,7 +17,7 @@ const SIZES: Record<StepperSize, { box: string; btn: string; gap: string }> = {
 };
 
 const STEP_BUTTON =
-    'inline-flex shrink-0 items-center justify-center rounded-full border-[1.5px] border-border bg-secondary font-display font-semibold leading-none text-foreground transition hover:border-primary hover:text-primary active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:text-foreground';
+    'press inline-flex shrink-0 items-center justify-center rounded-full border-[1.5px] border-border bg-secondary font-display font-semibold leading-none text-foreground transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:text-foreground';
 
 /**
  * Score entry for a single team — −/+ steppers around a large, tappable/typeable score

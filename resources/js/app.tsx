@@ -45,6 +45,12 @@ createInertiaApp({
 // a stale snapshot captured before a join or a prediction change.
 router.on('navigate', () => router.flushAll());
 
+// Touch devices have no :hover, so every tappable element gets a visible press animation via the
+// `.press` utility (see app.css). iOS Safari only fires `:active` on non-button elements (e.g. Radix
+// menu/select items, which render as role-divs) when a touch listener exists on the document — this
+// passive no-op is the canonical enabler. Harmless on devices that already fire `:active` natively.
+document.addEventListener('touchstart', () => {}, { passive: true });
+
 // This will set light / dark mode on load...
 initializeTheme();
 

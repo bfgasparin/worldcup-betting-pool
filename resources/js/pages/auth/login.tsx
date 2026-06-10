@@ -154,7 +154,7 @@ export default function Login({ status }: Props) {
                                         requestCode({ advance: false })
                                     }
                                     disabled={emailForm.processing}
-                                    className="font-medium text-foreground underline-offset-4 hover:underline disabled:opacity-50"
+                                    className="press font-medium text-foreground underline-offset-4 hover:underline disabled:opacity-50"
                                     data-test="resend-code-button"
                                 >
                                     {emailForm.processing
@@ -164,7 +164,7 @@ export default function Login({ status }: Props) {
                                 <button
                                     type="button"
                                     onClick={backToEmail}
-                                    className="underline-offset-4 hover:underline"
+                                    className="press underline-offset-4 hover:underline"
                                     data-test="change-email-button"
                                 >
                                     {t('Use a different email')}

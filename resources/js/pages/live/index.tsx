@@ -42,7 +42,7 @@ export default function LiveIndex({ tournaments }: LiveIndexProps) {
                                 <Link
                                     key={tournament.slug}
                                     href={live.show(tournament.slug)}
-                                    className="group card-elevated flex flex-col gap-4 rounded-3xl border border-border p-6 ring-1 ring-red-500/15 transition-transform duration-200 hover:-translate-y-1"
+                                    className="press-soft group card-elevated flex flex-col gap-4 rounded-3xl border border-border p-6 ring-1 ring-red-500/15 transition-transform duration-200 hover:-translate-y-1"
                                 >
                                     <div className="flex items-center justify-between">
                                         <LiveBadge />

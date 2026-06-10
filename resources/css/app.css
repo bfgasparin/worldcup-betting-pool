@@ -427,3 +427,43 @@
         );
     }
 }
+
+/* Tap-press feedback — touch devices only. Touch has no `:hover`, so a tap currently returns almost
+   no feedback; these utilities give every tappable element a visible "push down, then spring back".
+   Opt in with `.press` (buttons, links, controls, menu/selection items) or `.press-soft` (large
+   full-bleed surfaces — cards/rows — scaled less so they don't look rubbery). The bottom nav bars
+   deliberately never opt in. Defined UNLAYERED so it reliably beats Tailwind's `@layer utilities`
+   for `transform`/its timing on elements that carry their own transform or transition utilities
+   (e.g. Button). Desktop is untouched (media-gated); `prefers-reduced-motion` disables it. */
+@media (hover: none) and (pointer: coarse) {
+    .press,
+    .press-soft {
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        /* The "up": a springy overshoot past 1.0 as the finger lifts and the element falls back here. */
+        transition: transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* The "down": a quick, direct snap while held. */
+    .press:active {
+        transform: scale(0.92);
+        transition-duration: 110ms;
+        transition-timing-function: cubic-bezier(0.3, 0, 0.2, 1);
+    }
+
+    .press-soft:active {
+        transform: scale(0.96);
+        transition-duration: 110ms;
+        transition-timing-function: cubic-bezier(0.3, 0, 0.2, 1);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .press,
+        .press-soft,
+        .press:active,
+        .press-soft:active {
+            transform: none;
+            transition: none;
+        }
+    }
+}
