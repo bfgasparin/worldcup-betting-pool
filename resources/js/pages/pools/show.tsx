@@ -471,7 +471,7 @@ function FeaturedBoardCard({
                                 query: { board: board.key },
                             }).url
                         }
-                        className="inline-flex shrink-0 items-center gap-1 font-display text-sm font-semibold text-primary transition-all hover:gap-2"
+                        className="press inline-flex shrink-0 items-center gap-1 font-display text-sm font-semibold text-primary transition-all hover:gap-2"
                     >
                         {t('Details')}
                         <ArrowRight className="size-4" />
@@ -730,7 +730,7 @@ function BoardSummaryCard({
         <Link
             href={`${pools.leaderboard(pool.slug).url}?board=${summary.key}`}
             className={cn(
-                'group transition-colors hover:border-primary/40',
+                'press-soft group transition-colors hover:border-primary/40',
                 cardClass,
             )}
         >
