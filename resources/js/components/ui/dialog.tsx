@@ -2,6 +2,9 @@ import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { XIcon } from "lucide-react"
 import * as React from "react"
 
+import { useMediaQuery } from "@/hooks/use-media-query"
+import { useSwipeToDismiss } from "@/hooks/use-swipe-to-dismiss"
+import { useTranslation } from "@/hooks/use-translation"
 import { cn } from "@/lib/utils"
 
 function Dialog({
@@ -49,26 +52,46 @@ function DialogContent({
   children,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content>) {
+  const { t } = useTranslation()
+  // Drag-to-dismiss only on the small-screen bottom-sheet presentation (< sm).
+  const isBottomSheet = useMediaQuery("(max-width: 639.98px)")
+  const closeRef = React.useRef<HTMLButtonElement>(null)
+  const { contentRef } = useSwipeToDismiss({
+    enabled: isBottomSheet,
+    onClose: () => closeRef.current?.click(),
+  })
+
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
       <DialogPrimitive.Content
+        ref={contentRef}
         data-slot="dialog-content"
         className={cn(
           // Shared frame + fade (both presentations); a tall sheet/modal scrolls within the viewport.
           "bg-background fixed z-50 grid max-h-[90dvh] w-full gap-4 overflow-y-auto border p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
-          // Mobile: a full-width bottom sheet that slides up from the foot of the screen.
-          "inset-x-0 bottom-0 max-w-none rounded-t-2xl pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] max-sm:data-[state=open]:slide-in-from-bottom max-sm:data-[state=closed]:slide-out-to-bottom",
+          // Mobile: a full-width bottom sheet that slides up; swipe-down dismisses it.
+          // `touch-pan-y` keeps inner scrolling native; `data-dragging-close` neutralises
+          // the slide-out keyframe so our off-screen transition isn't yanked back.
+          "inset-x-0 bottom-0 max-w-none rounded-t-2xl pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] max-sm:touch-pan-y max-sm:data-[state=open]:slide-in-from-bottom max-sm:data-[state=closed]:slide-out-to-bottom max-sm:data-[dragging-close]:animate-none",
           // Desktop (sm+): the centred modal, unchanged.
           "sm:inset-x-auto sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-lg sm:pb-6 sm:data-[state=open]:zoom-in-95 sm:data-[state=closed]:zoom-out-95",
           className
         )}
         {...props}
       >
+        {/* Bottom-sheet grab handle: the swipe affordance, and the focusable
+            close for keyboard/AT users + the swipe-dismiss click target. */}
+        <DialogPrimitive.Close
+          ref={closeRef}
+          aria-label={t("Close")}
+          className="press mx-auto -mt-2 mb-1 hidden h-1.5 w-12 shrink-0 rounded-full bg-muted-foreground/30 transition-colors hover:bg-muted-foreground/50 focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden max-sm:block"
+        />
         {children}
-        <DialogPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">
+        {/* The X stays on the desktop centred modal only. */}
+        <DialogPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 hidden rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none sm:inline-flex [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">
           <XIcon />
-          <span className="sr-only">Close</span>
+          <span className="sr-only">{t("Close")}</span>
         </DialogPrimitive.Close>
       </DialogPrimitive.Content>
     </DialogPortal>

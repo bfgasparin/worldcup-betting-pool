@@ -131,7 +131,7 @@ function StepButton({
                     ? t('Previous matchday')
                     : t('Next matchday')
             }
-            className="grid size-9 shrink-0 place-items-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+            className="press grid size-9 shrink-0 place-items-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
         >
             <Icon className="size-4" />
         </button>

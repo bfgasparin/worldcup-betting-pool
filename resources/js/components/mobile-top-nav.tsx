@@ -74,7 +74,7 @@ function LiveButton({ hasLive }: { hasLive: boolean }) {
         <Link
             href={live.index()}
             aria-label={t('Live Center')}
-            className="pointer-events-auto flex size-9 items-center justify-center rounded-full border border-border bg-card/95 shadow-[var(--sh-md)] backdrop-blur"
+            className="press pointer-events-auto flex size-9 items-center justify-center rounded-full border border-border bg-card/95 shadow-[var(--sh-md)] backdrop-blur"
         >
             {hasLive ? (
                 <LivePulse />
@@ -112,7 +112,7 @@ function PoolSwitcher({
             <SheetTrigger asChild>
                 <button
                     type="button"
-                    className="pointer-events-auto inline-flex max-w-[52vw] items-center gap-2 rounded-full border border-border bg-card/95 py-1.5 pr-3 pl-1.5 shadow-[var(--sh-md)] backdrop-blur"
+                    className="press pointer-events-auto inline-flex max-w-[52vw] items-center gap-2 rounded-full border border-border bg-card/95 py-1.5 pr-3 pl-1.5 shadow-[var(--sh-md)] backdrop-blur"
                 >
                     {pool && accent ? (
                         <span
@@ -165,7 +165,7 @@ function PoolSwitcher({
                                         href={hrefFor(entry.slug)}
                                         prefetch
                                         className={cn(
-                                            'flex items-center gap-3 rounded-2xl px-3 py-2.5 transition-colors',
+                                            'press flex items-center gap-3 rounded-2xl px-3 py-2.5 transition-colors',
                                             current
                                                 ? 'bg-secondary'
                                                 : 'hover:bg-muted',
@@ -202,7 +202,7 @@ function PoolSwitcher({
                             <Link
                                 href={poolsIndex()}
                                 prefetch
-                                className="flex items-center gap-3 rounded-2xl px-3 py-2.5 transition-colors hover:bg-muted"
+                                className="press flex items-center gap-3 rounded-2xl px-3 py-2.5 transition-colors hover:bg-muted"
                             >
                                 <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
                                     <LayoutGrid className="size-4" />
@@ -224,12 +224,12 @@ function UserMenuButton({ user }: { user: User }) {
     const { t } = useTranslation();
 
     return (
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
                 <button
                     type="button"
                     aria-label={t('Account menu')}
-                    className="pointer-events-auto rounded-full border border-border bg-card/95 p-0.5 shadow-[var(--sh-md)] backdrop-blur"
+                    className="press pointer-events-auto rounded-full border border-border bg-card/95 p-0.5 shadow-[var(--sh-md)] backdrop-blur"
                 >
                     <Avatar className="size-9 overflow-hidden rounded-full">
                         <AvatarImage src={user.avatar} alt={user.name} />
@@ -242,7 +242,7 @@ function UserMenuButton({ user }: { user: User }) {
             <DropdownMenuContent
                 align="end"
                 side="bottom"
-                className="min-w-56 rounded-lg"
+                className="min-w-56 rounded-lg [&_[data-slot=dropdown-menu-item]]:py-3"
             >
                 <UserMenuContent user={user} />
             </DropdownMenuContent>

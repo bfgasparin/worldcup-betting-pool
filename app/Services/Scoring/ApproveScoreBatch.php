@@ -8,6 +8,7 @@ use App\Enums\ProposalStatus;
 use App\Models\ScoreBatch;
 use App\Models\ScoreProposal;
 use App\Models\User;
+use App\Services\Live\CloseLiveScoreboard;
 use App\Services\Predictions\OfficialBracketProjector;
 use App\Services\Predictions\PredictionWindowResolver;
 use Illuminate\Support\Facades\DB;
@@ -29,6 +30,7 @@ class ApproveScoreBatch
         private readonly LeaderboardNotifier $notifier = new LeaderboardNotifier,
         private readonly PredictionWindowResolver $windowResolver = new PredictionWindowResolver,
         private readonly WindowOpeningNotifier $windowOpeningNotifier = new WindowOpeningNotifier,
+        private readonly CloseLiveScoreboard $liveScoreboardCloser = new CloseLiveScoreboard,
     ) {}
 
     public function approve(ScoreBatch $batch, User $approver): void
@@ -49,11 +51,20 @@ class ApproveScoreBatch
         DB::transaction(function () use ($batch, $tournament, $pools, $approver): void {
             $proposals = $batch->proposals()
                 ->where('status', '!=', ProposalStatus::Rejected)
-                ->with('fixture')
+                ->with('fixture.liveState')
                 ->get();
 
             foreach ($proposals as $proposal) {
                 $this->applyToFixture($proposal);
+
+                // Publishing the official result is the authoritative "match over" signal, so close
+                // any live scoreboard the admin left open (e.g. they entered the score on the review
+                // screen without ending the match in Live Control) — otherwise the Live Center keeps
+                // treating a finished fixture as in-play. Skip a board that is already closed.
+                if ($proposal->fixture->liveState?->isLive() === true) {
+                    $this->liveScoreboardCloser->close($proposal->fixture);
+                }
+
                 $proposal->update(['status' => ProposalStatus::Applied]);
             }
 

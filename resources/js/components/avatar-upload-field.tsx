@@ -63,7 +63,7 @@ export default function AvatarUploadField({
                 type="button"
                 disabled={disabled}
                 onClick={() => inputRef.current?.click()}
-                className="group relative rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none"
+                className="press group relative rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none"
                 aria-label={shown ? t('Change photo') : t('Choose photo')}
             >
                 <Avatar className="size-28 shadow-[var(--sh-md)] ring-4 ring-card">

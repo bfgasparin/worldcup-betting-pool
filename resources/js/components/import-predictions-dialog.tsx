@@ -85,7 +85,7 @@ export function ImportPredictionsDialog({
                                     type="button"
                                     onClick={() => setSelected(source.slug)}
                                     className={cn(
-                                        'flex w-full flex-col items-start gap-0.5 rounded-2xl border px-4 py-3 text-left transition',
+                                        'press flex w-full flex-col items-start gap-0.5 rounded-2xl border px-4 py-3 text-left transition',
                                         selected === source.slug
                                             ? 'border-accent bg-accent/10'
                                             : 'border-border hover:border-accent/60',

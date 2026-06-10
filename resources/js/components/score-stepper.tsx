@@ -17,7 +17,7 @@ const SIZES: Record<StepperSize, { box: string; btn: string; gap: string }> = {
 };
 
 const STEP_BUTTON =
-    'inline-flex shrink-0 items-center justify-center rounded-full border-[1.5px] border-border bg-secondary font-display font-semibold leading-none text-foreground transition hover:border-primary hover:text-primary active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:text-foreground';
+    'press inline-flex shrink-0 items-center justify-center rounded-full border-[1.5px] border-border bg-secondary font-display font-semibold leading-none text-foreground transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:text-foreground';
 
 /**
  * Score entry for a single team — −/+ steppers around a large, tappable/typeable score
@@ -79,10 +79,10 @@ export function ScoreStepper({
                 }
                 onBlur={onCommit}
                 className={cn(
-                    'border-2 text-center font-display font-semibold text-foreground tabular-nums caret-primary transition outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/30 disabled:opacity-60',
+                    'border border-transparent text-center font-display font-semibold text-foreground tabular-nums caret-primary transition-[color,box-shadow,background-color] outline-none focus-visible:bg-field-focus focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-60',
                     value !== ''
-                        ? 'border-primary/40 bg-primary/[0.05]'
-                        : 'border-border bg-card',
+                        ? 'bg-primary/10 text-primary ring-1 ring-primary/25 ring-inset'
+                        : 'bg-field',
                     s.box,
                 )}
             />

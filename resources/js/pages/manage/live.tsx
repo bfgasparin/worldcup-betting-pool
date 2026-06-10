@@ -6,6 +6,7 @@ import { TeamScoreRow } from '@/components/team-score-row';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/hooks/use-translation';
 import type { Translator } from '@/hooks/use-translation';
+import { getActiveLocale } from '@/lib/locale';
 import { cn } from '@/lib/utils';
 import manage from '@/routes/manage';
 import type { LiveControlFixture } from '@/types/live';
@@ -24,7 +25,7 @@ function formatKickoff(
         return t('TBD');
     }
 
-    return new Intl.DateTimeFormat(undefined, {
+    return new Intl.DateTimeFormat(getActiveLocale(), {
         weekday: 'short',
         hour: '2-digit',
         minute: '2-digit',
@@ -48,7 +49,7 @@ function Stepper({
             <button
                 type="button"
                 onClick={() => onChange(Math.max(0, value - 1))}
-                className="flex size-8 items-center justify-center rounded-full border border-border bg-secondary transition-colors hover:bg-muted"
+                className="press flex size-8 items-center justify-center rounded-full border border-border bg-secondary transition-colors hover:bg-muted"
                 aria-label={t('Decrease :label', { label })}
             >
                 <Minus className="size-4" />
@@ -59,7 +60,7 @@ function Stepper({
             <button
                 type="button"
                 onClick={() => onChange(value + 1)}
-                className="flex size-8 items-center justify-center rounded-full border border-border bg-secondary transition-colors hover:bg-muted"
+                className="press flex size-8 items-center justify-center rounded-full border border-border bg-secondary transition-colors hover:bg-muted"
                 aria-label={t('Increase :label', { label })}
             >
                 <Plus className="size-4" />

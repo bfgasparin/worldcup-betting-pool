@@ -336,7 +336,7 @@ function AddToggle({
                     : t('Add :name to the comparison', { name })
             }
             className={cn(
-                'grid size-8 shrink-0 cursor-pointer place-items-center rounded-full border transition-colors',
+                'press grid size-8 shrink-0 cursor-pointer place-items-center rounded-full border transition-colors',
                 selected
                     ? 'border-primary bg-primary text-white'
                     : 'border-border hover:border-primary',
@@ -471,7 +471,7 @@ function FeaturedBoardCard({
                                 query: { board: board.key },
                             }).url
                         }
-                        className="inline-flex shrink-0 items-center gap-1 font-display text-sm font-semibold text-primary transition-all hover:gap-2"
+                        className="press inline-flex shrink-0 items-center gap-1 font-display text-sm font-semibold text-primary transition-all hover:gap-2"
                     >
                         {t('Details')}
                         <ArrowRight className="size-4" />
@@ -730,7 +730,7 @@ function BoardSummaryCard({
         <Link
             href={`${pools.leaderboard(pool.slug).url}?board=${summary.key}`}
             className={cn(
-                'group transition-colors hover:border-primary/40',
+                'press-soft group transition-colors hover:border-primary/40',
                 cardClass,
             )}
         >
@@ -860,7 +860,7 @@ function FixtureFiltersSheet({
             <SheetTrigger asChild>
                 <button
                     type="button"
-                    className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-2 font-display text-sm font-semibold shadow-[var(--sh-sm)]"
+                    className="press inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-2 font-display text-sm font-semibold shadow-[var(--sh-sm)]"
                 >
                     <SlidersHorizontal className="size-4 text-muted-foreground" />
                     <span>

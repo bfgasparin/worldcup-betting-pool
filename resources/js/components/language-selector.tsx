@@ -62,7 +62,7 @@ export default function LanguageSelector({
                         onClick={() => choose(value)}
                         disabled={saving}
                         className={cn(
-                            'flex items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors disabled:opacity-60',
+                            'press flex items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors disabled:opacity-60',
                             active
                                 ? 'border-primary bg-primary/5 font-semibold text-foreground'
                                 : 'border-border text-muted-foreground hover:bg-muted',
