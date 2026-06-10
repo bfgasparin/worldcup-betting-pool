@@ -41,10 +41,13 @@ function BoardTabs({
     boards,
     active,
     onSelect,
+    isPaid,
 }: {
     boards: LeaderboardBoard[];
     active: LeaderboardCategoryKey;
     onSelect: (key: LeaderboardCategoryKey) => void;
+    /** Marks the prize-paying board with a trophy (the hero badge that did this is gone on mobile). */
+    isPaid: boolean;
 }) {
     const { t } = useTranslation();
 
@@ -56,6 +59,7 @@ function BoardTabs({
             items={boards.map((board) => ({
                 value: board.key,
                 label: board.label,
+                icon: isPaid && board.awards_prizes ? Trophy : undefined,
             }))}
         />
     );
@@ -411,7 +415,7 @@ export default function Leaderboard({
                 title={poolTitle(pool.name, pool.source, t('Leaderboards'))}
             />
             <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
-                <header className="hero relative overflow-hidden rounded-3xl border border-border p-8">
+                <header className="hero relative hidden overflow-hidden rounded-3xl border border-border p-8 md:block">
                     <div className="hero-lines" />
                     <div className="relative flex flex-col gap-3">
                         <span className="inline-flex items-center gap-2 text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">
@@ -450,6 +454,7 @@ export default function Leaderboard({
                     boards={boards}
                     active={active}
                     onSelect={setActive}
+                    isPaid={isPaid}
                 />
 
                 {matchdays.length > 0 && (

@@ -17,7 +17,7 @@ export default function LiveIndex({ tournaments }: LiveIndexProps) {
             <Head title={t('Live Center')} />
             <div className="relative min-h-full bg-background">
                 <div className="w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-10">
-                    <header className="hero relative mb-6 overflow-hidden rounded-3xl border border-border p-5 sm:mb-8 sm:p-8">
+                    <header className="hero relative mb-6 hidden overflow-hidden rounded-3xl border border-border p-5 sm:mb-8 sm:p-8 md:block">
                         <div className="hero-lines" />
                         <div className="relative flex flex-col gap-3">
                             <span className="inline-flex w-fit items-center gap-2 text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">

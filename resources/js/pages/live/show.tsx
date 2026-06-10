@@ -909,7 +909,7 @@ export default function LiveShow({
             />
             <div className="relative min-h-full bg-background">
                 <div className="w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-10">
-                    <header className="hero relative mb-6 overflow-hidden rounded-3xl border border-border p-5 sm:mb-8 sm:p-8">
+                    <header className="hero relative mb-6 hidden overflow-hidden rounded-3xl border border-border p-5 sm:mb-8 sm:p-8 md:block">
                         <div className="hero-lines" />
                         <div className="relative flex flex-wrap items-end justify-between gap-4">
                             <div className="flex flex-col gap-3">
@@ -935,7 +935,13 @@ export default function LiveShow({
 
                     <div className="flex flex-col gap-8">
                         <section className="flex flex-col gap-4">
-                            <h2 className="font-display text-lg font-semibold">
+                            <h2 className="flex items-center gap-2 font-display text-lg font-semibold">
+                                {/* The hero's "live now" signal, kept beside this heading on mobile. */}
+                                {liveCount > 0 && (
+                                    <span className="md:hidden">
+                                        <LivePulse />
+                                    </span>
+                                )}
                                 {t('Live scores')}
                             </h2>
                             <LiveScoreboard
