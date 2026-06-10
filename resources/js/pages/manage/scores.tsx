@@ -2,11 +2,11 @@ import { Head, router } from '@inertiajs/react';
 import { ClipboardCheck, Trophy } from 'lucide-react';
 import { useState } from 'react';
 import { Flag } from '@/components/flag';
+import { ScoreStepper } from '@/components/score-stepper';
 import { StandingsTable } from '@/components/standings-table';
 import { TeamScoreRow } from '@/components/team-score-row';
 import { TieResolutionPanel } from '@/components/tie-resolution-panel';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useTranslation } from '@/hooks/use-translation';
 import manage from '@/routes/manage';
@@ -165,16 +165,10 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
 
             <div>
                 <TeamScoreRow team={row.home} label={row.home_label}>
-                    <Input
-                        type="number"
-                        min={0}
-                        max={99}
+                    <ScoreStepper
                         value={home}
-                        onChange={(event) =>
-                            handleScore('home', event.target.value)
-                        }
-                        className="h-9 w-14 text-center"
-                        aria-label={t(':team goals', {
+                        onChange={(value) => handleScore('home', value)}
+                        label={t(':team goals', {
                             team: row.home
                                 ? tCountry(row.home.code, row.home.name)
                                 : t('Home'),
@@ -182,16 +176,10 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
                     />
                 </TeamScoreRow>
                 <TeamScoreRow team={row.away} label={row.away_label}>
-                    <Input
-                        type="number"
-                        min={0}
-                        max={99}
+                    <ScoreStepper
                         value={away}
-                        onChange={(event) =>
-                            handleScore('away', event.target.value)
-                        }
-                        className="h-9 w-14 text-center"
-                        aria-label={t(':team goals', {
+                        onChange={(value) => handleScore('away', value)}
+                        label={t(':team goals', {
                             team: row.away
                                 ? tCountry(row.away.code, row.away.name)
                                 : t('Away'),
