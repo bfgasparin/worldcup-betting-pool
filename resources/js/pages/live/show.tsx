@@ -22,6 +22,7 @@ import { StandingsList } from '@/components/standings-list';
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
@@ -201,6 +202,11 @@ function FixturePicksSheet({
                             <LiveBadge className="shrink-0" />
                         )}
                     </div>
+                    <DialogDescription className="sr-only">
+                        {t(
+                            "Every player's prediction for this match and the points it's earning now.",
+                        )}
+                    </DialogDescription>
                     <FixtureScoreline fixture={fixture} />
                 </DialogHeader>
 
