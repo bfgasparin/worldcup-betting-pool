@@ -5,6 +5,7 @@ namespace Tests\Feature\Scoring;
 use App\Enums\BatchStatus;
 use App\Enums\FixtureStatus;
 use App\Enums\LeaderboardCategory;
+use App\Enums\LiveStatus;
 use App\Enums\PhaseKey;
 use App\Enums\PhaseType;
 use App\Enums\PoolAccent;
@@ -12,6 +13,8 @@ use App\Enums\ProposalStatus;
 use App\Enums\ScoringStrategy;
 use App\Enums\TournamentStatus;
 use App\Models\Entry;
+use App\Models\Fixture;
+use App\Models\FixtureLiveState;
 use App\Models\Pool;
 use App\Models\ScoreBatch;
 use App\Models\ScoreProposal;
@@ -286,6 +289,100 @@ class ApproveScoreBatchTest extends TestCase
     {
         $this->post(route('manage.scores.approve', $this->tournament))
             ->assertRedirect(route('login'));
+    }
+
+    public function test_approving_a_result_closes_a_still_open_live_scoreboard(): void
+    {
+        $batch = $this->openBatch();
+        $fixture = $this->tournament->groupFixtures()->orderBy('match_number')->first();
+        $this->proposeOneGroupFixture($batch, $fixture);
+
+        // The admin forgot to "End match": its live board is still open while the result is approved.
+        FixtureLiveState::factory()->for($fixture)->withScore(2, 1)->create();
+
+        $this->actingAs($this->admin())
+            ->post(route('manage.scores.approve', $this->tournament))
+            ->assertRedirect(route('manage.scores.review', $this->tournament));
+
+        // The official result is published…
+        $this->assertSame(FixtureStatus::Finished, $fixture->fresh()->status);
+
+        // …and the stale live board is closed in the same approval, so the Live Center stops
+        // treating a finished match as in-play.
+        $liveState = $fixture->fresh()->liveState;
+        $this->assertSame(LiveStatus::Ended, $liveState->status);
+        $this->assertNotNull($liveState->ended_at);
+    }
+
+    public function test_approving_a_result_without_a_live_board_succeeds(): void
+    {
+        $batch = $this->openBatch();
+        $fixture = $this->tournament->groupFixtures()->orderBy('match_number')->first();
+        $this->proposeOneGroupFixture($batch, $fixture);
+
+        $this->actingAs($this->admin())
+            ->post(route('manage.scores.approve', $this->tournament))
+            ->assertRedirect(route('manage.scores.review', $this->tournament));
+
+        $this->assertSame(FixtureStatus::Finished, $fixture->fresh()->status);
+        $this->assertNull($fixture->fresh()->liveState);
+        $this->assertSame(BatchStatus::Approved, $batch->fresh()->status);
+    }
+
+    public function test_approving_leaves_an_already_ended_live_board_untouched(): void
+    {
+        $batch = $this->openBatch();
+        $fixture = $this->tournament->groupFixtures()->orderBy('match_number')->first();
+        $this->proposeOneGroupFixture($batch, $fixture);
+
+        // The match was already ended normally (EndLiveMatch) an hour ago.
+        $endedAt = now()->subHour();
+        FixtureLiveState::factory()->for($fixture)->ended()->create(['ended_at' => $endedAt]);
+
+        $this->actingAs($this->admin())->post(route('manage.scores.approve', $this->tournament));
+
+        $liveState = $fixture->fresh()->liveState;
+        $this->assertSame(LiveStatus::Ended, $liveState->status);
+        // Approval does not re-stamp an already-closed board.
+        $this->assertSame($endedAt->toDateTimeString(), $liveState->ended_at->toDateTimeString());
+    }
+
+    public function test_a_rejected_proposal_does_not_close_its_fixtures_live_board(): void
+    {
+        $batch = $this->openBatch();
+
+        // One fixture is published; a different fixture's proposal is rejected while its board is live.
+        [$published, $rejectedFixture] = $this->tournament->groupFixtures()
+            ->orderBy('match_number')->take(2)->get()->all();
+        $this->proposeOneGroupFixture($batch, $published);
+
+        ScoreProposal::create([
+            'score_batch_id' => $batch->id,
+            'fixture_id' => $rejectedFixture->id,
+            'home_goals' => 1,
+            'away_goals' => 0,
+            'winner_team_id' => $rejectedFixture->home_team_id,
+            'status' => ProposalStatus::Rejected,
+        ]);
+        FixtureLiveState::factory()->for($rejectedFixture)->withScore(1, 0)->create();
+
+        $this->actingAs($this->admin())->post(route('manage.scores.approve', $this->tournament));
+
+        // The rejected fixture is never finished, so its still-open board is left alone.
+        $this->assertNotSame(FixtureStatus::Finished, $rejectedFixture->fresh()->status);
+        $this->assertSame(LiveStatus::Live, $rejectedFixture->fresh()->liveState->status);
+    }
+
+    private function proposeOneGroupFixture(ScoreBatch $batch, Fixture $fixture, int $home = 2, int $away = 1): ScoreProposal
+    {
+        return ScoreProposal::create([
+            'score_batch_id' => $batch->id,
+            'fixture_id' => $fixture->id,
+            'home_goals' => $home,
+            'away_goals' => $away,
+            'winner_team_id' => $home > $away ? $fixture->home_team_id : $fixture->away_team_id,
+            'status' => ProposalStatus::Pending,
+        ]);
     }
 
     private function admin(): User

@@ -6,6 +6,7 @@ import { TeamScoreRow } from '@/components/team-score-row';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/hooks/use-translation';
 import type { Translator } from '@/hooks/use-translation';
+import { getActiveLocale } from '@/lib/locale';
 import { cn } from '@/lib/utils';
 import manage from '@/routes/manage';
 import type { LiveControlFixture } from '@/types/live';
@@ -24,7 +25,7 @@ function formatKickoff(
         return t('TBD');
     }
 
-    return new Intl.DateTimeFormat(undefined, {
+    return new Intl.DateTimeFormat(getActiveLocale(), {
         weekday: 'short',
         hour: '2-digit',
         minute: '2-digit',
