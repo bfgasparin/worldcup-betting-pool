@@ -1,4 +1,5 @@
 import { createInertiaApp, router } from '@inertiajs/react';
+import { OrientationGate } from '@/components/orientation-gate';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { initializeTheme } from '@/hooks/use-appearance';
@@ -33,6 +34,7 @@ createInertiaApp({
             <TooltipProvider delayDuration={0}>
                 {app}
                 <Toaster />
+                <OrientationGate />
             </TooltipProvider>
         );
     },
