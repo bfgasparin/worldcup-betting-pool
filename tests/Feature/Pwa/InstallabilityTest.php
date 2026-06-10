@@ -32,5 +32,12 @@ class InstallabilityTest extends TestCase
         $this->assertSame('Brothers Bets', $manifest['name']);
         $this->assertSame('standalone', $manifest['display']);
         $this->assertNotEmpty($manifest['icons']);
+
+        // The installed app launches to the pools dashboard (which already routes
+        // guests to login and not-onboarded users to onboarding), never the
+        // marketing welcome page. Keep `id` at '/' so existing installs stay the
+        // same app and just update their launch target.
+        $this->assertSame('/pools?source=pwa', $manifest['start_url']);
+        $this->assertSame('/', $manifest['id']);
     }
 }
