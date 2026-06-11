@@ -10,6 +10,8 @@ import { cn } from '@/lib/utils';
  * only on mobile when an admin is inside a `/manage/{slug}` section. It mirrors {@link PoolTabBar}:
  * the top-right menu still owns returning to the Manage hub to switch tournaments, while this keeps
  * the sections one thumb-tap away. Renders nothing on desktop or outside a manage-tournament page.
+ * Like {@link PoolTabBar}, the links deliberately do NOT `prefetch`: on touch that only duplicates
+ * the GET and suppresses the NavigationIndicator pill (prefetch-served visits never fire `start`).
  */
 export function ManageTabBar() {
     const { t } = useTranslation();
@@ -45,7 +47,6 @@ export function ManageTabBar() {
                         <Link
                             key={item.title}
                             href={item.href}
-                            prefetch
                             aria-current={active ? 'page' : undefined}
                             className={cn(
                                 'flex w-[4.75rem] flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 text-[11px] font-semibold transition-colors',

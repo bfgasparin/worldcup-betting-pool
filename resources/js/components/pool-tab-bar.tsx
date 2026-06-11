@@ -12,6 +12,10 @@ import type { JoinedPool, TournamentNavInfo } from '@/types/navigation';
  * pool's main screens one thumb-tap away instead of two. It renders nothing on desktop (the left
  * sidebar covers that) or outside a pool (no `pool` prop). A gold dot marks Predict when the pool
  * has unfinished picks, mirroring the sidebar's "needs attention" cue.
+ *
+ * The links deliberately do NOT `prefetch`: on touch the prefetch only starts at tap time (no hover
+ * head start), so it just duplicates the GET and routes the visit through Inertia's prefetch path —
+ * which never fires the `start` event the NavigationIndicator pill listens for.
  */
 export function PoolTabBar() {
     const { props } = usePage<{
@@ -53,7 +57,6 @@ export function PoolTabBar() {
                         <Link
                             key={item.title}
                             href={item.href}
-                            prefetch
                             aria-current={active ? 'page' : undefined}
                             className={cn(
                                 'flex w-[4.75rem] flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 text-[11px] font-semibold transition-colors',
