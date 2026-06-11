@@ -512,7 +512,7 @@ function OfficialKnockout({ fixture }: { fixture: BracketFixture }) {
     const awayWins =
         fixture.winner_team_id != null &&
         fixture.winner_team_id === fixture.away?.id;
-    // A level result decided on penalties/extra time — the only case the "Advances" chip is needed.
+    // A level result decided on penalties — the only case the "Advances" chip is needed.
     const isDraw = settled && fixture.home_goals === fixture.away_goals;
 
     return (

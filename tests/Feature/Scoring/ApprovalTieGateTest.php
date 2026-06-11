@@ -160,6 +160,84 @@ class ApprovalTieGateTest extends TestCase
             ->assertSessionHasNoErrors('ties');
     }
 
+    public function test_a_published_thirds_ordering_cannot_be_changed(): void
+    {
+        // Publish the whole group stage, with the straddling thirds tie ordered by the admin.
+        $batch = $this->openBatch();
+        $this->proposeGroupResults($batch, $this->seedOrderScores());
+        $this->resolveProjectedTies($this->tournament, $batch);
+        $this->actingAs($this->admin())->post(route('manage.scores.approve', $this->tournament));
+
+        $ordering = $this->tournament->groupOrderings()
+            ->where('scope', OrderingScope::Thirds)
+            ->firstOrFail();
+        $published = $ordering->ordered_team_ids;
+
+        // The teams stay statistically tied forever, so the set still matches — but the order has
+        // been projected onto the bracket players predict against, making it a one-way door.
+        $this->actingAs($this->admin())
+            ->put(route('manage.scores.ordering', $this->tournament), [
+                'scope' => OrderingScope::Thirds->value,
+                'ordered_team_ids' => array_reverse($published),
+            ])
+            ->assertSessionHasErrors('ordered_team_ids');
+
+        $this->assertSame($published, $ordering->fresh()->ordered_team_ids);
+    }
+
+    public function test_a_published_group_ordering_cannot_be_changed_but_an_unpublished_group_still_can(): void
+    {
+        // Group A ends all square; its four-way tie is ordered, re-ordered while still under
+        // review (allowed), then published by approving the batch.
+        $batch = $this->openBatch();
+        $this->proposeGroupResults($batch, fn (int $home, int $away): array => [0, 0], ['A']);
+
+        $state = (new TieResolutionState)->forTournament($this->tournament, $batch);
+        $groupA = array_merge(...$state->groupTies['A']);
+
+        $this->actingAs($this->admin())
+            ->put(route('manage.scores.ordering', $this->tournament), [
+                'scope' => OrderingScope::WithinGroup->value,
+                'group' => 'A',
+                'ordered_team_ids' => $groupA,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->actingAs($this->admin())
+            ->put(route('manage.scores.ordering', $this->tournament), [
+                'scope' => OrderingScope::WithinGroup->value,
+                'group' => 'A',
+                'ordered_team_ids' => array_reverse($groupA),
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->actingAs($this->admin())->post(route('manage.scores.approve', $this->tournament));
+
+        // Group A's results are official and its slots projected: the order is locked.
+        $this->actingAs($this->admin())
+            ->put(route('manage.scores.ordering', $this->tournament), [
+                'scope' => OrderingScope::WithinGroup->value,
+                'group' => 'A',
+                'ordered_team_ids' => $groupA,
+            ])
+            ->assertSessionHasErrors('ordered_team_ids');
+
+        // Group B is only proposed (not yet official), so its own tie still accepts an ordering.
+        $nextBatch = $this->openBatch();
+        $this->proposeGroupResults($nextBatch, fn (int $home, int $away): array => [0, 0], ['B']);
+
+        $stateB = (new TieResolutionState)->forTournament($this->tournament, $nextBatch);
+        $groupB = array_merge(...$stateB->groupTies['B']);
+
+        $this->actingAs($this->admin())
+            ->put(route('manage.scores.ordering', $this->tournament), [
+                'scope' => OrderingScope::WithinGroup->value,
+                'group' => 'B',
+                'ordered_team_ids' => $groupB,
+            ])
+            ->assertSessionHasNoErrors();
+    }
+
     public function test_a_stale_ordering_submission_is_rejected(): void
     {
         $batch = $this->openBatch();
