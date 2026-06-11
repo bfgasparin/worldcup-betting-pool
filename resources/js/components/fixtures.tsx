@@ -596,7 +596,7 @@ function SettledKnockoutTeam({
     label: string | null;
     goals: number;
     advancing: boolean;
-    /** A level scoreline decided on penalties/extra time — the only case that needs the chip. */
+    /** A level scoreline decided on penalties — the only case that needs the chip. */
     isDraw: boolean;
 }) {
     const { tCountry, tBracket } = useTranslation();
@@ -643,7 +643,7 @@ function SettledKnockoutTeam({
  * and the advancing team are rendered — the advancer is resolved against the official match-up.
  *
  * The advancing/winning side is bold; on a **draw** — where the scoreline alone can't say who went
- * through (penalties/extra time) — an "Advances" chip marks the chosen side. Tones adapt to the
+ * through (penalties) — an "Advances" chip marks the chosen side. Tones adapt to the
  * light cards and the dark final card.
  */
 export function KnockoutPickMatchup({
@@ -854,7 +854,7 @@ export function KnockoutSlotCard({ fixture }: { fixture: BracketFixture }) {
             fixture.winner_team_id === fixture.away?.id;
         const penalties =
             fixture.home_penalties !== null && fixture.away_penalties !== null;
-        // Level result decided on penalties/extra time — the only case the "Advances" chip is needed.
+        // Level result decided on penalties — the only case the "Advances" chip is needed.
         const isDraw = homeGoals === awayGoals;
 
         return (

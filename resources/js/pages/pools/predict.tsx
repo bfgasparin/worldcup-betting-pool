@@ -711,7 +711,7 @@ function KnockoutCard({
             ) : isDraw ? (
                 <div className="mt-1 flex flex-col gap-1">
                     <span className="text-[0.65rem] font-semibold tracking-wide text-muted-foreground uppercase">
-                        {t('Extra time / penalties — who advances?')}
+                        {t('Penalties — who advances?')}
                     </span>
                     <ToggleGroup
                         type="single"

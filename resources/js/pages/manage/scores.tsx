@@ -201,7 +201,7 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
                     ) : isDraw ? (
                         <>
                             <span className="text-[0.65rem] font-semibold tracking-wide text-muted-foreground uppercase">
-                                {t('Advances')}
+                                {t('Advances on penalties')}
                             </span>
                             <ToggleGroup
                                 type="single"

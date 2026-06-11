@@ -195,6 +195,11 @@ export function PoolBriefingDialog({
                                 label={t('Knockouts')}
                                 rules={knockoutRules}
                             />
+                            <p className="text-sm text-muted-foreground">
+                                {t(
+                                    'Knockout matches are judged on the final score, extra time included — penalties only decide who goes through.',
+                                )}
+                            </p>
                         </div>
                     </Section>
 

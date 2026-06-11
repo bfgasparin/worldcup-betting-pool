@@ -69,6 +69,20 @@ class RankSnapshotterTest extends TestCase
         $this->assertNull($newcomer->fresh()->previous_rank);
     }
 
+    public function test_a_scored_zero_entry_outranks_an_unscored_entry(): void
+    {
+        // An all-wrong slate (0 points) still counts as scored: it ranks above an entry whose
+        // predictions have no scored fixture yet (null), even though the unscored entry joined
+        // (and so got its id) first.
+        $unscored = Entry::factory()->for($this->pool)->create(['total_points' => null]);
+        $scoredZero = Entry::factory()->for($this->pool)->create(['total_points' => 0]);
+
+        $this->snapshotter->snapshot($this->pool);
+
+        $this->assertSame(1, $scoredZero->fresh()->rank);
+        $this->assertSame(2, $unscored->fresh()->rank);
+    }
+
     public function test_ties_are_broken_by_id(): void
     {
         $first = Entry::factory()->for($this->pool)->create(['total_points' => 80]);
