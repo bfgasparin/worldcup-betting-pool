@@ -1,5 +1,5 @@
-import { Head, useForm } from '@inertiajs/react';
-import { Lock } from 'lucide-react';
+import { Head, Link, useForm } from '@inertiajs/react';
+import { ArrowLeft, Lock } from 'lucide-react';
 import { useState } from 'react';
 import InputError from '@/components/input-error';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -225,6 +225,15 @@ export default function PlayerEditPage({
             <div className="relative min-h-full bg-background">
                 <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
                     <header className="mb-6 flex flex-col gap-2">
+                        {/* Mobile-only back link: breadcrumbs (the desktop trail) are hidden below
+                            md, and the tournament-scoped manage tab bar doesn't render here. */}
+                        <Link
+                            href={manage.players.index().url}
+                            className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline md:hidden"
+                        >
+                            <ArrowLeft className="size-4" />
+                            {t('Back to players')}
+                        </Link>
                         <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
                             {player.name}
                         </h1>
