@@ -7,6 +7,7 @@ import { InstallBanner } from '@/components/install-banner';
 import { ManageTabBar } from '@/components/manage-tab-bar';
 import { MobileTopNav } from '@/components/mobile-top-nav';
 import { manageSlugFromUrl } from '@/components/nav-manage';
+import { NavigationIndicator } from '@/components/navigation-indicator';
 import { PoolTabBar } from '@/components/pool-tab-bar';
 import { cn } from '@/lib/utils';
 import type { AppLayoutProps } from '@/types';
@@ -37,6 +38,7 @@ export default function AppSidebarLayout({
                 <AppSidebarHeader breadcrumbs={breadcrumbs} />
                 {children}
                 <MobileTopNav />
+                <NavigationIndicator />
                 <PoolTabBar />
                 <ManageTabBar />
                 <InstallBanner />
