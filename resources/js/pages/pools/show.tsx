@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, useHttp } from '@inertiajs/react';
 import {
     ArrowRight,
     CalendarDays,
@@ -11,7 +11,7 @@ import {
     Trophy,
     Users,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AddPlayerDialog } from '@/components/add-player-dialog';
 import { CompareDock } from '@/components/compare-dock';
 import { CompareFab } from '@/components/compare-fab';
@@ -47,7 +47,10 @@ import { MobilePoolHeader } from '@/components/mobile-pool-header';
 import { MovementArrow } from '@/components/movement-arrow';
 import PlayerAvatar from '@/components/player-avatar';
 import { PoolIdentity } from '@/components/pool-identity';
-import { PoolInfoDialog } from '@/components/pool-info-dialog';
+import {
+    PoolBriefingDialog,
+    PoolInfoButton,
+} from '@/components/pool-info-dialog';
 import { PrizePanel } from '@/components/prize-panel';
 import { Button } from '@/components/ui/button';
 import { SegmentedTabs } from '@/components/ui/segmented-tabs';
@@ -108,11 +111,13 @@ function DashboardBanner({
     standings,
     canCompare,
     onCompare,
+    onOpenBriefing,
 }: {
     pool: PoolDetail;
     standings: PoolStandings;
     canCompare: boolean;
     onCompare: () => void;
+    onOpenBriefing: () => void;
 }) {
     const dates = pool.starts_on
         ? pool.ends_on
@@ -149,7 +154,7 @@ function DashboardBanner({
                                 className="min-w-0"
                             />
                             <div className="shrink-0">
-                                <PoolInfoDialog pool={pool} />
+                                <PoolInfoButton onClick={onOpenBriefing} />
                             </div>
                         </div>
                         <div className="min-w-0">
@@ -1292,6 +1297,23 @@ export default function PoolShow({
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [pickerOpen, setPickerOpen] = useState(false);
 
+    // The "How it works" briefing is mounted once for the whole page (the desktop hero and the
+    // mobile header each render only a trigger button) so it can never stack. Auto-open the first
+    // time this user opens the pool; the server tells us whether they've seen it.
+    const { post } = useHttp();
+    const [briefingOpen, setBriefingOpen] = useState(!pool.has_seen_briefing);
+
+    // Record the briefing as seen so it never auto-opens again for this user — even if they just
+    // close it. Fire-and-forget standalone request (not a page visit); the unique index keeps it
+    // idempotent, so React StrictMode's double-invoke in dev is harmless.
+    useEffect(() => {
+        if (!pool.has_seen_briefing) {
+            post(pools.briefing.seen(pool.slug).url);
+        }
+        // `post` is stable; re-run only when switching pools.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pool.slug]);
+
     // URL-driven: compare mode is on when the server sent a comparison; selection is a transient
     // local step that takes precedence so the picker UI replaces the head-to-head while editing.
     const compareActive = comparison !== null && !selecting;
@@ -1381,9 +1403,20 @@ export default function PoolShow({
                             standings.participants > 1
                         }
                         onCompare={startSelecting}
+                        onOpenBriefing={() => setBriefingOpen(true)}
                     />
                 </div>
-                <MobilePoolHeader pool={pool} standings={standings} />
+                <MobilePoolHeader
+                    pool={pool}
+                    standings={standings}
+                    onOpenBriefing={() => setBriefingOpen(true)}
+                />
+
+                <PoolBriefingDialog
+                    pool={pool}
+                    open={briefingOpen}
+                    onOpenChange={setBriefingOpen}
+                />
 
                 <PredictionReminder pool={pool} attention={attention} />
 
