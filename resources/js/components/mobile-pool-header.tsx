@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { CountdownBand } from '@/components/countdown-band';
 import { JoinPoolDialog } from '@/components/join-pool-dialog';
-import { PoolInfoDialog } from '@/components/pool-info-dialog';
+import { PoolInfoButton } from '@/components/pool-info-dialog';
 import { PrizePanel } from '@/components/prize-panel';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,10 +42,12 @@ import type { PoolDetail, PoolStandings } from '@/types/pools';
 export function MobilePoolHeader({
     pool,
     standings,
+    onOpenBriefing,
     className,
 }: {
     pool: PoolDetail;
     standings: PoolStandings;
+    onOpenBriefing: () => void;
     className?: string;
 }) {
     const { t } = useTranslation();
@@ -72,7 +74,7 @@ export function MobilePoolHeader({
                 </span>
                 <div className="flex shrink-0 items-center gap-2">
                     {isPaid && <PrizePotSheet pool={pool} />}
-                    <PoolInfoDialog pool={pool} />
+                    <PoolInfoButton onClick={onOpenBriefing} />
                     {hasEntry && <ActionsMenu pool={pool} />}
                 </div>
             </div>
