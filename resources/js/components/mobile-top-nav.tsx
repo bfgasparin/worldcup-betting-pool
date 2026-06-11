@@ -35,6 +35,8 @@ import type { JoinedPool, TournamentNavInfo } from '@/types/navigation';
  * The mobile top chrome that replaces the off-canvas sidebar: two detached floating buttons — a pool
  * switcher (left, opens a bottom sheet) and the user menu (right, a round avatar → dropdown). Hidden
  * on desktop, where the sidebar still owns this. Switching pool keeps the current section.
+ * Links here deliberately do NOT `prefetch`: on touch that only duplicates the GET and suppresses
+ * the NavigationIndicator pill (prefetch-served visits never fire `start`).
  */
 export function MobileTopNav() {
     const isMobile = useIsMobile();
@@ -163,7 +165,6 @@ function PoolSwitcher({
                                 <SheetClose asChild>
                                     <Link
                                         href={hrefFor(entry.slug)}
-                                        prefetch
                                         className={cn(
                                             'press flex items-center gap-3 rounded-2xl px-3 py-2.5 transition-colors',
                                             current
@@ -201,7 +202,6 @@ function PoolSwitcher({
                         <SheetClose asChild>
                             <Link
                                 href={poolsIndex()}
-                                prefetch
                                 className="press flex items-center gap-3 rounded-2xl px-3 py-2.5 transition-colors hover:bg-muted"
                             >
                                 <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">

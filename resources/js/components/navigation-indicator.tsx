@@ -15,6 +15,13 @@ const SHOW_DELAY_MS = 220;
  * (live polling, deferred/merged props) carry `showProgress: false`, and mutations (POST/PUT — e.g.
  * the prediction wizard's auto-save) own their own inline feedback, so neither flashes the pill.
  * Desktop is untouched (hidden via `md:hidden`) and keeps the default bar.
+ *
+ * The `finish` handler applies the same foreground-GET filter: every request (prefetches, polls,
+ * the auto-save PUT) fires `finish`, and an unrelated background finish landing inside the 220ms
+ * window would otherwise cancel the pill of a still-in-flight navigation. `visit.prefetch` can't be
+ * used here — Inertia clears that flag before `finish` fires — but prefetch/background traffic is
+ * reliably marked by `showProgress: false`. `navigate` is the fallback hide for visits served from
+ * a prefetch cache, which swap the page without ever firing a qualifying `start`/`finish` pair.
  */
 export function NavigationIndicator() {
     const { t } = useTranslation();
@@ -45,7 +52,18 @@ export function NavigationIndicator() {
             timer = setTimeout(() => setVisible(true), SHOW_DELAY_MS);
         });
 
-        const stopFinish = router.on('finish', () => {
+        const stopFinish = router.on('finish', (event) => {
+            const { visit } = event.detail;
+
+            if (!visit.showProgress || visit.method !== 'get') {
+                return;
+            }
+
+            clearTimer();
+            setVisible(false);
+        });
+
+        const stopNavigate = router.on('navigate', () => {
             clearTimer();
             setVisible(false);
         });
@@ -54,6 +72,7 @@ export function NavigationIndicator() {
             clearTimer();
             stopStart();
             stopFinish();
+            stopNavigate();
         };
     }, []);
 
