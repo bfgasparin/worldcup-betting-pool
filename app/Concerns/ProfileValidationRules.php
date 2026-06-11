@@ -62,7 +62,9 @@ trait ProfileValidationRules
         return [
             'required',
             'string',
-            'email',
+            // strict: reject incomplete/malformed addresses (e.g. a missing domain extension) that
+            // the lenient default `email` rule would wave through. Format-only, no DNS lookup.
+            'email:strict',
             'max:255',
             $userId === null
                 ? Rule::unique(User::class)

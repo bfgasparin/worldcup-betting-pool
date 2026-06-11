@@ -3,6 +3,7 @@
 use App\Http\Controllers\FixtureScheduleController;
 use App\Http\Controllers\LiveControlController;
 use App\Http\Controllers\ManageController;
+use App\Http\Controllers\PlayerController;
 use App\Http\Controllers\ScoreReviewController;
 use Illuminate\Support\Facades\Route;
 
@@ -11,6 +12,15 @@ use Illuminate\Support\Facades\Route;
 // fixture schedule without joining a pool.
 Route::middleware(['auth', 'can:manage-tournament'])->prefix('manage')->name('manage.')->group(function () {
     Route::get('/', [ManageController::class, 'index'])->name('index');
+
+    // Players: the web counterpart of the user:pre-register / user:set-email commands. Global
+    // (tournament-less) like the hub, since a pre-registered player isn't scoped to one tournament.
+    // {user} binds by id. Setting an email fully locks the account; all other edits are add-only.
+    Route::get('players', [PlayerController::class, 'index'])->name('players.index');
+    Route::post('players', [PlayerController::class, 'store'])->name('players.store');
+    Route::get('players/{user}/edit', [PlayerController::class, 'edit'])->name('players.edit');
+    Route::patch('players/{user}', [PlayerController::class, 'update'])->name('players.update');
+    Route::patch('players/{user}/email', [PlayerController::class, 'setEmail'])->name('players.email');
 
     // Live Control: start matches, keep the live score, end a match (hands off to the proposal flow).
     Route::get('{tournament:slug}/live', [LiveControlController::class, 'index'])->name('live.index');
