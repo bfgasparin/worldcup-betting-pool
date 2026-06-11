@@ -85,7 +85,7 @@ function DialogContent({
         <DialogPrimitive.Close
           ref={closeRef}
           aria-label={t("Close")}
-          className="press mx-auto -mt-2 mb-1 hidden h-1.5 w-12 shrink-0 rounded-full bg-muted-foreground/30 transition-colors hover:bg-muted-foreground/50 focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden max-sm:block"
+          className="press mx-auto -mt-2 mb-1 hidden h-1.5 w-16 shrink-0 rounded-full bg-muted-foreground/30 transition-colors hover:bg-muted-foreground/50 focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden max-sm:block"
         />
         {children}
         {/* The X stays on the desktop centred modal only. */}

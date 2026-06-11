@@ -68,6 +68,17 @@ class AuthenticationTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_pwa_users_are_redirected_to_login_on_logout()
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->post(route('logout', ['pwa' => 1]));
+
+        $response->assertRedirect(route('login'));
+
+        $this->assertGuest();
+    }
+
     public function test_login_verification_is_rate_limited()
     {
         $user = User::factory()->create();

@@ -7,6 +7,7 @@ import {
     DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { UserInfo } from '@/components/user-info';
+import { useInstallPrompt } from '@/hooks/use-install-prompt';
 import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
 import { useTranslation } from '@/hooks/use-translation';
 import { logout } from '@/routes';
@@ -21,6 +22,7 @@ type Props = {
 export function UserMenuContent({ user }: Props) {
     const cleanup = useMobileNavigation();
     const isAdmin = usePage().props.auth.isAdmin;
+    const { isStandalone } = useInstallPrompt();
     const { t } = useTranslation();
 
     const handleLogout = () => {
@@ -65,7 +67,7 @@ export function UserMenuContent({ user }: Props) {
             <DropdownMenuItem asChild>
                 <Link
                     className="block w-full cursor-pointer"
-                    href={logout()}
+                    href={logout(isStandalone ? { query: { pwa: 1 } } : undefined)}
                     as="button"
                     onClick={handleLogout}
                     data-test="logout-button"

@@ -1,5 +1,12 @@
 import { Head, Link } from '@inertiajs/react';
-import { CalendarClock, ClipboardCheck, Radio, Trophy } from 'lucide-react';
+import {
+    CalendarClock,
+    ChevronRight,
+    ClipboardCheck,
+    Radio,
+    Trophy,
+    Users,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/hooks/use-translation';
@@ -62,6 +69,28 @@ export default function ManageIndex({ tournaments }: ManageIndexProps) {
                             </p>
                         </div>
                     </header>
+
+                    <Link
+                        href={manage.players.index().url}
+                        className="card-elevated mb-6 flex items-center justify-between gap-4 rounded-3xl border border-border p-6 transition-colors hover:bg-muted/50 sm:mb-8"
+                    >
+                        <div className="flex min-w-0 items-center gap-4">
+                            <span className="bg-gold-gradient flex size-11 shrink-0 items-center justify-center rounded-2xl text-white shadow-[var(--sh-sm)]">
+                                <Users className="size-5" />
+                            </span>
+                            <div className="flex min-w-0 flex-col">
+                                <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                                    {t('Players')}
+                                </h2>
+                                <p className="text-sm text-muted-foreground">
+                                    {t(
+                                        'Pre-register players, join them to pools, and set their login email.',
+                                    )}
+                                </p>
+                            </div>
+                        </div>
+                        <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+                    </Link>
 
                     {tournaments.length > 0 ? (
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

@@ -415,7 +415,10 @@ function TournamentHeader({ group }: { group: TournamentGroup }) {
                 <div className="flex flex-wrap items-center gap-2.5">
                     <StatusBadge status={lead.status} />
                     <DateRange pool={lead} />
-                    <Chip variant="outline" className="px-3 py-1 text-xs">
+                    <Chip
+                        variant="outline"
+                        className="hidden px-3 py-1 text-xs md:inline-flex"
+                    >
                         {t(':count pools', { count: group.pools.length })}
                     </Chip>
                 </div>
@@ -544,11 +547,11 @@ export default function PoolsIndex({ pools }: PoolsIndexProps) {
                     <header className="hero relative mb-6 overflow-hidden rounded-3xl border border-border p-5 sm:mb-8 sm:p-8">
                         <div className="hero-lines" />
                         <div className="relative flex flex-col gap-3">
-                            <span className="inline-flex w-fit items-center gap-2 text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">
+                            <span className="hidden w-fit items-center gap-2 text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase md:inline-flex">
                                 <span className="bg-brand-gradient size-2 rounded-full" />
                                 Brothers Bets
                             </span>
-                            <span className="text-sm font-semibold text-muted-foreground">
+                            <span className="hidden text-sm font-semibold text-muted-foreground md:block">
                                 {t(':greeting, :name 👋', {
                                     greeting: greeting(t),
                                     name: firstName,
