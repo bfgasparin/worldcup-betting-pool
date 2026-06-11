@@ -246,9 +246,10 @@ function roundMultiplier(
 
 function teamName(
     team: TeamRef | null,
-    fallback: string | null = null,
+    fallback: string | null,
+    tCountry: (code: string | null | undefined, fallbackName: string) => string,
 ): string {
-    return team?.name ?? fallback ?? 'TBD';
+    return team ? tCountry(team.code, team.name) : (fallback ?? 'TBD');
 }
 
 function teamShort(
@@ -412,7 +413,7 @@ function GroupCard({
     /** When set, only fixtures it keeps are shown (the "needs my prediction" filter). */
     fixtureFilter?: (fixture: PredictGroupFixture) => boolean;
 }) {
-    const { t } = useTranslation();
+    const { t, tCountry } = useTranslation();
     const fixtures = fixtureFilter
         ? group.fixtures.filter(fixtureFilter)
         : group.fixtures;
@@ -486,7 +487,11 @@ function GroupCard({
                                         value={score.home}
                                         disabled={!canEdit}
                                         label={t(':team goals', {
-                                            team: teamName(fixture.home),
+                                            team: teamName(
+                                                fixture.home,
+                                                null,
+                                                tCountry,
+                                            ),
                                         })}
                                         onChange={(value) =>
                                             onChange(
@@ -504,7 +509,11 @@ function GroupCard({
                                         value={score.away}
                                         disabled={!canEdit}
                                         label={t(':team goals', {
-                                            team: teamName(fixture.away),
+                                            team: teamName(
+                                                fixture.away,
+                                                null,
+                                                tCountry,
+                                            ),
                                         })}
                                         onChange={(value) =>
                                             onChange(
@@ -619,7 +628,7 @@ function KnockoutCard({
     onChange: (patch: Partial<KnockoutPick>, immediate?: boolean) => void;
     onCommit: () => void;
 }) {
-    const { t, tBracket } = useTranslation();
+    const { t, tBracket, tCountry } = useTranslation();
     const resolved = fixture.home !== null && fixture.away !== null;
     const bothScored = pick.home !== '' && pick.away !== '';
     const isDraw = bothScored && Number(pick.home) === Number(pick.away);
@@ -677,7 +686,8 @@ function KnockoutCard({
                     fixture.home,
                     fixture.home_label
                         ? formatPlaceholderLabel(fixture.home_label, tBracket)
-                        : null,
+                        : t('TBD'),
+                    tCountry,
                 )}
                 team={fixture.home}
                 value={pick.home}
@@ -691,7 +701,8 @@ function KnockoutCard({
                     fixture.away,
                     fixture.away_label
                         ? formatPlaceholderLabel(fixture.away_label, tBracket)
-                        : null,
+                        : t('TBD'),
+                    tCountry,
                 )}
                 team={fixture.away}
                 value={pick.away}
