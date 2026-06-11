@@ -130,6 +130,33 @@ class PhasedBracketRulesTest extends TestCase
         $this->assertSame(2, $breakdown->teamGoalsHit);
     }
 
+    public function test_a_penalty_shootout_call_earns_the_scoreline_tier_and_the_advancing_bonus(): void
+    {
+        // R16 (×2) ends 1–1 and goes to penalties; the away side (7) is recorded as the winner.
+        // Predicting 1–1 with the right shootout pick banks exact 20 × 2 = 40, + advancing 10 = 50.
+        $fixture = $this->knockoutFixture(PhaseKey::RoundOf16, 1, 1, winnerTeamId: 7);
+        $prediction = new KnockoutPrediction(['home_goals' => 1, 'away_goals' => 1, 'advancing_team_id' => 7]);
+
+        $breakdown = $this->rules->evaluateKnockout($prediction, $fixture, $this->config);
+
+        $this->assertSame(50, $breakdown->points);
+        $this->assertTrue($breakdown->isCorrectOutcome);
+        $this->assertSame(2, $breakdown->teamGoalsHit);
+    }
+
+    public function test_a_wrong_shootout_pick_keeps_the_scoreline_tier_but_not_the_outcome(): void
+    {
+        // Same 1–1 decided on penalties, but the pick (1) lost the shootout: exact tier 40 only,
+        // and the Match Winners board does not count the game.
+        $fixture = $this->knockoutFixture(PhaseKey::RoundOf16, 1, 1, winnerTeamId: 7);
+        $prediction = new KnockoutPrediction(['home_goals' => 1, 'away_goals' => 1, 'advancing_team_id' => 1]);
+
+        $breakdown = $this->rules->evaluateKnockout($prediction, $fixture, $this->config);
+
+        $this->assertSame(40, $breakdown->points);
+        $this->assertFalse($breakdown->isCorrectOutcome);
+    }
+
     public function test_an_unplayed_knockout_fixture_scores_nothing(): void
     {
         $fixture = $this->knockoutFixture(PhaseKey::RoundOf16, null, null);

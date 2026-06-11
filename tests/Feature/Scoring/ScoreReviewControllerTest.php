@@ -6,6 +6,7 @@ use App\Enums\OrderingScope;
 use App\Enums\ProposalStatus;
 use App\Models\Fixture;
 use App\Models\Pool;
+use App\Models\ScoreBatch;
 use App\Models\Team;
 use App\Models\Tournament;
 use App\Models\User;
@@ -291,18 +292,22 @@ class ScoreReviewControllerTest extends TestCase
 
     public function test_ordering_one_official_group_tie_keeps_a_second_tie_in_the_same_group_resolved(): void
     {
-        // Clean winners everywhere, then make group A's official results hold two independent ties:
-        // positions 1 & 2 level on 7pts and positions 3 & 4 level on 1pt.
-        $this->recordOfficialGroupResults($this->tournament, fn (int $h, int $a): array => $h < $a ? [1, 0] : [0, 1], resolveTies: false);
-        $this->recordOfficialGroupResults($this->tournament, $this->twoClusterScores(), onlyGroups: ['A'], resolveTies: false);
+        // Clean official winners everywhere except group A, whose results sit in the open review
+        // batch (orderings happen during review — once published the order is locked) and hold two
+        // independent ties: positions 1 & 2 level on 7pts and positions 3 & 4 level on 1pt.
+        $others = $this->tournament->groups()->where('name', '!=', 'A')->pluck('name')->all();
+        $this->recordOfficialGroupResults($this->tournament, fn (int $h, int $a): array => $h < $a ? [1, 0] : [0, 1], onlyGroups: $others, resolveTies: false);
+
+        $batch = ScoreBatch::openFor($this->tournament);
+        $this->proposeGroupResults($batch, $this->twoClusterScores(), ['A']);
 
         [$first, $second, $third, $fourth] = $this->groupTeamIdsByPosition('A');
 
-        $this->assertCount(2, (new TieResolutionState)->forTournament($this->tournament)->groupTies['A'] ?? []);
+        $this->assertCount(2, (new TieResolutionState)->forTournament($this->tournament, $batch)->groupTies['A'] ?? []);
 
         $this->confirmOrdering([$second, $first]);
 
-        $afterFirst = (new TieResolutionState)->forTournament($this->tournament->fresh());
+        $afterFirst = (new TieResolutionState)->forTournament($this->tournament->fresh(), $batch);
         $this->assertFalse($afterFirst->groupsResolved);
         $this->assertSame($second, $afterFirst->standings['A']->winner());
         $this->assertNull($afterFirst->standings['A']->thirdStanding());
@@ -310,7 +315,7 @@ class ScoreReviewControllerTest extends TestCase
         // Ordering the 3rd/4th tie must NOT wipe the just-saved 1st/2nd ordering.
         $this->confirmOrdering([$fourth, $third]);
 
-        $afterSecond = (new TieResolutionState)->forTournament($this->tournament->fresh());
+        $afterSecond = (new TieResolutionState)->forTournament($this->tournament->fresh(), $batch);
         $this->assertTrue($afterSecond->groupsResolved, 'Both group ties should be resolved.');
         $this->assertSame($second, $afterSecond->standings['A']->winner(), 'The first tie must stay resolved.');
         $this->assertSame($fourth, $afterSecond->standings['A']->thirdStanding()->teamId);

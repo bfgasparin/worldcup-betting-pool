@@ -340,7 +340,7 @@ function ScheduleRow({
             ? match.winnerTeamId === match.away?.id
             : (match.awayGoals ?? 0) > (match.homeGoals ?? 0));
 
-    // A knockout decided on a level scoreline (penalties/extra time) is the only official result
+    // A knockout decided on a level scoreline (penalties) is the only official result
     // that needs the "Advances" chip — a decisive score speaks for itself via the winner's emphasis.
     const officialDrawWinner =
         match.kind === 'knockout' &&

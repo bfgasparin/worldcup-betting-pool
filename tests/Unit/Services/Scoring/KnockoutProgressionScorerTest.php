@@ -99,6 +99,34 @@ class KnockoutProgressionScorerTest extends TestCase
         $this->assertSame(60, $this->scorer->score($prediction, $fixture, $this->config));
     }
 
+    public function test_the_champion_bonus_applies_when_the_final_is_decided_on_penalties(): void
+    {
+        // The final ends 1–1 after extra time; the away side (5) lifts the cup on penalties. The
+        // scoreline goals are still judged per team, and the champion bonus rides the recorded
+        // winner, not the scoreline.
+        $fixture = $this->fixture(PhaseKey::Final, 1, 5, 1, 1, 5);
+
+        $champion = $this->scorer->evaluate(new KnockoutPrediction([
+            'predicted_home_team_id' => 1, 'home_goals' => 1,
+            'predicted_away_team_id' => 5, 'away_goals' => 1,
+            'advancing_team_id' => 5,
+        ]), $fixture, $this->config);
+
+        // Both teams (+10 each) + both goal counts (+5 each) + champion (+30).
+        $this->assertSame(60, $champion->points);
+        $this->assertTrue($champion->isCorrectOutcome);
+
+        // The same slate picking the shootout loser keeps the team points but not the bonus.
+        $runnerUp = $this->scorer->evaluate(new KnockoutPrediction([
+            'predicted_home_team_id' => 1, 'home_goals' => 1,
+            'predicted_away_team_id' => 5, 'away_goals' => 1,
+            'advancing_team_id' => 1,
+        ]), $fixture, $this->config);
+
+        $this->assertSame(30, $runnerUp->points);
+        $this->assertFalse($runnerUp->isCorrectOutcome);
+    }
+
     public function test_the_champion_bonus_is_only_for_the_final(): void
     {
         // Same correct advancing pick on the third-place play-off — both teams (+10 each), no champion.
