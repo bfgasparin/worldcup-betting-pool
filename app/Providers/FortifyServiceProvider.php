@@ -4,12 +4,14 @@ namespace App\Providers;
 
 use App\Actions\Auth\VerifyLoginCode;
 use App\Http\Requests\Auth\LoginCodeRequest;
+use App\Http\Responses\LogoutResponse;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
+use Laravel\Fortify\Contracts\LogoutResponse as LogoutResponseContract;
 use Laravel\Fortify\Fortify;
 use Laravel\Fortify\Http\Requests\LoginRequest;
 
@@ -22,6 +24,10 @@ class FortifyServiceProvider extends ServiceProvider
     {
         // Replace Fortify's password-based login request with a code-based one.
         $this->app->bind(LoginRequest::class, LoginCodeRequest::class);
+
+        // Redirect PWA (standalone) logouts to the sign-in page instead of the
+        // public welcome landing.
+        $this->app->singleton(LogoutResponseContract::class, LogoutResponse::class);
     }
 
     /**
