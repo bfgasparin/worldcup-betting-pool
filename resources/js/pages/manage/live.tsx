@@ -4,6 +4,16 @@ import { useState } from 'react';
 import { LiveBadge } from '@/components/live-badge';
 import { TeamScoreRow } from '@/components/team-score-row';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
 import { useTranslation } from '@/hooks/use-translation';
 import type { Translator } from '@/hooks/use-translation';
 import { getActiveLocale } from '@/lib/locale';
@@ -175,13 +185,38 @@ function LiveControlRow({
             </div>
 
             {isLive && (
-                <Button
-                    variant="outline"
-                    onClick={endMatch}
-                    className="w-full sm:w-auto sm:self-end"
-                >
-                    {t('End match')}
-                </Button>
+                <Dialog>
+                    <DialogTrigger asChild>
+                        <Button
+                            variant="outline"
+                            className="w-full sm:w-auto sm:self-end"
+                        >
+                            {t('End match')}
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>{t('End this match?')}</DialogTitle>
+                            <DialogDescription>
+                                {t(
+                                    "This closes the live scoreboard and sends the current score for approval. Double-check the score first — you can't reopen the match here.",
+                                )}
+                            </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter className="gap-2">
+                            <DialogClose asChild>
+                                <Button variant="secondary">
+                                    {t('Cancel')}
+                                </Button>
+                            </DialogClose>
+                            <DialogClose asChild>
+                                <Button onClick={endMatch}>
+                                    {t('End match')}
+                                </Button>
+                            </DialogClose>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             )}
 
             {fixture.live_status === null && fixture.can_go_live && (

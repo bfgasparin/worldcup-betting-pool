@@ -428,6 +428,8 @@
     "home goals": "gols do mandante",
     "away goals": "gols do visitante",
     "End match": "Encerrar jogo",
+    "End this match?": "Encerrar este jogo?",
+    "This closes the live scoreboard and sends the current score for approval. Double-check the score first — you can't reopen the match here.": "Isso encerra o placar ao vivo e envia o placar atual para aprovação. Confira o placar antes — você não poderá reabrir o jogo aqui.",
     "Go live": "Iniciar ao vivo",
     "Final score sent for approval.": "Placar final enviado para aprovação.",
     "Live control": "Controle ao vivo",
