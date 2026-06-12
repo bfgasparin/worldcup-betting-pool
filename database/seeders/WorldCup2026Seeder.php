@@ -70,108 +70,112 @@ class WorldCup2026Seeder extends Seeder
     ];
 
     /**
-     * Official group-stage fixtures (FIFA World Cup 2026), per group, in chronological order:
-     * [home position, away position, date, kick-off time in ET, venue]. Positions are 1–4 in
-     * the seeded group order. Times are ET (EDT, UTC−4) and stored as UTC by {@see kickoff()}.
+     * Official group-stage fixtures (FIFA World Cup 2026), per group:
+     * [FIFA match number, home position, away position, date, kick-off time in ET, venue].
      *
-     * @var array<string, list<array{int, int, string, string, string}>>
+     * Match numbers follow FIFA's chronological order across the WHOLE group stage (match 1 = the
+     * opener, then by kickoff), so they are intentionally NOT sequential within a group. The entries
+     * stay grouped by letter (in each group's own chronological order) for readability. Positions are
+     * 1–4 in the seeded group order. Times are ET (EDT, UTC−4) and stored as UTC by {@see kickoff()}.
+     *
+     * @var array<string, list<array{int, int, int, string, string, string}>>
      */
     private const GROUP_SCHEDULE = [
         'A' => [
-            [1, 3, '2026-06-11', '15:00', 'Mexico City Stadium'],
-            [2, 4, '2026-06-11', '22:00', 'Guadalajara Stadium'],
-            [4, 3, '2026-06-18', '12:00', 'Atlanta Stadium'],
-            [1, 2, '2026-06-18', '21:00', 'Guadalajara Stadium'],
-            [4, 1, '2026-06-24', '21:00', 'Mexico City Stadium'],
-            [3, 2, '2026-06-24', '21:00', 'Monterrey Stadium'],
+            [1, 1, 3, '2026-06-11', '15:00', 'Mexico City Stadium'],
+            [2, 2, 4, '2026-06-11', '22:00', 'Guadalajara Stadium'],
+            [25, 4, 3, '2026-06-18', '12:00', 'Atlanta Stadium'],
+            [28, 1, 2, '2026-06-18', '21:00', 'Guadalajara Stadium'],
+            [53, 4, 1, '2026-06-24', '21:00', 'Mexico City Stadium'],
+            [54, 3, 2, '2026-06-24', '21:00', 'Monterrey Stadium'],
         ],
         'B' => [
-            [1, 4, '2026-06-12', '15:00', 'Toronto Stadium'],
-            [3, 2, '2026-06-13', '15:00', 'San Francisco Bay Stadium'],
-            [2, 4, '2026-06-18', '15:00', 'Los Angeles Stadium'],
-            [1, 3, '2026-06-18', '18:00', 'BC Place Vancouver'],
-            [2, 1, '2026-06-24', '15:00', 'BC Place Vancouver'],
-            [4, 3, '2026-06-24', '15:00', 'Seattle Stadium'],
+            [3, 1, 4, '2026-06-12', '15:00', 'Toronto Stadium'],
+            [5, 3, 2, '2026-06-13', '15:00', 'San Francisco Bay Stadium'],
+            [26, 2, 4, '2026-06-18', '15:00', 'Los Angeles Stadium'],
+            [27, 1, 3, '2026-06-18', '18:00', 'BC Place Vancouver'],
+            [49, 2, 1, '2026-06-24', '15:00', 'BC Place Vancouver'],
+            [50, 4, 3, '2026-06-24', '15:00', 'Seattle Stadium'],
         ],
         'C' => [
-            [1, 2, '2026-06-13', '18:00', 'New York New Jersey Stadium'],
-            [4, 3, '2026-06-13', '21:00', 'Boston Stadium'],
-            [3, 2, '2026-06-19', '18:00', 'Boston Stadium'],
-            [1, 4, '2026-06-19', '20:30', 'Philadelphia Stadium'],
-            [3, 1, '2026-06-24', '18:00', 'Miami Stadium'],
-            [2, 4, '2026-06-24', '18:00', 'Atlanta Stadium'],
+            [6, 1, 2, '2026-06-13', '18:00', 'New York New Jersey Stadium'],
+            [7, 4, 3, '2026-06-13', '21:00', 'Boston Stadium'],
+            [30, 3, 2, '2026-06-19', '18:00', 'Boston Stadium'],
+            [31, 1, 4, '2026-06-19', '20:30', 'Philadelphia Stadium'],
+            [51, 3, 1, '2026-06-24', '18:00', 'Miami Stadium'],
+            [52, 2, 4, '2026-06-24', '18:00', 'Atlanta Stadium'],
         ],
         'D' => [
-            [1, 2, '2026-06-12', '21:00', 'Los Angeles Stadium'],
-            [3, 4, '2026-06-14', '00:00', 'BC Place Vancouver'],
-            [1, 3, '2026-06-19', '15:00', 'Seattle Stadium'],
-            [4, 2, '2026-06-19', '23:00', 'San Francisco Bay Stadium'],
-            [4, 1, '2026-06-25', '22:00', 'Los Angeles Stadium'],
-            [2, 3, '2026-06-25', '22:00', 'San Francisco Bay Stadium'],
+            [4, 1, 2, '2026-06-12', '21:00', 'Los Angeles Stadium'],
+            [8, 3, 4, '2026-06-14', '00:00', 'BC Place Vancouver'],
+            [29, 1, 3, '2026-06-19', '15:00', 'Seattle Stadium'],
+            [32, 4, 2, '2026-06-19', '23:00', 'San Francisco Bay Stadium'],
+            [59, 4, 1, '2026-06-25', '22:00', 'Los Angeles Stadium'],
+            [60, 2, 3, '2026-06-25', '22:00', 'San Francisco Bay Stadium'],
         ],
         'E' => [
-            [1, 4, '2026-06-14', '13:00', 'Houston Stadium'],
-            [3, 2, '2026-06-14', '19:00', 'Philadelphia Stadium'],
-            [1, 3, '2026-06-20', '16:00', 'Toronto Stadium'],
-            [2, 4, '2026-06-20', '20:00', 'Kansas City Stadium'],
-            [2, 1, '2026-06-25', '16:00', 'New York New Jersey Stadium'],
-            [4, 3, '2026-06-25', '16:00', 'Philadelphia Stadium'],
+            [9, 1, 4, '2026-06-14', '13:00', 'Houston Stadium'],
+            [11, 3, 2, '2026-06-14', '19:00', 'Philadelphia Stadium'],
+            [34, 1, 3, '2026-06-20', '16:00', 'Toronto Stadium'],
+            [35, 2, 4, '2026-06-20', '20:00', 'Kansas City Stadium'],
+            [56, 2, 1, '2026-06-25', '16:00', 'New York New Jersey Stadium'],
+            [55, 4, 3, '2026-06-25', '16:00', 'Philadelphia Stadium'],
         ],
         'F' => [
-            [1, 2, '2026-06-14', '16:00', 'Dallas Stadium'],
-            [4, 3, '2026-06-14', '22:00', 'Monterrey Stadium'],
-            [1, 4, '2026-06-20', '13:00', 'Houston Stadium'],
-            [3, 2, '2026-06-21', '00:00', 'Monterrey Stadium'],
-            [3, 1, '2026-06-25', '19:00', 'Kansas City Stadium'],
-            [2, 4, '2026-06-25', '19:00', 'Dallas Stadium'],
+            [10, 1, 2, '2026-06-14', '16:00', 'Dallas Stadium'],
+            [12, 4, 3, '2026-06-14', '22:00', 'Monterrey Stadium'],
+            [33, 1, 4, '2026-06-20', '13:00', 'Houston Stadium'],
+            [36, 3, 2, '2026-06-21', '00:00', 'Monterrey Stadium'],
+            [58, 3, 1, '2026-06-25', '19:00', 'Kansas City Stadium'],
+            [57, 2, 4, '2026-06-25', '19:00', 'Dallas Stadium'],
         ],
         'G' => [
-            [1, 3, '2026-06-15', '15:00', 'Seattle Stadium'],
-            [2, 4, '2026-06-15', '21:00', 'Los Angeles Stadium'],
-            [1, 2, '2026-06-21', '15:00', 'Los Angeles Stadium'],
-            [4, 3, '2026-06-21', '21:00', 'BC Place Vancouver'],
-            [4, 1, '2026-06-26', '23:00', 'BC Place Vancouver'],
-            [3, 2, '2026-06-26', '23:00', 'Seattle Stadium'],
+            [14, 1, 3, '2026-06-15', '15:00', 'Seattle Stadium'],
+            [16, 2, 4, '2026-06-15', '21:00', 'Los Angeles Stadium'],
+            [38, 1, 2, '2026-06-21', '15:00', 'Los Angeles Stadium'],
+            [40, 4, 3, '2026-06-21', '21:00', 'BC Place Vancouver'],
+            [66, 4, 1, '2026-06-26', '23:00', 'BC Place Vancouver'],
+            [65, 3, 2, '2026-06-26', '23:00', 'Seattle Stadium'],
         ],
         'H' => [
-            [1, 4, '2026-06-15', '12:00', 'Atlanta Stadium'],
-            [3, 2, '2026-06-15', '18:00', 'Miami Stadium'],
-            [1, 3, '2026-06-21', '12:00', 'Atlanta Stadium'],
-            [2, 4, '2026-06-21', '18:00', 'Miami Stadium'],
-            [2, 1, '2026-06-26', '20:00', 'Guadalajara Stadium'],
-            [4, 3, '2026-06-26', '20:00', 'Houston Stadium'],
+            [13, 1, 4, '2026-06-15', '12:00', 'Atlanta Stadium'],
+            [15, 3, 2, '2026-06-15', '18:00', 'Miami Stadium'],
+            [37, 1, 3, '2026-06-21', '12:00', 'Atlanta Stadium'],
+            [39, 2, 4, '2026-06-21', '18:00', 'Miami Stadium'],
+            [64, 2, 1, '2026-06-26', '20:00', 'Guadalajara Stadium'],
+            [63, 4, 3, '2026-06-26', '20:00', 'Houston Stadium'],
         ],
         'I' => [
-            [1, 2, '2026-06-16', '15:00', 'New York New Jersey Stadium'],
-            [4, 3, '2026-06-16', '18:00', 'Boston Stadium'],
-            [1, 4, '2026-06-22', '17:00', 'Philadelphia Stadium'],
-            [3, 2, '2026-06-22', '20:00', 'New York New Jersey Stadium'],
-            [3, 1, '2026-06-26', '15:00', 'Boston Stadium'],
-            [2, 4, '2026-06-26', '15:00', 'Toronto Stadium'],
+            [17, 1, 2, '2026-06-16', '15:00', 'New York New Jersey Stadium'],
+            [18, 4, 3, '2026-06-16', '18:00', 'Boston Stadium'],
+            [42, 1, 4, '2026-06-22', '17:00', 'Philadelphia Stadium'],
+            [43, 3, 2, '2026-06-22', '20:00', 'New York New Jersey Stadium'],
+            [61, 3, 1, '2026-06-26', '15:00', 'Boston Stadium'],
+            [62, 2, 4, '2026-06-26', '15:00', 'Toronto Stadium'],
         ],
         'J' => [
-            [1, 3, '2026-06-16', '21:00', 'Kansas City Stadium'],
-            [2, 4, '2026-06-17', '00:00', 'San Francisco Bay Stadium'],
-            [1, 2, '2026-06-22', '13:00', 'Dallas Stadium'],
-            [4, 3, '2026-06-22', '23:00', 'San Francisco Bay Stadium'],
-            [4, 1, '2026-06-27', '22:00', 'Dallas Stadium'],
-            [3, 2, '2026-06-27', '22:00', 'Kansas City Stadium'],
+            [19, 1, 3, '2026-06-16', '21:00', 'Kansas City Stadium'],
+            [20, 2, 4, '2026-06-17', '00:00', 'San Francisco Bay Stadium'],
+            [41, 1, 2, '2026-06-22', '13:00', 'Dallas Stadium'],
+            [44, 4, 3, '2026-06-22', '23:00', 'San Francisco Bay Stadium'],
+            [72, 4, 1, '2026-06-27', '22:00', 'Dallas Stadium'],
+            [71, 3, 2, '2026-06-27', '22:00', 'Kansas City Stadium'],
         ],
         'K' => [
-            [1, 4, '2026-06-17', '13:00', 'Houston Stadium'],
-            [3, 2, '2026-06-17', '22:00', 'Mexico City Stadium'],
-            [1, 3, '2026-06-23', '13:00', 'Houston Stadium'],
-            [2, 4, '2026-06-23', '22:00', 'Guadalajara Stadium'],
-            [2, 1, '2026-06-27', '19:30', 'Miami Stadium'],
-            [4, 3, '2026-06-27', '19:30', 'Atlanta Stadium'],
+            [21, 1, 4, '2026-06-17', '13:00', 'Houston Stadium'],
+            [24, 3, 2, '2026-06-17', '22:00', 'Mexico City Stadium'],
+            [45, 1, 3, '2026-06-23', '13:00', 'Houston Stadium'],
+            [48, 2, 4, '2026-06-23', '22:00', 'Guadalajara Stadium'],
+            [69, 2, 1, '2026-06-27', '19:30', 'Miami Stadium'],
+            [70, 4, 3, '2026-06-27', '19:30', 'Atlanta Stadium'],
         ],
         'L' => [
-            [1, 2, '2026-06-17', '16:00', 'Dallas Stadium'],
-            [4, 3, '2026-06-17', '19:00', 'Toronto Stadium'],
-            [1, 4, '2026-06-23', '16:00', 'Boston Stadium'],
-            [3, 2, '2026-06-23', '19:00', 'Toronto Stadium'],
-            [3, 1, '2026-06-27', '17:00', 'New York New Jersey Stadium'],
-            [2, 4, '2026-06-27', '17:00', 'Philadelphia Stadium'],
+            [22, 1, 2, '2026-06-17', '16:00', 'Dallas Stadium'],
+            [23, 4, 3, '2026-06-17', '19:00', 'Toronto Stadium'],
+            [46, 1, 4, '2026-06-23', '16:00', 'Boston Stadium'],
+            [47, 3, 2, '2026-06-23', '19:00', 'Toronto Stadium'],
+            [67, 3, 1, '2026-06-27', '17:00', 'New York New Jersey Stadium'],
+            [68, 2, 4, '2026-06-27', '17:00', 'Philadelphia Stadium'],
         ],
     ];
 
@@ -406,21 +410,20 @@ class WorldCup2026Seeder extends Seeder
     }
 
     /**
-     * Build the 72 group fixtures (6 per group, match numbers 1–72) from the official 2026
-     * schedule: real pairings, dates, venues and kick-off times (stored as UTC).
+     * Build the 72 group fixtures (6 per group, match numbers 1–72 in FIFA chronological order)
+     * from the official 2026 schedule: real pairings, dates, venues and kick-off times (stored as
+     * UTC). The FIFA match number is carried explicitly on each {@see GROUP_SCHEDULE} entry.
      *
      * @param  array<string, array<int, int>>  $groupTeams
      */
     private function seedGroupFixtures(Tournament $tournament, Phase $phase, array $groupTeams): void
     {
-        $matchNumber = 1;
-
         foreach (self::GROUP_SCHEDULE as $name => $matches) {
             $group = $tournament->groups()->where('name', $name)->firstOrFail();
 
-            foreach ($matches as [$home, $away, $date, $time, $venue]) {
+            foreach ($matches as [$matchNumber, $home, $away, $date, $time, $venue]) {
                 Fixture::updateOrCreate(
-                    ['tournament_id' => $tournament->id, 'match_number' => $matchNumber++],
+                    ['tournament_id' => $tournament->id, 'match_number' => $matchNumber],
                     [
                         'phase_id' => $phase->id,
                         'group_id' => $group->id,
