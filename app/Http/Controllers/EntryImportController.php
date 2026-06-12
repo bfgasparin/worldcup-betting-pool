@@ -8,6 +8,7 @@ use App\Models\Entry;
 use App\Models\Pool;
 use App\Models\Tournament;
 use App\Models\User;
+use App\Notifications\PredictionsOverwrittenNotification;
 use App\Services\Predictions\Import\PredictionJsonImporter;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -65,13 +66,20 @@ class EntryImportController extends Controller
         $entry = $this->entryFor($pool, $user);
 
         // Enforce the "empty entry only" rule unless the admin has explicitly confirmed an overwrite.
-        if ($importer->hasExistingPredictions($entry) && ! $request->boolean('overwrite')) {
+        $overwriting = $importer->hasExistingPredictions($entry);
+
+        if ($overwriting && ! $request->boolean('overwrite')) {
             return back()->withErrors([
                 'overwrite' => __(':name already has predictions in this pool. Confirm the overwrite to replace them.', ['name' => $user->name]),
             ]);
         }
 
         $importer->commit($entry, $request->correctedImport());
+
+        // Only an overwrite changes picks the player already made — let them know an organizer did it.
+        if ($overwriting) {
+            $user->notify(new PredictionsOverwrittenNotification($pool));
+        }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Predictions imported and points updated for :name.', ['name' => $user->name])]);
 

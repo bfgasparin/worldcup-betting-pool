@@ -6,6 +6,7 @@ use App\Models\Fixture;
 use App\Models\Pool;
 use App\Models\Tournament;
 use App\Models\User;
+use App\Notifications\PredictionsOverwrittenNotification;
 use Database\Seeders\WorldCup2026Seeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
@@ -121,6 +122,7 @@ class EntryImportControllerTest extends TestCase
 
     public function test_commit_writes_predictions_and_re_scores_the_pool(): void
     {
+        Notification::fake();
         $this->recordOfficialGroupResults($this->tournament, $this->seedOrderScores());
 
         $user = User::factory()->create();
@@ -133,6 +135,9 @@ class EntryImportControllerTest extends TestCase
         $this->assertSame(72, $entry->groupPredictions()->count());
         $this->assertNotNull($entry->refresh()->total_points);
         $this->assertGreaterThan(0, $entry->total_points);
+
+        // A first-time backfill into an empty entry stays silent — nothing was overwritten.
+        Notification::assertNotSentTo($user, PredictionsOverwrittenNotification::class);
     }
 
     public function test_commit_is_blocked_for_a_populated_entry_without_overwrite(): void
@@ -151,8 +156,9 @@ class EntryImportControllerTest extends TestCase
         $this->assertSame(6, $entry->groupPredictions()->count());
     }
 
-    public function test_commit_overwrites_a_populated_entry_when_confirmed(): void
+    public function test_commit_overwrites_a_populated_entry_when_confirmed_and_notifies_the_player(): void
     {
+        Notification::fake();
         $user = User::factory()->create();
         $entry = $this->pool->entries()->create(['user_id' => $user->id]);
         $this->predictGroup($entry, $this->tournament, 'A', $this->seedOrderScores());
@@ -165,6 +171,25 @@ class EntryImportControllerTest extends TestCase
             ->assertRedirect();
 
         $this->assertSame(72, $entry->groupPredictions()->count());
+
+        // The player whose picks were replaced is told an organizer changed them.
+        Notification::assertSentTo(
+            $user,
+            PredictionsOverwrittenNotification::class,
+            fn (PredictionsOverwrittenNotification $notification): bool => $notification->pool->is($this->pool),
+        );
+    }
+
+    public function test_the_overwrite_email_renders_with_the_pool_identity(): void
+    {
+        // Notification::fake skips rendering, so compile the branded template directly to catch
+        // template/route/accent errors and confirm it leads with the pool name + source.
+        $mail = (new PredictionsOverwrittenNotification($this->pool))->toMail(User::factory()->create());
+        $html = view($mail->view[0], $mail->viewData)->render();
+
+        // Blade escapes the names (the pool name carries an "&"), so compare the escaped form.
+        $this->assertStringContainsString(e($this->pool->name), $html);
+        $this->assertStringContainsString(e($this->pool->source), $html);
     }
 
     /**

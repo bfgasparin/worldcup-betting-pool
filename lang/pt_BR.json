@@ -716,5 +716,16 @@
     "Pick the player to backfill predictions for.": "Escolha o jogador para preencher os palpites.",
     "Search by name or email…": "Buscar por nome ou e-mail…",
     "No email": "Sem e-mail",
-    "Backfill": "Preencher"
+    "Backfill": "Preencher",
+    "Your predictions in :pool were updated": "Seus palpites em :pool foram atualizados",
+    "An organizer updated your predictions": "Um organizador atualizou seus palpites",
+    "An organizer entered new predictions for you in :pool — open it to review what's now saved on your behalf.": "Um organizador inseriu novos palpites para você em :pool — abra para conferir o que ficou salvo em seu nome.",
+    "Heads up": "Atenção",
+    "Your predictions were updated": "Seus palpites foram atualizados",
+    "An organizer entered predictions for you in this pool, replacing the ones you had saved. Open your predictions to check that everything looks right.": "Um organizador inseriu palpites para você neste bolão, substituindo os que você havia salvado. Abra seus palpites para conferir se está tudo certo.",
+    "Review my predictions →": "Revisar meus palpites →",
+    "Review my predictions": "Revisar meus palpites",
+    "If this looks wrong, reply to this email or reach out to the pool organizer.": "Se algo estiver errado, responda a este e-mail ou fale com o organizador do bolão.",
+    "You're getting this because you're playing :pool on Brothers Bets. We only email when an organizer changes the predictions saved on your behalf.": "Você está recebendo isto porque participa de :pool no Brothers Bets. Só enviamos e-mail quando um organizador altera os palpites salvos em seu nome.",
+    ":pool — your predictions were updated": ":pool — seus palpites foram atualizados"
 }
