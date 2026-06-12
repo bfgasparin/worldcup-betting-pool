@@ -1,4 +1,4 @@
-import { CalendarClock, ClipboardCheck, Radio } from 'lucide-react';
+import { CalendarClock, ClipboardCheck, Radio, Upload } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import manage from '@/routes/manage';
 
@@ -30,12 +30,19 @@ export function manageNavItems(slug: string): ManageNavItem[] {
             href: manage.schedule.index(slug).url,
             icon: CalendarClock,
         },
+        {
+            title: 'Backfill',
+            href: manage.backfill.create(slug).url,
+            icon: Upload,
+        },
     ];
 }
 
 /** The tournament slug of the manage section the URL is in, or null on the hub / off /manage. */
 export function manageSlugFromUrl(url: string): string | null {
     return (
-        url.match(/^\/manage\/([^/?#]+)\/(?:live|scores|schedule)/)?.[1] ?? null
+        url.match(
+            /^\/manage\/([^/?#]+)\/(?:live|scores|schedule|backfill)/,
+        )?.[1] ?? null
     );
 }
