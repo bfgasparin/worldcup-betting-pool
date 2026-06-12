@@ -55,6 +55,21 @@ class EndLiveMatchTest extends TestCase
         $this->assertNull($proposal->winner_team_id);
     }
 
+    public function test_ending_an_untouched_live_match_proposes_zero_zero(): void
+    {
+        $fixture = Fixture::factory()->create(['status' => FixtureStatus::Live]);
+        // No withScore(): the scoreboard was never touched, so its goals are null.
+        FixtureLiveState::factory()->for($fixture)->create();
+
+        $proposal = app(EndLiveMatch::class)->end($fixture);
+
+        // The proposal carries a concrete 0–0 (not null), so the approval gate accepts it.
+        $this->assertSame(0, $proposal->home_goals);
+        $this->assertSame(0, $proposal->away_goals);
+        $this->assertNull($proposal->winner_team_id);
+        $this->assertSame(ProposalStatus::Pending, $proposal->status);
+    }
+
     public function test_ending_reuses_the_tournaments_open_batch(): void
     {
         $tournament = Tournament::factory()->create();

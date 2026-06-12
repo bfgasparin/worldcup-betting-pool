@@ -36,8 +36,11 @@ class EndLiveMatch
             $proposal = ScoreProposal::updateOrCreate(
                 ['score_batch_id' => $batch->id, 'fixture_id' => $fixture->id],
                 [
-                    'home_goals' => $state->home_goals,
-                    'away_goals' => $state->away_goals,
+                    // A live match never touched by the admin ends as the 0–0 it is displayed as —
+                    // coalesce so the proposal carries a concrete score the approval gate accepts,
+                    // never a NULL that would block publishing the batch.
+                    'home_goals' => $state->home_goals ?? 0,
+                    'away_goals' => $state->away_goals ?? 0,
                     'winner_team_id' => $this->winnerTeamId($fixture, $state),
                     'status' => ProposalStatus::Pending,
                 ],
