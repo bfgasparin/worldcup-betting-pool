@@ -14,10 +14,9 @@ use Illuminate\Support\Facades\Validator;
 
 #[Signature('user:pre-register
     {--name= : The user\'s display name (required)}
-    {--phone= : The user\'s phone number (required; their import-matching identity)}
     {--locale= : Preferred language for emails/UI (e.g. pt_BR); omit to follow the device language}
     {--pool=* : Slug of a pool to pre-join the (already-paid) user into; repeatable}')]
-#[Description('Pre-register a passwordless user from a name + phone, with no email yet, and optionally pre-join them to one or more pools (for players who have already paid). The email is set later via user:set-email; until then they cannot log in. Fails if the phone already exists; it never modifies existing accounts. Pool pre-joins skip the admin notification the web join sends.')]
+#[Description('Pre-register a passwordless user from a name, with no email yet, and optionally pre-join them to one or more pools (for players who have already paid). The email is set later via user:set-email; until then they cannot log in. It never modifies existing accounts. Pool pre-joins skip the admin notification the web join sends.')]
 class PreRegisterUser extends Command
 {
     use ProfileValidationRules, ResolvesLocaleOption;
@@ -25,11 +24,10 @@ class PreRegisterUser extends Command
     public function handle(): int
     {
         $name = trim((string) $this->option('name'));
-        $phone = trim((string) $this->option('phone'));
 
         $validator = Validator::make(
-            ['name' => $name, 'phone' => $phone],
-            ['name' => $this->nameRules(), 'phone' => $this->phoneRules()],
+            ['name' => $name],
+            ['name' => $this->nameRules()],
         );
 
         if ($validator->fails()) {
@@ -67,12 +65,11 @@ class PreRegisterUser extends Command
             }
         }
 
-        $user = DB::transaction(function () use ($name, $phone, $locale, $pools): User {
+        $user = DB::transaction(function () use ($name, $locale, $pools): User {
             // forceCreate bypasses the mass-assignment guard for parity with the user:create command;
             // no email or email_verified_at is set, so both stay NULL until user:set-email is run.
             $user = User::forceCreate([
                 'name' => $name,
-                'phone' => $phone,
                 'locale' => $locale,
             ]);
 
@@ -88,7 +85,7 @@ class PreRegisterUser extends Command
 
         $joined = $pools->isNotEmpty() ? " Joined: {$pools->pluck('name')->implode(', ')}." : '';
 
-        $this->components->info("Pre-registered {$user->name} ({$user->phone}).{$joined} No email yet — set one with `user:set-email`.");
+        $this->components->info("Pre-registered {$user->name}.{$joined} No email yet — set one with `user:set-email`.");
 
         return self::SUCCESS;
     }

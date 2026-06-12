@@ -54,7 +54,6 @@ interface JoinablePool {
 interface PlayerRow {
     id: number;
     name: string;
-    phone: string | null;
     email: string | null;
     locale: string | null;
     locked: boolean;
@@ -156,7 +155,7 @@ function PoolPicker({
     );
 }
 
-/** The "Pre-register player" dialog: name + phone (+ language) and optional pools, no email. */
+/** The "Pre-register player" dialog: name (+ language) and optional pools, no email. */
 function PreRegisterDialog({
     pools,
     supportedLocales,
@@ -168,11 +167,10 @@ function PreRegisterDialog({
     const [open, setOpen] = useState(false);
     const form = useForm<{
         name: string;
-        phone: string;
         email: string;
         locale: string;
         pools: number[];
-    }>({ name: '', phone: '', email: '', locale: DEVICE, pools: [] });
+    }>({ name: '', email: '', locale: DEVICE, pools: [] });
 
     const togglePool = (id: number) => {
         form.setData(
@@ -216,7 +214,7 @@ function PreRegisterDialog({
                     <DialogTitle>{t('Pre-register player')}</DialogTitle>
                     <DialogDescription>
                         {t(
-                            'Create a player from a name and phone. Add an email now to let them sign in straight away, or leave it blank and set it later.',
+                            'Create a player from a name. Add an email now to let them sign in straight away, or leave it blank and set it later.',
                         )}
                     </DialogDescription>
                 </DialogHeader>
@@ -234,21 +232,6 @@ function PreRegisterDialog({
                             autoComplete="off"
                         />
                         <InputError message={form.errors.name} />
-                    </div>
-
-                    <div className="grid gap-2">
-                        <Label htmlFor="phone">{t('Phone')}</Label>
-                        <Input
-                            id="phone"
-                            value={form.data.phone}
-                            onChange={(event) =>
-                                form.setData('phone', event.target.value)
-                            }
-                            required
-                            inputMode="tel"
-                            autoComplete="off"
-                        />
-                        <InputError message={form.errors.phone} />
                     </div>
 
                     <div className="grid gap-2">
@@ -387,7 +370,7 @@ function PlayerListRow({ player }: { player: PlayerRow }) {
                     <StatusBadge locked={player.locked} />
                 </div>
                 <span className="mt-0.5 block text-xs text-muted-foreground">
-                    {player.email ?? player.phone ?? t('No email yet')}
+                    {player.email ?? t('No email yet')}
                 </span>
                 {player.pools.length > 0 && (
                     <div className="mt-1.5 flex flex-wrap gap-1.5">

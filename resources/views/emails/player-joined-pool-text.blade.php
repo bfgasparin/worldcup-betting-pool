@@ -6,9 +6,6 @@
 
 {{ __('Player') }}: {{ $playerName }}
 {{ __('Email') }}: {{ $playerEmail }}
-@if (! empty($playerPhone))
-{{ __('Phone') }}: {{ $playerPhone }}
-@endif
 {{ __('Buy-in') }}: @if ((float) $entryPrice > 0){{ $currency }} {{ number_format((float) $entryPrice, 2) }}@else {{ __('No buy-in (free pool)') }}@endif
 
 
