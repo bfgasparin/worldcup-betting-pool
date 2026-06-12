@@ -39,9 +39,6 @@
                             [__('Player'), e($playerName)],
                             [__('Email'), '<a class="ffa-anchor" href="mailto:' . e($playerEmail) . '">' . e($playerEmail) . '</a>'],
                         ];
-                        if (! empty($playerPhone)) {
-                            $rows[] = [__('Phone'), '<a class="ffa-anchor" href="tel:' . e($playerPhone) . '">' . e($playerPhone) . '</a>'];
-                        }
                         $rows[] = [__('Buy-in'), (float) $entryPrice > 0
                             ? e($currency) . ' ' . number_format((float) $entryPrice, 2)
                             : __('No buy-in (free pool)')];

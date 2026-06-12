@@ -35,7 +35,7 @@ class PlayerControllerTest extends TestCase
         return Pool::factory()->create();
     }
 
-    /** A pre-registered player: name + phone, no email yet. */
+    /** A pre-registered player: name only, no email yet. */
     private function preRegistered(): User
     {
         return User::factory()->preRegistered()->create();
@@ -75,7 +75,6 @@ class PlayerControllerTest extends TestCase
         $this->actingAs($this->admin())
             ->post(route('manage.players.store'), [
                 'name' => 'Alpha Tester',
-                'phone' => '+5511999998888',
                 'locale' => 'pt_BR',
                 'pools' => [$pool->id],
             ])
@@ -83,13 +82,12 @@ class PlayerControllerTest extends TestCase
 
         $this->assertDatabaseHas('users', [
             'name' => 'Alpha Tester',
-            'phone' => '+5511999998888',
             'locale' => 'pt_BR',
             'email' => null,
             'email_verified_at' => null,
         ]);
 
-        $player = User::where('phone', '+5511999998888')->firstOrFail();
+        $player = User::where('name', 'Alpha Tester')->firstOrFail();
 
         $this->assertDatabaseHas('entries', [
             'pool_id' => $pool->id,
@@ -100,37 +98,25 @@ class PlayerControllerTest extends TestCase
         Notification::assertNothingSent();
     }
 
-    public function test_pre_register_validates_name_and_phone_and_locale_and_pools(): void
+    public function test_pre_register_validates_name_and_locale_and_pools(): void
     {
         $admin = $this->admin();
         $closedPool = Pool::factory()->create(['predictions_lock_at' => now()->subDay()]);
 
-        // Name and phone are required.
+        // Name is required.
         $this->actingAs($admin)
-            ->post(route('manage.players.store'), ['name' => '', 'phone' => ''])
-            ->assertSessionHasErrors(['name', 'phone']);
-
-        // Phone must look like a phone number.
-        $this->actingAs($admin)
-            ->post(route('manage.players.store'), ['name' => 'Bad Phone', 'phone' => 'abc'])
-            ->assertSessionHasErrors(['phone']);
-
-        // Phone is unique.
-        $existing = User::factory()->create(['phone' => '+5511900000000']);
-        $this->actingAs($admin)
-            ->post(route('manage.players.store'), ['name' => 'Dupe', 'phone' => $existing->phone])
-            ->assertSessionHasErrors(['phone']);
+            ->post(route('manage.players.store'), ['name' => ''])
+            ->assertSessionHasErrors(['name']);
 
         // Locale must be supported.
         $this->actingAs($admin)
-            ->post(route('manage.players.store'), ['name' => 'Fr', 'phone' => '+5511911111111', 'locale' => 'fr_FR'])
+            ->post(route('manage.players.store'), ['name' => 'Fr', 'locale' => 'fr_FR'])
             ->assertSessionHasErrors(['locale']);
 
         // A pool that no longer accepts predictions is rejected.
         $this->actingAs($admin)
             ->post(route('manage.players.store'), [
                 'name' => 'Late',
-                'phone' => '+5511922222222',
                 'pools' => [$closedPool->id],
             ])
             ->assertSessionHasErrors(['pools']);
@@ -147,7 +133,6 @@ class PlayerControllerTest extends TestCase
         $this->actingAs($admin)
             ->patch(route('manage.players.update', $player), [
                 'name' => 'Renamed Player',
-                'phone' => '+5511933333333',
                 'locale' => 'pt_BR',
                 'pools' => [$pool->id],
             ])
@@ -156,7 +141,6 @@ class PlayerControllerTest extends TestCase
         $this->assertDatabaseHas('users', [
             'id' => $player->id,
             'name' => 'Renamed Player',
-            'phone' => '+5511933333333',
             'locale' => 'pt_BR',
         ]);
 
@@ -164,7 +148,6 @@ class PlayerControllerTest extends TestCase
         $this->actingAs($admin)
             ->patch(route('manage.players.update', $player), [
                 'name' => 'Renamed Player',
-                'phone' => '+5511933333333',
                 'pools' => [$pool->id],
             ]);
 
@@ -194,7 +177,6 @@ class PlayerControllerTest extends TestCase
         $this->actingAs($admin)
             ->post(route('manage.players.store'), [
                 'name' => 'Has Email',
-                'phone' => '+5511955556666',
                 'email' => 'has.email@example.com',
                 'pools' => [$pool->id],
             ])
@@ -210,7 +192,6 @@ class PlayerControllerTest extends TestCase
         $this->actingAs($admin)
             ->patch(route('manage.players.update', $player), [
                 'name' => 'Nope',
-                'phone' => '+5511955550000',
             ])
             ->assertForbidden();
 
@@ -228,12 +209,11 @@ class PlayerControllerTest extends TestCase
             $this->actingAs($admin)
                 ->post(route('manage.players.store'), [
                     'name' => 'Bad Email',
-                    'phone' => '+5511955551111',
                     'email' => $bad,
                 ])
                 ->assertSessionHasErrors(['email']);
 
-            $this->assertDatabaseMissing('users', ['phone' => '+5511955551111']);
+            $this->assertDatabaseMissing('users', ['name' => 'Bad Email']);
         }
 
         $existing = User::factory()->create(['email' => 'taken@example.com']);
@@ -241,7 +221,6 @@ class PlayerControllerTest extends TestCase
         $this->actingAs($admin)
             ->post(route('manage.players.store'), [
                 'name' => 'Dup Email',
-                'phone' => '+5511955552222',
                 'email' => $existing->email,
             ])
             ->assertSessionHasErrors(['email']);
@@ -271,11 +250,10 @@ class PlayerControllerTest extends TestCase
         $this->actingAs($admin)
             ->post(route('manage.players.store'), [
                 'name' => 'No Email',
-                'phone' => '+5511955553333',
             ])
             ->assertRedirect(route('manage.players.index'));
 
-        $player = User::where('phone', '+5511955553333')->firstOrFail();
+        $player = User::where('name', 'No Email')->firstOrFail();
 
         // No email → still editable; the set-login-email flow remains available for them.
         $this->assertNull($player->email);
@@ -295,7 +273,6 @@ class PlayerControllerTest extends TestCase
         $this->actingAs($admin)
             ->patch(route('manage.players.update', $locked), [
                 'name' => 'Hacked Name',
-                'phone' => '+5511944444444',
             ])
             ->assertForbidden();
 
@@ -306,7 +283,6 @@ class PlayerControllerTest extends TestCase
         $this->actingAs($admin)
             ->patch(route('manage.players.update', $locked), [
                 'name' => 'Owns Account',
-                'phone' => $locked->phone,
                 'pools' => [$pool->id],
             ])
             ->assertForbidden();

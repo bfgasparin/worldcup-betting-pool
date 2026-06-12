@@ -24,7 +24,6 @@ class UserFactory extends Factory
         return [
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
-            'phone' => fake()->unique()->numerify('+5511########'),
             'email_verified_at' => now(),
             'onboarded_at' => now(),
             'remember_token' => Str::random(10),
@@ -52,7 +51,7 @@ class UserFactory extends Factory
     }
 
     /**
-     * Indicate that the user is pre-registered from a name + phone only,
+     * Indicate that the user is pre-registered from a name only,
      * with no email yet and therefore no way to log in until one is set.
      */
     public function preRegistered(): static

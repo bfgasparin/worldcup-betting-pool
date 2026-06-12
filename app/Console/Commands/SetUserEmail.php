@@ -10,31 +10,27 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Validator;
 
 #[Signature('user:set-email
-    {--phone= : Locate the account by phone}
-    {--id= : Locate the account by user id}
+    {--id= : Locate the account by user id (required)}
     {--email= : The email to set (their login identity)}')]
-#[Description('Set or update a pre-registered user\'s email so they can log in via emailed codes. Locate the account by --phone or --id. Stamps the email as verified. Fails if another account already uses the email.')]
+#[Description('Set or update a pre-registered user\'s email so they can log in via emailed codes. Locate the account by --id. Stamps the email as verified. Fails if another account already uses the email.')]
 class SetUserEmail extends Command
 {
     use ProfileValidationRules;
 
     public function handle(): int
     {
-        $phone = trim((string) $this->option('phone'));
         $id = trim((string) $this->option('id'));
 
-        if (($phone === '') === ($id === '')) {
-            $this->components->error('Provide exactly one of --phone or --id to locate the account.');
+        if ($id === '') {
+            $this->components->error('Provide --id to locate the account.');
 
             return self::FAILURE;
         }
 
-        $user = $phone !== ''
-            ? User::where('phone', $phone)->first()
-            : User::find($id);
+        $user = User::find($id);
 
         if ($user === null) {
-            $this->components->error('No user matches the given '.($phone !== '' ? "phone {$phone}." : "id {$id}."));
+            $this->components->error("No user matches the given id {$id}.");
 
             return self::FAILURE;
         }

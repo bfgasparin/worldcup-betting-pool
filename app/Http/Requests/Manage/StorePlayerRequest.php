@@ -63,7 +63,6 @@ class StorePlayerRequest extends FormRequest
     {
         return [
             'name' => $this->nameRules(),
-            'phone' => $this->phoneRules(),
             'locale' => ['nullable', Rule::in(app(LocaleResolver::class)->supported())],
             'pools' => ['array'],
             'pools.*' => ['integer', Rule::exists(Pool::class, 'id')],
