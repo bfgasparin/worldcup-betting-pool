@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\EntryImportController;
 use App\Http\Controllers\FixtureScheduleController;
 use App\Http\Controllers\LiveControlController;
 use App\Http\Controllers\ManageController;
@@ -35,4 +36,12 @@ Route::middleware(['auth', 'can:manage-tournament'])->prefix('manage')->name('ma
 
     Route::get('{tournament:slug}/schedule', [FixtureScheduleController::class, 'index'])->name('schedule.index');
     Route::patch('{tournament:slug}/fixtures/{fixture}/reschedule', [FixtureScheduleController::class, 'reschedule'])->name('fixtures.reschedule');
+
+    // Backfill: for a player who couldn't get into the app to enter their predictions before the
+    // lock, paste those predictions as JSON, review/correct the derived bracket, then commit and
+    // re-score the pool. The pool is a validated field (not in the URL) like the rest of this
+    // tournament-scoped area; deliberately bypasses the prediction lock.
+    Route::get('{tournament:slug}/backfill', [EntryImportController::class, 'create'])->name('backfill.create');
+    Route::post('{tournament:slug}/backfill/preview', [EntryImportController::class, 'preview'])->name('backfill.preview');
+    Route::post('{tournament:slug}/backfill', [EntryImportController::class, 'commit'])->name('backfill.commit');
 });

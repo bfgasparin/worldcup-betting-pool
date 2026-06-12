@@ -5,6 +5,7 @@ import {
     ClipboardCheck,
     Radio,
     Trophy,
+    Upload,
     Users,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -134,6 +135,15 @@ export default function ManageIndex({ tournaments }: ManageIndexProps) {
                                             }
                                             icon={CalendarClock}
                                             label={t('Schedule')}
+                                        />
+                                        <AdminAction
+                                            href={
+                                                manage.backfill.create(
+                                                    tournament.slug,
+                                                ).url
+                                            }
+                                            icon={Upload}
+                                            label={t('Backfill predictions')}
                                         />
                                     </div>
                                 </div>
