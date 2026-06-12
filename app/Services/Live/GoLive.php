@@ -43,8 +43,15 @@ class GoLive
         $state = DB::transaction(function () use ($fixture): FixtureLiveState {
             $fixture->update(['status' => FixtureStatus::Live]);
 
+            // Seed the scoreboard at 0–0 so an untouched match still ends with a concrete score
+            // (and the persisted state matches what the Live Center shows). Read the current value
+            // first so re-going-live keeps an in-progress score rather than resetting it.
+            $existing = $fixture->liveState;
+
             return $fixture->liveState()->updateOrCreate([], [
                 'status' => LiveStatus::Live,
+                'home_goals' => $existing?->home_goals ?? 0,
+                'away_goals' => $existing?->away_goals ?? 0,
                 'started_at' => now(),
                 'ended_at' => null,
             ]);
