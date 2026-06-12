@@ -106,7 +106,7 @@ class JoinPoolTest extends TestCase
     public function test_the_email_renders_with_the_buy_in_details(): void
     {
         $admin = User::factory()->create();
-        $player = User::factory()->create(['name' => 'Ada Lovelace', 'phone' => '+55 11 99999-0000']);
+        $player = User::factory()->create(['name' => 'Ada Lovelace']);
 
         $mail = (new PlayerJoinedPoolNotification($this->pool, $player))->toMail($admin);
 
@@ -117,7 +117,6 @@ class JoinPoolTest extends TestCase
 
         $this->assertStringContainsString('Ada Lovelace', $html);
         $this->assertStringContainsString($player->email, $html);
-        $this->assertStringContainsString('+55 11 99999-0000', $html);
         $this->assertStringContainsString('BRL 50.00', $html);
     }
 

@@ -20,7 +20,6 @@ class CreateUserTest extends TestCase
         $this->assertSame('Owner', $user->name);
         $this->assertNotNull($user->email_verified_at);
         $this->assertNull($user->password);
-        $this->assertNull($user->phone);
         $this->assertNull($user->locale);
     }
 

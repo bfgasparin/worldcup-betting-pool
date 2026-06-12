@@ -39,7 +39,6 @@ interface PoolChip {
 interface PlayerEdit {
     id: number;
     name: string;
-    phone: string | null;
     email: string | null;
     locale: string | null;
     locked: boolean;
@@ -160,7 +159,7 @@ function SetEmailPanel({ player }: { player: PlayerEdit }) {
                         <DialogTitle>{t('Set login email?')}</DialogTitle>
                         <DialogDescription>
                             {t(
-                                'Setting a login email permanently hands this account to the player. After this you can no longer edit their name, phone, language, or pools — only they can. This cannot be undone.',
+                                'Setting a login email permanently hands this account to the player. After this you can no longer edit their name, language, or pools — only they can. This cannot be undone.',
                             )}
                         </DialogDescription>
                     </DialogHeader>
@@ -190,12 +189,10 @@ export default function PlayerEditPage({
     const { t } = useTranslation();
     const form = useForm<{
         name: string;
-        phone: string;
         locale: string;
         pools: number[];
     }>({
         name: player.name,
-        phone: player.phone ?? '',
         locale: player.locale ?? DEVICE,
         pools: [],
     });
@@ -270,25 +267,6 @@ export default function PlayerEditPage({
                                     autoComplete="off"
                                 />
                                 <InputError message={form.errors.name} />
-                            </div>
-
-                            <div className="grid gap-2">
-                                <Label htmlFor="phone">{t('Phone')}</Label>
-                                <Input
-                                    id="phone"
-                                    value={form.data.phone}
-                                    onChange={(event) =>
-                                        form.setData(
-                                            'phone',
-                                            event.target.value,
-                                        )
-                                    }
-                                    disabled={player.locked}
-                                    required
-                                    inputMode="tel"
-                                    autoComplete="off"
-                                />
-                                <InputError message={form.errors.phone} />
                             </div>
 
                             <div className="grid gap-2">

@@ -43,7 +43,6 @@ class PlayerJoinedPoolNotification extends Notification implements ShouldQueue
             ->view(['emails.player-joined-pool', 'emails.player-joined-pool-text'], [
                 'playerName' => $this->player->name,
                 'playerEmail' => $this->player->email,
-                'playerPhone' => $this->player->phone,
                 'poolName' => $this->pool->name,
                 'source' => $this->pool->source,
                 'entryPrice' => $this->pool->entry_price,

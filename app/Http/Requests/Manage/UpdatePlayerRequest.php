@@ -23,10 +23,7 @@ class UpdatePlayerRequest extends StorePlayerRequest
     {
         // commonRules() (not parent::rules()) so the email field — a one-way, lock-on-create action —
         // is never editable here; once an email exists, authorize() already blocks the request.
-        return array_merge($this->commonRules(), [
-            // Ignore the player's own row so re-saving an unchanged phone doesn't trip uniqueness.
-            'phone' => $this->phoneRules($this->target()->id),
-        ]);
+        return $this->commonRules();
     }
 
     private function target(): User

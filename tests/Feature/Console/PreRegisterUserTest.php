@@ -14,12 +14,12 @@ class PreRegisterUserTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_it_creates_a_phone_only_user_with_no_email(): void
+    public function test_it_creates_a_user_with_no_email(): void
     {
-        $this->artisan('user:pre-register', ['--name' => 'Ana Silva', '--phone' => '+5511999999999'])
+        $this->artisan('user:pre-register', ['--name' => 'Ana Silva'])
             ->assertSuccessful();
 
-        $user = User::where('phone', '+5511999999999')->firstOrFail();
+        $user = User::where('name', 'Ana Silva')->firstOrFail();
 
         $this->assertSame('Ana Silva', $user->name);
         $this->assertNull($user->email);
@@ -31,15 +31,15 @@ class PreRegisterUserTest extends TestCase
 
     public function test_it_stores_an_explicit_locale(): void
     {
-        $this->artisan('user:pre-register', ['--name' => 'Ana Silva', '--phone' => '+5511999999999', '--locale' => 'pt_BR'])
+        $this->artisan('user:pre-register', ['--name' => 'Ana Silva', '--locale' => 'pt_BR'])
             ->assertSuccessful();
 
-        $this->assertSame('pt_BR', User::where('phone', '+5511999999999')->value('locale'));
+        $this->assertSame('pt_BR', User::where('name', 'Ana Silva')->value('locale'));
     }
 
     public function test_it_rejects_an_unsupported_locale(): void
     {
-        $this->artisan('user:pre-register', ['--name' => 'Ana Silva', '--phone' => '+5511999999999', '--locale' => 'fr'])
+        $this->artisan('user:pre-register', ['--name' => 'Ana Silva', '--locale' => 'fr'])
             ->assertFailed();
 
         $this->assertDatabaseCount('users', 0);
@@ -47,34 +47,9 @@ class PreRegisterUserTest extends TestCase
 
     public function test_it_fails_when_the_name_is_missing(): void
     {
-        $this->artisan('user:pre-register', ['--phone' => '+5511999999999'])->assertFailed();
+        $this->artisan('user:pre-register', [])->assertFailed();
 
         $this->assertDatabaseCount('users', 0);
-    }
-
-    public function test_it_fails_when_the_phone_is_missing(): void
-    {
-        $this->artisan('user:pre-register', ['--name' => 'Ana Silva'])->assertFailed();
-
-        $this->assertDatabaseCount('users', 0);
-    }
-
-    public function test_it_fails_when_the_phone_is_invalid(): void
-    {
-        $this->artisan('user:pre-register', ['--name' => 'Ana Silva', '--phone' => 'not-a-phone'])
-            ->assertFailed();
-
-        $this->assertDatabaseCount('users', 0);
-    }
-
-    public function test_it_rejects_a_duplicate_phone(): void
-    {
-        User::factory()->preRegistered()->create(['phone' => '+5511999999999']);
-
-        $this->artisan('user:pre-register', ['--name' => 'Someone Else', '--phone' => '+5511999999999'])
-            ->assertFailed();
-
-        $this->assertDatabaseCount('users', 1);
     }
 
     public function test_it_pre_joins_the_user_to_a_pool_without_notifying_admins(): void
@@ -84,11 +59,10 @@ class PreRegisterUserTest extends TestCase
 
         $this->artisan('user:pre-register', [
             '--name' => 'Ana Silva',
-            '--phone' => '+5511999999999',
             '--pool' => ['world-cup-2026-ffa'],
         ])->assertSuccessful();
 
-        $user = User::where('phone', '+5511999999999')->firstOrFail();
+        $user = User::where('name', 'Ana Silva')->firstOrFail();
         $pool = Pool::where('slug', 'world-cup-2026-ffa')->firstOrFail();
 
         $this->assertDatabaseHas('entries', ['pool_id' => $pool->id, 'user_id' => $user->id]);
@@ -102,11 +76,10 @@ class PreRegisterUserTest extends TestCase
 
         $this->artisan('user:pre-register', [
             '--name' => 'Ana Silva',
-            '--phone' => '+5511999999999',
             '--pool' => ['world-cup-2026-ffa', 'world-cup-2026-brothers'],
         ])->assertSuccessful();
 
-        $user = User::where('phone', '+5511999999999')->firstOrFail();
+        $user = User::where('name', 'Ana Silva')->firstOrFail();
 
         $this->assertSame(2, Entry::where('user_id', $user->id)->count());
         Notification::assertNothingSent();
@@ -118,11 +91,10 @@ class PreRegisterUserTest extends TestCase
 
         $this->artisan('user:pre-register', [
             '--name' => 'Ana Silva',
-            '--phone' => '+5511999999999',
             '--pool' => ['world-cup-2026-ffa', 'does-not-exist'],
         ])->assertFailed();
 
-        $this->assertDatabaseMissing('users', ['phone' => '+5511999999999']);
+        $this->assertDatabaseMissing('users', ['name' => 'Ana Silva']);
         $this->assertSame(0, Entry::count());
     }
 
@@ -134,11 +106,10 @@ class PreRegisterUserTest extends TestCase
 
         $this->artisan('user:pre-register', [
             '--name' => 'Ana Silva',
-            '--phone' => '+5511999999999',
             '--pool' => ['world-cup-2026-ffa'],
         ])->assertFailed();
 
-        $this->assertDatabaseMissing('users', ['phone' => '+5511999999999']);
+        $this->assertDatabaseMissing('users', ['name' => 'Ana Silva']);
         $this->assertSame(0, Entry::count());
     }
 }

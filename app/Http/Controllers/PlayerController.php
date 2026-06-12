@@ -34,7 +34,6 @@ class PlayerController extends Controller
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($query) use ($search): void {
                     $query->where('name', 'like', "%{$search}%")
-                        ->orWhere('phone', 'like', "%{$search}%")
                         ->orWhere('email', 'like', "%{$search}%");
                 });
             })
@@ -52,7 +51,6 @@ class PlayerController extends Controller
         $players->through(fn (User $user): array => [
             'id' => $user->id,
             'name' => $user->name,
-            'phone' => $user->phone,
             'email' => $user->email,
             'locale' => $user->locale,
             'locked' => $user->email !== null,
@@ -68,7 +66,7 @@ class PlayerController extends Controller
     }
 
     /**
-     * Pre-register a player from a name + phone, with no email yet, optionally joining pools.
+     * Pre-register a player from a name, with no email yet, optionally joining pools.
      */
     public function store(StorePlayerRequest $request): RedirectResponse
     {
@@ -80,7 +78,6 @@ class PlayerController extends Controller
             // now, like user:set-email) — which immediately locks the account to admin edits.
             $user = User::forceCreate([
                 'name' => $request->validated('name'),
-                'phone' => $request->validated('phone'),
                 'locale' => $request->validated('locale'),
                 'email' => $email,
                 'email_verified_at' => $email !== null ? now() : null,
@@ -108,7 +105,6 @@ class PlayerController extends Controller
             'player' => [
                 'id' => $user->id,
                 'name' => $user->name,
-                'phone' => $user->phone,
                 'email' => $user->email,
                 'locale' => $user->locale,
                 'locked' => $user->email !== null,
@@ -129,7 +125,6 @@ class PlayerController extends Controller
         DB::transaction(function () use ($request, $user): void {
             $user->fill([
                 'name' => $request->validated('name'),
-                'phone' => $request->validated('phone'),
                 'locale' => $request->validated('locale'),
             ])->save();
 
