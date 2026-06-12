@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\FixtureStatus;
 use App\Http\Requests\Live\LiveScoreRequest;
 use App\Models\Fixture;
 use App\Models\Team;
@@ -33,8 +34,14 @@ class LiveControlController extends Controller
             ->with(['liveState', 'homeTeam', 'awayTeam', 'phase'])
             ->orderBy('kicks_off_at')
             ->get()
-            // Only the fixtures the admin can act on: those eligible to go live, or already live/ended.
-            ->filter(fn (Fixture $fixture): bool => $fixture->canGoLive() || $fixture->liveState !== null)
+            // Every live-relevant fixture: eligible to go live now, already live/ended, or an
+            // upcoming scheduled match with known teams (so the admin can browse and search ahead).
+            // Empty placeholder knockout slots (no teams) are excluded — they can't go live.
+            ->filter(fn (Fixture $fixture): bool => $fixture->canGoLive()
+                || $fixture->liveState !== null
+                || ($fixture->status === FixtureStatus::Scheduled
+                    && $fixture->home_team_id !== null
+                    && $fixture->away_team_id !== null))
             ->map(fn (Fixture $fixture): array => [
                 'id' => $fixture->id,
                 'home_team' => $this->teamRef($fixture->homeTeam),
