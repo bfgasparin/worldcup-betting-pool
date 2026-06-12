@@ -12,6 +12,8 @@ use App\Models\Team;
 use App\Models\Tournament;
 use App\Services\Predictions\BracketResolver;
 use App\Services\Predictions\DefaultTieOrdering;
+use App\Services\Predictions\OfficialBracketProjector;
+use App\Services\Predictions\PredictionImporter;
 use App\Services\Scoring\LeaderboardNotifier;
 use App\Services\Scoring\RankSnapshotter;
 use App\Services\Scoring\ScoreEngine;
@@ -19,20 +21,19 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Backfills a user's predictions for an UPFRONT-bracket pool from a pasted JSON blob, for the admin
- * tool that fills in players who couldn't get into the app to enter their predictions before the
- * lock, leaving their entries empty.
+ * Backfills a user's predictions from a pasted JSON blob, for the admin tool that fills in players who
+ * couldn't get into the app to enter their predictions before the lock, leaving their entries empty.
  *
- * The JSON is the same source the normal prediction flow takes, just from a different channel:
- * group scorelines plus the third-place classification drive the engine ({@see BracketResolver})
- * exactly as a player's own group scores would, so the whole knockout bracket is derived — the
- * JSON's knockout match-ups are only used to validate against what the user actually sent.
+ * The JSON is the same source the normal prediction flow takes, from a different channel. Group
+ * scorelines apply to either pool type. The knockout differs by strategy: an UPFRONT pool derives the
+ * whole bracket from the group scores ({@see BracketResolver}), so the JSON's knockout match-ups only
+ * validate against the derivation; a PHASED pool predicts the OFFICIAL match-ups directly
+ * ({@see OfficialBracketProjector} fills them), with no cascade or thirds.
  *
- * Three steps: {@see parse()} maps the blob to fixtures/teams; {@see preview()} derives the bracket
- * in a rolled-back sandbox and returns a review payload (with discrepancy flags) WITHOUT storing
+ * Three steps: {@see parse()} maps the blob to fixtures/teams; {@see preview()} builds the bracket in
+ * a rolled-back sandbox and returns a review payload (with discrepancy flags) WITHOUT storing
  * anything; {@see commit()} writes the admin-reviewed values and re-scores the one pool. Re-scoring
- * deliberately omits {@see LeaderboardNotifier} — a silent admin backfill must
- * not email the whole pool.
+ * deliberately omits {@see LeaderboardNotifier} — a silent admin backfill must not email the pool.
  */
 class PredictionJsonImporter
 {
@@ -135,10 +136,10 @@ class PredictionJsonImporter
     }
 
     /**
-     * Build the review payload by deriving the full bracket exactly as a commit would — group
-     * scores, default tie ordering, the JSON's third-place cut, then the cascaded knockout rows —
-     * all inside a transaction that is rolled back, so NOTHING is persisted. The returned array
-     * carries every match with its derived participants and discrepancy flags.
+     * Build the review payload by applying the import exactly as a commit would (group scores plus
+     * the strategy's knockout write) inside a transaction that is rolled back, so NOTHING is
+     * persisted. The returned array carries every match with its resolved participants and
+     * discrepancy flags.
      *
      * @return array<string, mixed>
      */
@@ -176,8 +177,8 @@ class PredictionJsonImporter
 
     /**
      * The shared write path used by both the rolled-back preview and the real commit: replace the
-     * group scores, resolve ties (defaults + the JSON third-place order), derive the bracket, stamp
-     * the knockout scores/advancing onto it, then cascade once more to a fixed point.
+     * group scores, then stamp the knockout predictions. Upfront pools derive the whole bracket from
+     * the group scores (tie ordering + cascade); phased pools predict the official match-ups directly.
      *
      * @param  list<array{fixture_id: int, home_goals: int, away_goals: int}>  $groupRows
      * @param  list<array{fixture_id: int, home_goals: int|null, away_goals: int|null, advancing_pick: int|null}>  $knockoutRows
@@ -187,8 +188,16 @@ class PredictionJsonImporter
     {
         $this->writeGroupPredictions($entry, $groupRows);
 
-        // No human to break ties: take the deterministic defaults, then honour the user's own
-        // third-place ordering where it resolves the straddling cut (everything else stays default).
+        if (! $entry->pool->predictsKnockoutBracket()) {
+            // Phased: the bracket is the official one (projected from real results); predict the real
+            // match-ups directly. No tie ordering, no third-place cut, no cascade.
+            $this->writePhasedKnockoutPredictions($entry, $knockoutRows);
+
+            return;
+        }
+
+        // Upfront: no human to break ties — take the deterministic defaults, then honour the user's
+        // own third-place ordering where it resolves the straddling cut (everything else stays default).
         $this->tieOrdering->applyToEntry($entry);
         $this->overrideThirdsOrdering($entry, $thirdsTeamIds);
 
@@ -201,7 +210,7 @@ class PredictionJsonImporter
         // within six passes (the same shape as the test helper that fills a bracket home-team-wins).
         if ($knockoutRows !== []) {
             for ($pass = 0; $pass < 6; $pass++) {
-                $this->writeKnockoutPredictions($entry, $knockoutRows);
+                $this->writeUpfrontKnockoutPredictions($entry, $knockoutRows);
                 $this->resolver->persist($entry);
             }
         }
@@ -226,13 +235,13 @@ class PredictionJsonImporter
     }
 
     /**
-     * Stamp each knockout row's score + advancing onto the already-derived bracket. The advancing
-     * team is derived from the score against the resolved slot, with the pick honoured only on a
-     * draw — identical to the player knockout save.
+     * Upfront: stamp each knockout row's score + advancing onto the already-derived bracket. The
+     * advancing team is derived from the score against the resolved slot ({@see persist()} fills
+     * `predicted_home/away`), with the pick honoured only on a draw — identical to the player save.
      *
      * @param  list<array{fixture_id: int, home_goals: int|null, away_goals: int|null, advancing_pick: int|null}>  $rows
      */
-    private function writeKnockoutPredictions(Entry $entry, array $rows): void
+    private function writeUpfrontKnockoutPredictions(Entry $entry, array $rows): void
     {
         if ($rows === []) {
             return;
@@ -253,6 +262,44 @@ class PredictionJsonImporter
                         $row['away_goals'],
                         $slot?->predicted_home_team_id,
                         $slot?->predicted_away_team_id,
+                        $row['advancing_pick'],
+                    ),
+                ],
+            );
+        }
+    }
+
+    /**
+     * Phased: predict the OFFICIAL match-ups directly. The participants are the official ones already
+     * on the knockout fixtures (filled by {@see OfficialBracketProjector} as
+     * rounds complete), so the prediction records them and derives the advancing team from the score
+     * against them — no cascade. Mirrors the phased branch of {@see PredictionImporter}.
+     *
+     * @param  list<array{fixture_id: int, home_goals: int|null, away_goals: int|null, advancing_pick: int|null}>  $rows
+     */
+    private function writePhasedKnockoutPredictions(Entry $entry, array $rows): void
+    {
+        if ($rows === []) {
+            return;
+        }
+
+        $fixtures = $entry->pool->tournament->knockoutFixtures()->get()->keyBy('id');
+
+        foreach ($rows as $row) {
+            $fixture = $fixtures->get($row['fixture_id']);
+
+            KnockoutPrediction::updateOrCreate(
+                ['entry_id' => $entry->id, 'fixture_id' => $row['fixture_id']],
+                [
+                    'predicted_home_team_id' => $fixture?->home_team_id,
+                    'predicted_away_team_id' => $fixture?->away_team_id,
+                    'home_goals' => $row['home_goals'],
+                    'away_goals' => $row['away_goals'],
+                    'advancing_team_id' => $this->advancingFor(
+                        $row['home_goals'],
+                        $row['away_goals'],
+                        $fixture?->home_team_id,
+                        $fixture?->away_team_id,
                         $row['advancing_pick'],
                     ),
                 ],
@@ -317,8 +364,6 @@ class PredictionJsonImporter
         $teams = Team::all()->keyBy('id');
         $knockoutRows = $entry->knockoutPredictions()->get()->keyBy('fixture_id');
 
-        $resolved = $this->resolver->resolve($entry);
-
         $matches = $parsed->matches;
         usort($matches, fn (ParsedMatch $a, ParsedMatch $b): int => $a->matchNumber <=> $b->matchNumber);
 
@@ -339,7 +384,11 @@ class PredictionJsonImporter
             $rows[] = $row;
         }
 
-        $derivedThirds = $resolved->rankedThirds ?? [];
+        // Only upfront pools derive a third-place cut from the group scores; a phased pool predicts
+        // the official match-ups, so there is nothing derived to compare the JSON ordering against.
+        $derivedThirds = $entry->pool->predictsKnockoutBracket()
+            ? ($this->resolver->resolve($entry)->rankedThirds ?? [])
+            : [];
         $jsonThirds = array_slice($parsed->thirdsTeamIds, 0, count($derivedThirds));
         $thirdsMismatch = $derivedThirds !== [] && $parsed->thirdsTeamIds !== []
             && array_diff($derivedThirds, $jsonThirds) !== [];

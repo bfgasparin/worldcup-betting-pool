@@ -28,9 +28,7 @@ class EntryImportController extends Controller
         return Inertia::render('manage/backfill', [
             'tournament' => $this->tournamentIdentity($tournament),
             'pools' => $tournament->pools()->orderBy('name')->get()
-                ->filter(fn (Pool $pool): bool => $pool->predictsKnockoutBracket())
                 ->map(fn (Pool $pool): array => $this->poolIdentity($pool))
-                ->values()
                 ->all(),
             'users' => User::query()->orderBy('name')->get(['id', 'name', 'email', 'avatar_path'])
                 ->map(fn (User $user): array => [

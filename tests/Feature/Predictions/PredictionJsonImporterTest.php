@@ -3,6 +3,7 @@
 namespace Tests\Feature\Predictions;
 
 use App\Enums\LeaderboardCategory;
+use App\Enums\PhaseKey;
 use App\Models\Entry;
 use App\Models\Pool;
 use App\Models\Team;
@@ -12,6 +13,7 @@ use App\Services\Predictions\BracketResolver;
 use App\Services\Predictions\Import\CorrectedImport;
 use App\Services\Predictions\Import\ParsedImport;
 use App\Services\Predictions\Import\PredictionJsonImporter;
+use App\Services\Predictions\OfficialBracketProjector;
 use Database\Seeders\WorldCup2026Seeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\InteractsWithOfficialResults;
@@ -173,6 +175,92 @@ class PredictionJsonImporterTest extends TestCase
 
         $this->assertNotContains($fixture->match_number, $preview['banner']['missing_match_numbers']);
         $this->assertCount(71, $preview['banner']['missing_match_numbers']);
+    }
+
+    public function test_it_imports_a_phased_pool_against_the_official_match_ups(): void
+    {
+        $phased = $this->tournament->pools()->where('slug', 'world-cup-2026-brothers')->firstOrFail();
+
+        // Official group results + the projected bracket so the knockout fixtures carry real
+        // participants — what a phased pool predicts against (no self-derived bracket).
+        $this->recordOfficialGroupResults($this->tournament, $this->seedOrderScores());
+        (new OfficialBracketProjector)->project($this->tournament);
+
+        $target = $phased->entries()->create(['user_id' => User::factory()->create()->id]);
+        $parsed = $this->importer->parse($phased, $this->phasedJson());
+        $preview = $this->importer->preview($target, $parsed);
+
+        $this->assertFalse($preview['has_errors']);
+        $this->assertSame([], $this->errorRows($preview));
+        // Preview persists nothing; no derived thirds for a phased pool.
+        $this->assertSame(0, $target->knockoutPredictions()->count());
+        $this->assertSame([], $preview['thirds']['derived']);
+
+        $this->importer->commit($target, $this->accept($parsed));
+
+        // Round-of-32 predictions are stamped against the OFFICIAL participants, advancing derived
+        // from the 2-1 score (home), and no tie ordering is ever written for a phased pool.
+        $r32 = $this->tournament->knockoutFixtures()
+            ->whereRelation('phase', 'key', PhaseKey::RoundOf32->value)
+            ->whereNotNull('home_team_id')
+            ->get();
+        $this->assertGreaterThan(0, $r32->count());
+        foreach ($r32 as $fixture) {
+            $this->assertDatabaseHas('knockout_predictions', [
+                'entry_id' => $target->id,
+                'fixture_id' => $fixture->id,
+                'predicted_home_team_id' => $fixture->home_team_id,
+                'predicted_away_team_id' => $fixture->away_team_id,
+                'advancing_team_id' => $fixture->home_team_id,
+                'home_goals' => 2,
+                'away_goals' => 1,
+            ]);
+        }
+
+        $this->assertSame(0, $target->groupOrderings()->count());
+        $this->assertSame(72, $target->groupPredictions()->count());
+        // Group predictions match the official scores, so re-scoring lights up the board.
+        $this->assertGreaterThan(0, $target->refresh()->total_points);
+    }
+
+    /**
+     * A phased-pool blob: group scores equal to the official results, plus a Round-of-32 prediction
+     * for every fixture whose official participants are known (home wins 2-1).
+     *
+     * @return array<string, mixed>
+     */
+    private function phasedJson(): array
+    {
+        $matches = [];
+
+        foreach ($this->tournament->groupFixtures()->with(['homeTeam', 'awayTeam'])->get() as $fixture) {
+            $matches[] = [
+                'match_number' => $fixture->match_number,
+                'home_team' => $fixture->homeTeam->code,
+                'away_team' => $fixture->awayTeam->code,
+                'home_goals' => $fixture->home_goals,
+                'away_goals' => $fixture->away_goals,
+            ];
+        }
+
+        $r32 = $this->tournament->knockoutFixtures()
+            ->whereRelation('phase', 'key', PhaseKey::RoundOf32->value)
+            ->whereNotNull('home_team_id')
+            ->with(['homeTeam', 'awayTeam'])
+            ->get();
+
+        foreach ($r32 as $fixture) {
+            $matches[] = [
+                'match_number' => $fixture->match_number,
+                'home_team' => $fixture->homeTeam->code,
+                'away_team' => $fixture->awayTeam->code,
+                'home_goals' => 2,
+                'away_goals' => 1,
+                'advances' => $fixture->homeTeam->code,
+            ];
+        }
+
+        return ['matches' => $matches];
     }
 
     private function buildReferenceEntry(): Entry

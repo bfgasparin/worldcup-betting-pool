@@ -6,15 +6,13 @@ use App\Models\Pool;
 use App\Models\Tournament;
 use App\Models\User;
 use Illuminate\Contracts\Validation\ValidationRule;
-use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
  * Validates an admin's pasted backfill JSON before it is previewed. Deliberately does NOT check the
  * pool's prediction lock or per-phase windows — backfilling after the lock is the entire point;
- * authorisation is solely the {@see manage-tournament} ability. v1 is restricted to upfront-bracket
- * pools.
+ * authorisation is solely the {@see manage-tournament} ability. Both pool strategies are accepted.
  */
 class BackfillPreviewRequest extends FormRequest
 {
@@ -60,17 +58,6 @@ class BackfillPreviewRequest extends FormRequest
             'payload.array' => __('The pasted content is not valid JSON.'),
             'payload.matches.required' => __('The JSON must contain a "matches" array.'),
         ];
-    }
-
-    public function withValidator(Validator $validator): void
-    {
-        $validator->after(function (Validator $validator): void {
-            $pool = $this->pool();
-
-            if ($pool !== null && ! $pool->predictsKnockoutBracket()) {
-                $validator->errors()->add('pool_id', __('Backfill currently supports only upfront-bracket pools.'));
-            }
-        });
     }
 
     public function tournament(): Tournament

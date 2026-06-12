@@ -7,14 +7,13 @@ use App\Models\Tournament;
 use App\Models\User;
 use App\Services\Predictions\Import\CorrectedImport;
 use Illuminate\Contracts\Validation\ValidationRule;
-use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
  * Validates the admin-reviewed values posted back from the review screen, then assembles them into
  * a {@see CorrectedImport} for the importer. Like the preview request it bypasses prediction-lock
- * checks; authorisation is the {@see manage-tournament} ability and v1 stays upfront-only.
+ * checks; authorisation is the {@see manage-tournament} ability. Both pool strategies are accepted.
  */
 class BackfillCommitRequest extends FormRequest
 {
@@ -50,17 +49,6 @@ class BackfillCommitRequest extends FormRequest
             'thirds_team_ids' => ['present', 'array'],
             'thirds_team_ids.*' => ['integer'],
         ];
-    }
-
-    public function withValidator(Validator $validator): void
-    {
-        $validator->after(function (Validator $validator): void {
-            $pool = $this->pool();
-
-            if ($pool !== null && ! $pool->predictsKnockoutBracket()) {
-                $validator->errors()->add('pool_id', __('Backfill currently supports only upfront-bracket pools.'));
-            }
-        });
     }
 
     public function correctedImport(): CorrectedImport

@@ -50,14 +50,14 @@ class EntryImportControllerTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_the_create_screen_lists_only_upfront_pools(): void
+    public function test_the_create_screen_lists_all_pools(): void
     {
+        // Both the upfront and the phased pool of the tournament are offered.
         $this->actingAs($this->admin())
             ->get(route('manage.backfill.create', $this->tournament))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->component('manage/backfill')
-                ->has('pools', 1)
-                ->where('pools.0.slug', 'world-cup-2026-ffa')
+                ->has('pools', 2)
                 ->has('pools.0.scoring_label')
                 ->has('users')
                 ->has('users.0.avatar')
@@ -90,7 +90,7 @@ class EntryImportControllerTest extends TestCase
         $this->assertSame(0, $entry->groupPredictions()->count());
     }
 
-    public function test_preview_rejects_a_phased_pool(): void
+    public function test_preview_accepts_a_phased_pool(): void
     {
         $phased = $this->tournament->pools()->where('slug', 'world-cup-2026-brothers')->firstOrFail();
 
@@ -100,7 +100,10 @@ class EntryImportControllerTest extends TestCase
                 'user_id' => User::factory()->create()->id,
                 'json' => json_encode($this->groupBlob()),
             ])
-            ->assertSessionHasErrors('pool_id');
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->component('manage/backfill-review')
+                ->where('preview.has_errors', false)
+            );
     }
 
     public function test_preview_rejects_a_pool_from_another_tournament(): void
