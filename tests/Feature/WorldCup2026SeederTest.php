@@ -157,8 +157,8 @@ class WorldCup2026SeederTest extends TestCase
         $this->assertSame('RSA', $opener->awayTeam->code);
 
         // A late kick-off stays correct across timezones: 9 p.m. local on Jun 13 in Vancouver
-        // is really 04:00 UTC on Jun 14 (Australia v Türkiye).
-        $vancouver = Fixture::where('match_number', 20)->firstOrFail();
+        // is really 04:00 UTC on Jun 14 (Australia v Türkiye, match 8 in FIFA order).
+        $vancouver = Fixture::where('match_number', 8)->firstOrFail();
         $this->assertSame('2026-06-14T04:00:00+00:00', $vancouver->kicks_off_at->toIso8601String());
         $this->assertSame(
             '2026-06-13 21:00',
@@ -166,13 +166,14 @@ class WorldCup2026SeederTest extends TestCase
         );
 
         // Corrected group-stage kick-offs (previously off by hours/a day vs the official schedule).
+        // Identified by their FIFA chronological number: 30 = Scotland v Morocco, 20 = Austria v Jordan.
         $this->assertSame(
             '2026-06-19T22:00:00+00:00',
-            Fixture::where('match_number', 15)->firstOrFail()->kicks_off_at->toIso8601String(),
+            Fixture::where('match_number', 30)->firstOrFail()->kicks_off_at->toIso8601String(),
         );
         $this->assertSame(
             '2026-06-17T04:00:00+00:00',
-            Fixture::where('match_number', 56)->firstOrFail()->kicks_off_at->toIso8601String(),
+            Fixture::where('match_number', 20)->firstOrFail()->kicks_off_at->toIso8601String(),
         );
 
         // Corrected knockout fixtures whose date/time/venue were permuted between same-day matches.
@@ -202,14 +203,44 @@ class WorldCup2026SeederTest extends TestCase
     {
         $this->seed(WorldCup2026Seeder::class);
 
-        // Group matches whose home/away order was flipped versus the official FIFA schedule.
-        $match5 = Fixture::where('match_number', 5)->firstOrFail();
-        $this->assertSame('CZE', $match5->homeTeam->code);
-        $this->assertSame('MEX', $match5->awayTeam->code);
+        // Group matches whose home/away order was flipped versus the official FIFA schedule, keyed by
+        // their FIFA chronological number: 53 = Czechia v Mexico, 12 = Sweden v Tunisia.
+        $match53 = Fixture::where('match_number', 53)->firstOrFail();
+        $this->assertSame('CZE', $match53->homeTeam->code);
+        $this->assertSame('MEX', $match53->awayTeam->code);
 
-        $match32 = Fixture::where('match_number', 32)->firstOrFail();
-        $this->assertSame('SWE', $match32->homeTeam->code);
-        $this->assertSame('TUN', $match32->awayTeam->code);
+        $match12 = Fixture::where('match_number', 12)->firstOrFail();
+        $this->assertSame('SWE', $match12->homeTeam->code);
+        $this->assertSame('TUN', $match12->awayTeam->code);
+    }
+
+    public function test_group_fixtures_are_numbered_in_fifa_chronological_order(): void
+    {
+        $this->seed(WorldCup2026Seeder::class);
+
+        $tournament = Tournament::firstOrFail();
+
+        // The opener is match 1, and the headline shift from the old group-by-group numbering: the
+        // second match chronologically (Canada v Bosnia, Group B) is now 3, not 7.
+        $this->assertSame('MEX', Fixture::where('match_number', 1)->firstOrFail()->homeTeam->code);
+        $match3 = Fixture::where('match_number', 3)->firstOrFail();
+        $this->assertSame('CAN', $match3->homeTeam->code);
+        $this->assertSame('BIH', $match3->awayTeam->code);
+
+        // Group numbers 1–72 run in kickoff order (ties allowed for simultaneous final-round matches);
+        // knockout numbers 73–104 are left on FIFA's official bracket numbering.
+        $groupKickoffs = $tournament->groupFixtures()->orderBy('match_number')->pluck('kicks_off_at');
+        $this->assertCount(72, $groupKickoffs);
+        $previous = null;
+        foreach ($groupKickoffs as $kickoff) {
+            if ($previous !== null) {
+                $this->assertTrue($kickoff->greaterThanOrEqualTo($previous), 'Group match numbers must follow kickoff order.');
+            }
+            $previous = $kickoff;
+        }
+
+        $this->assertSame(72, $tournament->groupFixtures()->whereBetween('match_number', [1, 72])->count());
+        $this->assertSame(32, $tournament->knockoutFixtures()->whereBetween('match_number', [73, 104])->count());
     }
 
     private function teamAt(Tournament $tournament, string $group, int $position): Team
