@@ -245,7 +245,10 @@ class Fixture extends Model
     /**
      * Whether the match is over and therefore eligible for an official score.
      *
-     * A fixture has ended once it is live and enough time has passed since
+     * An admin who ended the live match (live scoreboard {@see LiveStatus::Ended})
+     * has declared it over — the authoritative "match over" signal, honoured
+     * immediately regardless of the clock. A match no one tracked live falls back
+     * to a time-based heuristic: it is live and enough time has passed since
      * kickoff to cover regulation, extra time and penalties (see
      * config('scoring.match_duration_minutes')). This is the single gate both
      * the admin review screen and the scheduled fetch honour — a score can
@@ -253,21 +256,31 @@ class Fixture extends Model
      */
     public function hasEnded(): bool
     {
+        if ($this->liveState?->isEnded() === true) {
+            return true;
+        }
+
         return $this->status === FixtureStatus::Live
             && $this->kicks_off_at !== null
             && now()->gte($this->kicks_off_at->addMinutes($this->matchDurationMinutes()));
     }
 
     /**
-     * Limit the query to fixtures that have ended (live and past full time).
+     * Limit the query to fixtures that have ended — mirrors {@see hasEnded()}: a live
+     * scoreboard explicitly ended by the admin, or live and past full time.
      *
      * @param  Builder<Fixture>  $query
      */
     public function scopeEnded(Builder $query): void
     {
-        $query->where('status', FixtureStatus::Live)
-            ->whereNotNull('kicks_off_at')
-            ->where('kicks_off_at', '<=', now()->subMinutes($this->matchDurationMinutes()));
+        $query->where(function (Builder $query): void {
+            $query->whereHas('liveState', fn (Builder $state) => $state->where('status', LiveStatus::Ended))
+                ->orWhere(function (Builder $query): void {
+                    $query->where('status', FixtureStatus::Live)
+                        ->whereNotNull('kicks_off_at')
+                        ->where('kicks_off_at', '<=', now()->subMinutes($this->matchDurationMinutes()));
+                });
+        });
     }
 
     private function matchDurationMinutes(): int

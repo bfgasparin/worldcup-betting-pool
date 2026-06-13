@@ -45,6 +45,7 @@ class LiveFeed
         $live = $tournament->fixtures()
             ->where('status', FixtureStatus::Live)
             ->whereHas('liveState', fn ($query) => $query->where('status', LiveStatus::Live))
+            ->with('liveState')
             ->get();
 
         foreach ($live as $fixture) {
