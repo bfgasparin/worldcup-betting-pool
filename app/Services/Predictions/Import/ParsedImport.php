@@ -17,12 +17,16 @@ final class ParsedImport
      * @param  list<int>  $thirdsTeamIds  resolved third-place team ids, in pasted order
      * @param  list<string>  $unknownTeamCodes  team codes present in the blob that matched no team
      * @param  list<int>  $unknownMatchNumbers  match numbers present in the blob that matched no fixture
+     * @param  array<string, list<int>>  $groupStandings  uppercased group label => resolved team ids in
+     *                                                    the user's stated finishing order, used only to
+     *                                                    break a genuine score-tie inside that group
      */
     public function __construct(
         public readonly array $matches,
         public readonly array $thirdsTeamIds,
         public readonly array $unknownTeamCodes,
         public readonly array $unknownMatchNumbers,
+        public readonly array $groupStandings = [],
     ) {}
 
     /**

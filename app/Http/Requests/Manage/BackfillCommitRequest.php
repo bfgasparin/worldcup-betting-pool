@@ -48,6 +48,11 @@ class BackfillCommitRequest extends FormRequest
 
             'thirds_team_ids' => ['present', 'array'],
             'thirds_team_ids.*' => ['integer'],
+
+            // Optional within-group tiebreaks, keyed by group label => stated finishing order.
+            'group_standings_team_ids' => ['sometimes', 'array'],
+            'group_standings_team_ids.*' => ['array'],
+            'group_standings_team_ids.*.*' => ['integer'],
         ];
     }
 
@@ -68,7 +73,12 @@ class BackfillCommitRequest extends FormRequest
 
         $thirds = array_map('intval', $this->validated('thirds_team_ids', []));
 
-        return new CorrectedImport($group, $knockout, $thirds);
+        $groupStandings = array_map(
+            fn (array $ids): array => array_map('intval', $ids),
+            $this->validated('group_standings_team_ids', []),
+        );
+
+        return new CorrectedImport($group, $knockout, $thirds, $groupStandings);
     }
 
     public function tournament(): Tournament
