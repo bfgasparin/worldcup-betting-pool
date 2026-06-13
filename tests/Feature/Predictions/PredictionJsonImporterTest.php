@@ -129,6 +129,122 @@ class PredictionJsonImporterTest extends TestCase
         $this->assertSame($imported->predicted_home_team_id, $imported->advancing_team_id);
     }
 
+    public function test_preview_proposes_a_positional_advance_for_an_out_of_match_pick(): void
+    {
+        $json = $this->jsonFromEntry($this->buildReferenceEntry());
+
+        // The JSON author dropped a stranger into the home spot of a knockout match and advanced it.
+        [$row, $derivedHome, $stranger] = $this->corruptKnockoutHomePick($json);
+
+        $target = $this->entryFor(User::factory()->create());
+        $preview = $this->importer->preview($target, $this->importer->parse($this->pool, $json));
+
+        $previewRow = collect($preview['rows'])->firstWhere('fixture_id', $row['fixture_id']);
+        $this->assertContains('advances_not_in_match', $previewRow['flags']);
+        // No redundant score-contradiction noise when the pick isn't even in the match.
+        $this->assertNotContains('advances_contradicts_score', $previewRow['flags']);
+        $this->assertSame($stranger->id, $previewRow['json_advances']['id']);
+
+        // The stranger was the home pick, so the real home qualifier is proposed to advance.
+        $this->assertNotNull($previewRow['position_advance']);
+        $this->assertSame('home', $previewRow['position_advance']['side']);
+        $this->assertSame($derivedHome->id, $previewRow['position_advance']['team']['id']);
+    }
+
+    public function test_committing_the_positional_advance_resolves_a_drawn_out_of_match_pick(): void
+    {
+        $json = $this->jsonFromEntry($this->buildReferenceEntry());
+        [$row, $derivedHome] = $this->corruptKnockoutHomePick($json);
+
+        // Make the match a draw, where the advancing pick is load-bearing (a decisive score would
+        // decide it on its own).
+        $matchIndex = $this->matchIndexForNumber($json, $row['match_number']);
+        $json['matches'][$matchIndex]['home_goals'] = 1;
+        $json['matches'][$matchIndex]['away_goals'] = 1;
+
+        $target = $this->entryFor(User::factory()->create());
+        $parsed = $this->importer->parse($this->pool, $json);
+
+        // The default (out-of-match) pick can't be honoured on a draw — no winner.
+        $previewRow = collect($this->importer->preview($target, $parsed)['rows'])->firstWhere('fixture_id', $row['fixture_id']);
+        $this->assertNull($previewRow['advancing']);
+
+        // Committing with the positional advance (what the review screen sends on consent) advances the
+        // real home team.
+        $knockout = $parsed->knockoutRows();
+        foreach ($knockout as $i => $kr) {
+            if ($kr['fixture_id'] === $row['fixture_id']) {
+                $knockout[$i]['advancing_pick'] = $derivedHome->id;
+            }
+        }
+
+        $this->importer->commit($target, new CorrectedImport($parsed->groupRows(), $knockout, $parsed->thirdsTeamIds, $parsed->groupStandings));
+
+        $imported = $target->knockoutPredictions()->where('fixture_id', $row['fixture_id'])->firstOrFail();
+        $this->assertSame($derivedHome->id, $imported->advancing_team_id);
+    }
+
+    public function test_a_phased_pool_offers_no_positional_salvage(): void
+    {
+        $phased = $this->tournament->pools()->where('slug', 'world-cup-2026-brothers')->firstOrFail();
+        $this->recordOfficialGroupResults($this->tournament, $this->seedOrderScores());
+        (new OfficialBracketProjector)->project($this->tournament);
+
+        $json = $this->phasedJson();
+        $index = $this->firstKnockoutMatchIndex($json);
+        $match = $json['matches'][$index];
+        $stranger = Team::whereNotIn('code', [$match['home_team'], $match['away_team']])->firstOrFail();
+        $json['matches'][$index]['advances'] = $stranger->code;
+
+        $target = $phased->entries()->create(['user_id' => User::factory()->create()->id]);
+        $previewRow = collect($this->importer->preview($target, $this->importer->parse($phased, $json))['rows'])
+            ->firstWhere('match_number', $match['match_number']);
+
+        // The mismatch is still flagged, but a phased pool derives no bracket, so there is no
+        // home/away side to borrow.
+        $this->assertContains('advances_not_in_match', $previewRow['flags']);
+        $this->assertNull($previewRow['position_advance']);
+    }
+
+    /**
+     * Rewrite the first knockout match of a self-consistent blob so its home spot holds a stranger that
+     * isn't in the derived match-up, and advance that stranger. Returns the (pre-mutation) blob row, the
+     * real derived home team, and the stranger.
+     *
+     * @param  array<string, mixed>  $json  mutated in place
+     * @return array{0: array<string, mixed>, 1: Team, 2: Team}
+     */
+    private function corruptKnockoutHomePick(array &$json): array
+    {
+        $index = $this->firstKnockoutMatchIndex($json);
+        $row = $json['matches'][$index];
+
+        $derivedHome = Team::where('code', $row['home_team'])->firstOrFail();
+        $stranger = Team::whereNotIn('code', [$row['home_team'], $row['away_team']])->firstOrFail();
+
+        $json['matches'][$index]['home_team'] = $stranger->code;
+        $json['matches'][$index]['advances'] = $stranger->code;
+
+        // Decorate the returned row with its fixture id for convenient lookups in the preview.
+        $row['fixture_id'] = $this->tournament->fixtures()->where('match_number', $row['match_number'])->value('id');
+
+        return [$row, $derivedHome, $stranger];
+    }
+
+    /**
+     * @param  array<string, mixed>  $json
+     */
+    private function matchIndexForNumber(array $json, int $matchNumber): int
+    {
+        foreach ($json['matches'] as $index => $match) {
+            if ($match['match_number'] === $matchNumber) {
+                return $index;
+            }
+        }
+
+        $this->fail("No match number {$matchNumber} in the blob.");
+    }
+
     public function test_unknown_match_numbers_and_team_codes_are_flagged_as_errors(): void
     {
         $json = [

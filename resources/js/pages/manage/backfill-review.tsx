@@ -25,6 +25,8 @@ interface RowData {
     home_goals: number | null;
     away_goals: number | null;
     advancing: TeamRef | null;
+    json_advances: TeamRef | null;
+    position_advance: { side: 'home' | 'away'; team: TeamRef } | null;
     flags: string[];
     severity: 'ok' | 'warning' | 'error';
 }
@@ -177,6 +179,38 @@ function ReviewRow({
                             ? tCountry(row.json_away.code, row.json_away.name)
                             : '—',
                     })}
+                </p>
+            )}
+
+            {row.position_advance && (
+                <p className="text-xs text-muted-foreground">
+                    {bothScored && !isDraw
+                        ? t(
+                              'Advances :team, who isn’t in this match. The score decides who advances.',
+                              {
+                                  team: row.json_advances
+                                      ? tCountry(
+                                            row.json_advances.code,
+                                            row.json_advances.name,
+                                        )
+                                      : '—',
+                              },
+                          )
+                        : t(
+                              'Advances :team, who isn’t in this match. :real will advance instead.',
+                              {
+                                  team: row.json_advances
+                                      ? tCountry(
+                                            row.json_advances.code,
+                                            row.json_advances.name,
+                                        )
+                                      : '—',
+                                  real: tCountry(
+                                      row.position_advance.team.code,
+                                      row.position_advance.team.name,
+                                  ),
+                              },
+                          )}
                 </p>
             )}
 
@@ -388,6 +422,7 @@ export default function BackfillReview({
         ),
     );
     const [overwrite, setOverwrite] = useState(false);
+    const [acceptPositionAdvance, setAcceptPositionAdvance] = useState(false);
     const [committing, setCommitting] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -398,8 +433,55 @@ export default function BackfillReview({
         }));
     };
 
+    // Knockout matches whose pasted advancing team isn't in the derived match-up. They block the import
+    // unless the admin consents to the positional salvage (advance the real team on the same side);
+    // a mismatch with no resolvable side (`position_advance === null`) can't be salvaged and keeps
+    // blocking.
+    const advanceMismatchRows = preview.rows.filter((row) =>
+        row.flags.includes('advances_not_in_match'),
+    );
+    const salvageableRows = advanceMismatchRows.filter(
+        (row) => row.position_advance !== null,
+    );
+
+    // On consent, fill the proposed positional team where the row has no advancing pick yet (drawn
+    // matches — a decisive score already advances the right team on its own).
+    const acceptPosition = (checked: boolean): void => {
+        setAcceptPositionAdvance(checked);
+
+        if (!checked) {
+            return;
+        }
+
+        setValues((current) => {
+            const next = { ...current };
+
+            for (const row of salvageableRows) {
+                if (
+                    row.position_advance &&
+                    next[row.fixture_id].advancing === ''
+                ) {
+                    next[row.fixture_id] = {
+                        ...next[row.fixture_id],
+                        advancing: String(row.position_advance.team.id),
+                    };
+                }
+            }
+
+            return next;
+        });
+    };
+
+    const otherBlocking =
+        preview.banner.unknown_match_numbers.length > 0 ||
+        preview.banner.unknown_team_codes.length > 0 ||
+        advanceMismatchRows.length > salvageableRows.length;
     const blockedByOverwrite = preview.banner.already_populated && !overwrite;
-    const canCommit = !preview.has_errors && !blockedByOverwrite && !committing;
+    const canCommit =
+        !otherBlocking &&
+        (salvageableRows.length === 0 || acceptPositionAdvance) &&
+        !blockedByOverwrite &&
+        !committing;
 
     const commit = () => {
         const group: Array<{
@@ -531,6 +613,29 @@ export default function BackfillReview({
                             </span>{' '}
                             {t(
                                 'Tick to replace them with this import. This cannot be undone.',
+                            )}
+                        </span>
+                    </label>
+                )}
+
+                {salvageableRows.length > 0 && (
+                    <label className="flex items-start gap-3 rounded-2xl border border-amber/40 bg-accent/[0.07] p-4 text-sm">
+                        <Checkbox
+                            checked={acceptPositionAdvance}
+                            onCheckedChange={(checked) =>
+                                acceptPosition(checked === true)
+                            }
+                            className="mt-0.5"
+                        />
+                        <span>
+                            <span className="font-semibold">
+                                {t(
+                                    ':count knockout matches advance a team that isn’t in the derived match-up.',
+                                    { count: salvageableRows.length },
+                                )}
+                            </span>{' '}
+                            {t(
+                                'Import anyway — advance the real team on the side the player picked (home or away).',
                             )}
                         </span>
                     </label>
