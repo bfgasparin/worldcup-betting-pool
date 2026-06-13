@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Manage;
 
+use App\Enums\OrderingScope;
 use App\Models\Fixture;
 use App\Models\Pool;
+use App\Models\Team;
 use App\Models\Tournament;
 use App\Models\User;
 use App\Notifications\PredictionsOverwrittenNotification;
@@ -190,6 +192,124 @@ class EntryImportControllerTest extends TestCase
         // Blade escapes the names (the pool name carries an "&"), so compare the escaped form.
         $this->assertStringContainsString(e($this->pool->name), $html);
         $this->assertStringContainsString(e($this->pool->source), $html);
+    }
+
+    public function test_preview_reports_a_group_tie_resolved_by_the_pasted_standings(): void
+    {
+        $byPosition = $this->groupATeamsByPosition();
+        [$matches] = $this->tieGroupRows();
+
+        $json = [
+            'matches' => $matches,
+            'group_standings' => [[
+                'group' => 'A',
+                'standings' => [$byPosition[2]->code, $byPosition[1]->code, $byPosition[3]->code, $byPosition[4]->code],
+            ]],
+        ];
+
+        $this->actingAs($this->admin())
+            ->post(route('manage.backfill.preview', $this->tournament), [
+                'pool_id' => $this->pool->id,
+                'user_id' => User::factory()->create()->id,
+                'json' => json_encode($json),
+            ])
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->component('manage/backfill-review')
+                ->where('preview.has_errors', false)
+                ->where('group_standings_team_ids.A', [$byPosition[2]->id, $byPosition[1]->id, $byPosition[3]->id, $byPosition[4]->id])
+                ->has('preview.group_ties', 1)
+                ->where('preview.group_ties.0.group', 'A')
+                ->where('preview.group_ties.0.resolved_by_standings', true)
+            );
+    }
+
+    public function test_commit_applies_group_standings_team_ids_to_break_a_tie(): void
+    {
+        Notification::fake();
+        $byPosition = $this->groupATeamsByPosition();
+        [, $group] = $this->tieGroupRows();
+        $user = User::factory()->create();
+
+        $this->actingAs($this->admin())
+            ->post(route('manage.backfill.commit', $this->tournament), [
+                'pool_id' => $this->pool->id,
+                'user_id' => $user->id,
+                'group' => $group,
+                'knockout' => [],
+                'thirds_team_ids' => [],
+                'group_standings_team_ids' => ['A' => [$byPosition[2]->id, $byPosition[1]->id]],
+            ])
+            ->assertRedirect(route('manage.backfill.create', $this->tournament));
+
+        $entry = $this->pool->entryFor($user);
+        $groupA = $this->tournament->groups()->where('name', 'A')->firstOrFail();
+        $row = $entry->groupOrderings()
+            ->where('scope', OrderingScope::WithinGroup)
+            ->where('group_id', $groupA->id)
+            ->firstOrFail();
+
+        $this->assertSame([$byPosition[2]->id, $byPosition[1]->id], array_map('intval', $row->ordered_team_ids));
+    }
+
+    /**
+     * A 72-row group stage with group A scored to a perfect 1st/2nd tie (drawn head-to-head, both beat
+     * 3rd & 4th 1–0) and every other group in seed order. Returns the pasted-JSON matches and the
+     * commit `group` rows in lockstep.
+     *
+     * @return array{0: list<array<string, mixed>>, 1: list<array<string, int>>}
+     */
+    private function tieGroupRows(): array
+    {
+        $seed = $this->seedOrderScores();
+        $tie = function (int $homePosition, int $awayPosition): array {
+            if (min($homePosition, $awayPosition) === 1 && max($homePosition, $awayPosition) === 2) {
+                return [1, 1];
+            }
+
+            return $homePosition < $awayPosition ? [1, 0] : [0, 1];
+        };
+
+        $matches = [];
+        $group = [];
+
+        foreach ($this->tournament->groups()->orderBy('sort_order')->get() as $g) {
+            $positions = $g->teams()->get()->mapWithKeys(fn (Team $team): array => [$team->id => $team->pivot->position]);
+            $rule = $g->name === 'A' ? $tie : $seed;
+
+            foreach ($g->fixtures()->with(['homeTeam', 'awayTeam'])->orderBy('match_number')->get() as $fixture) {
+                [$home, $away] = $rule($positions[$fixture->home_team_id], $positions[$fixture->away_team_id]);
+
+                $matches[] = [
+                    'match_number' => $fixture->match_number,
+                    'home_team' => $fixture->homeTeam->code,
+                    'away_team' => $fixture->awayTeam->code,
+                    'home_goals' => $home,
+                    'away_goals' => $away,
+                ];
+                $group[] = ['fixture_id' => $fixture->id, 'home_goals' => $home, 'away_goals' => $away];
+            }
+        }
+
+        return [$matches, $group];
+    }
+
+    /**
+     * Group A's teams keyed by seed position (1–4).
+     *
+     * @return array<int, Team>
+     */
+    private function groupATeamsByPosition(): array
+    {
+        $group = $this->tournament->groups()->where('name', 'A')->firstOrFail();
+
+        $byPosition = [];
+        foreach ($group->teams()->get() as $team) {
+            $byPosition[$team->pivot->position] = $team;
+        }
+
+        ksort($byPosition);
+
+        return $byPosition;
     }
 
     /**

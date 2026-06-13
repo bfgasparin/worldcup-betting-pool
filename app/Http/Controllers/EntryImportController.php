@@ -56,6 +56,7 @@ class EntryImportController extends Controller
             'user' => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email],
             'preview' => $importer->preview($entry, $parsed),
             'thirds_team_ids' => $parsed->thirdsTeamIds,
+            'group_standings_team_ids' => $parsed->groupStandings,
         ]);
     }
 
