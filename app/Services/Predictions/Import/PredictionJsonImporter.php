@@ -436,6 +436,10 @@ class PredictionJsonImporter
         $teams = Team::all()->keyBy('id');
         $knockoutRows = $entry->knockoutPredictions()->get()->keyBy('fixture_id');
 
+        // Only upfront pools derive the bracket from the group scores; the third-place cut, the
+        // within-group ties, and the positional advancing salvage all hang off that derivation.
+        $derivesBracket = $entry->pool->predictsKnockoutBracket();
+
         $matches = $parsed->matches;
         usort($matches, fn (ParsedMatch $a, ParsedMatch $b): int => $a->matchNumber <=> $b->matchNumber);
 
@@ -449,16 +453,16 @@ class PredictionJsonImporter
 
             $fixture = $fixtures->get($match->fixtureId);
             $row = $match->isKnockout
-                ? $this->knockoutRow($match, $fixture, $knockoutRows->get($match->fixtureId), $teams)
+                ? $this->knockoutRow($match, $fixture, $knockoutRows->get($match->fixtureId), $teams, $derivesBracket)
                 : $this->groupRow($match, $fixture, $teams);
 
             $hasRowError = $hasRowError || $row['severity'] === 'error';
             $rows[] = $row;
         }
 
-        // Only upfront pools derive a third-place cut from the group scores; a phased pool predicts
-        // the official match-ups, so there is nothing derived to compare the JSON ordering against.
-        $derivedThirds = $entry->pool->predictsKnockoutBracket()
+        // A phased pool predicts the official match-ups, so there is nothing derived to compare the
+        // JSON third-place ordering against.
+        $derivedThirds = $derivesBracket
             ? ($this->resolver->resolve($entry)->rankedThirds ?? [])
             : [];
         $jsonThirds = array_slice($parsed->thirdsTeamIds, 0, count($derivedThirds));
@@ -466,7 +470,7 @@ class PredictionJsonImporter
             && array_diff($derivedThirds, $jsonThirds) !== [];
 
         // Only upfront pools derive group standings, so only they can carry a within-group tie.
-        $groupTies = $entry->pool->predictsKnockoutBracket()
+        $groupTies = $derivesBracket
             ? $this->groupTiesReport($entry, $parsed, $teams)
             : [];
 
@@ -582,7 +586,7 @@ class PredictionJsonImporter
      * @param  Collection<int, Team>  $teams
      * @return array<string, mixed>
      */
-    private function knockoutRow(ParsedMatch $match, ?Fixture $fixture, ?KnockoutPrediction $prediction, Collection $teams): array
+    private function knockoutRow(ParsedMatch $match, ?Fixture $fixture, ?KnockoutPrediction $prediction, Collection $teams, bool $derivesBracket): array
     {
         $slotHome = $prediction?->predicted_home_team_id;
         $slotAway = $prediction?->predicted_away_team_id;
@@ -598,7 +602,10 @@ class PredictionJsonImporter
             $flags[] = 'matchup_mismatch';
         }
 
-        if ($match->advancesTeamId !== null && $slotKnown && ! in_array($match->advancesTeamId, [$slotHome, $slotAway], true)) {
+        $advancesOutOfMatch = $match->advancesTeamId !== null && $slotKnown
+            && ! in_array($match->advancesTeamId, [$slotHome, $slotAway], true);
+
+        if ($advancesOutOfMatch) {
             $flags[] = 'advances_not_in_match';
         }
 
@@ -609,7 +616,9 @@ class PredictionJsonImporter
             $flags[] = 'advances_missing_on_draw';
         }
 
-        if ($slotKnown && $bothGoals && ! $isDraw && $match->advancesTeamId !== null
+        // When the pick isn't even in the match the out-of-match flag is the root issue; the score
+        // contradiction is a redundant consequence, so don't pile it on.
+        if (! $advancesOutOfMatch && $slotKnown && $bothGoals && ! $isDraw && $match->advancesTeamId !== null
             && $match->advancesTeamId !== $prediction?->advancing_team_id) {
             $flags[] = 'advances_contradicts_score';
         }
@@ -623,11 +632,44 @@ class PredictionJsonImporter
             'away' => $this->teamRef($teams->get($slotAway)),
             'json_home' => $this->teamRef($teams->get($match->homeTeamId)),
             'json_away' => $this->teamRef($teams->get($match->awayTeamId)),
+            'json_advances' => $advancesOutOfMatch ? $this->teamRef($teams->get($match->advancesTeamId)) : null,
+            'position_advance' => $advancesOutOfMatch && $derivesBracket
+                ? $this->positionAdvance($match, $slotHome, $slotAway, $teams)
+                : null,
             'home_goals' => $match->homeGoals,
             'away_goals' => $match->awayGoals,
             'advancing' => $this->teamRef($teams->get($prediction?->advancing_team_id)),
             'flags' => $flags,
             'severity' => $this->severity($flags),
+        ];
+    }
+
+    /**
+     * For an out-of-match advancing pick (upfront only): the real derived team on the same side the JSON
+     * listed that pick on — its home_team => the derived home, its away_team => the derived away. Null
+     * when the pick isn't even one of the two teams the JSON typed for the match, so there is no side to
+     * borrow. The admin opts into using this in the review screen ({@see backfill-review}).
+     *
+     * @param  Collection<int, Team>  $teams
+     * @return array{side: string, team: array<string, mixed>}|null
+     */
+    private function positionAdvance(ParsedMatch $match, int $slotHome, int $slotAway, Collection $teams): ?array
+    {
+        $side = null;
+
+        if ($match->advancesCode !== null && $match->advancesCode === $match->homeCode) {
+            $side = 'home';
+        } elseif ($match->advancesCode !== null && $match->advancesCode === $match->awayCode) {
+            $side = 'away';
+        }
+
+        if ($side === null) {
+            return null;
+        }
+
+        return [
+            'side' => $side,
+            'team' => $this->teamRef($teams->get($side === 'home' ? $slotHome : $slotAway)),
         ];
     }
 
