@@ -2,9 +2,11 @@
 
 namespace Tests\Feature\Scoring;
 
+use App\Enums\FixtureStatus;
 use App\Enums\OrderingScope;
 use App\Enums\ProposalStatus;
 use App\Models\Fixture;
+use App\Models\FixtureLiveState;
 use App\Models\Pool;
 use App\Models\ScoreBatch;
 use App\Models\Team;
@@ -110,6 +112,44 @@ class ScoreReviewControllerTest extends TestCase
             ->assertSessionHasErrors('home_goals');
 
         $this->assertDatabaseCount('score_proposals', 0);
+    }
+
+    public function test_a_score_can_be_saved_once_the_admin_ends_the_live_match_before_full_time(): void
+    {
+        // Reproduces the report: the admin ended the live match in Live Control well before the
+        // 150-minute mark, so the live scoreboard is Ended even though kickoff was minutes ago.
+        // The ended event is the source of truth, so the score saves rather than being rejected.
+        $fixture = $this->endedLiveBeforeFullTime($this->firstGroupFixture());
+
+        $this->actingAs($this->admin())
+            ->from(route('manage.scores.review', $this->tournament))
+            ->patch(route('manage.scores.proposal', [$this->tournament, $fixture]), [
+                'home_goals' => 3,
+                'away_goals' => 1,
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('score_proposals', [
+            'fixture_id' => $fixture->id,
+            'home_goals' => 3,
+            'away_goals' => 1,
+            'status' => ProposalStatus::Edited->value,
+        ]);
+    }
+
+    public function test_a_live_match_ended_before_full_time_shows_as_ended_on_review(): void
+    {
+        $fixture = $this->endedLiveBeforeFullTime($this->firstGroupFixture());
+
+        $this->actingAs($this->admin())
+            ->get(route('manage.scores.review', $this->tournament))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->component('manage/scores')
+                ->has('rows', 1)
+                ->where('rows.0.fixture_id', $fixture->id)
+                ->where('rows.0.has_ended', true)
+            );
     }
 
     public function test_a_decisive_knockout_derives_the_advancing_team_from_the_score(): void
@@ -261,6 +301,21 @@ class ScoreReviewControllerTest extends TestCase
     private function firstGroupFixture(): Fixture
     {
         return $this->tournament->groupFixtures()->orderBy('match_number')->firstOrFail();
+    }
+
+    /**
+     * A fixture the admin took live and ended only minutes after kickoff — the live scoreboard is
+     * Ended while the clock is still far short of full time.
+     */
+    private function endedLiveBeforeFullTime(Fixture $fixture): Fixture
+    {
+        $fixture->update([
+            'status' => FixtureStatus::Live,
+            'kicks_off_at' => now()->subMinutes(10),
+        ]);
+        FixtureLiveState::factory()->for($fixture)->ended()->withScore(0, 0)->create();
+
+        return $fixture;
     }
 
     private function firstKnockoutFixture(): Fixture

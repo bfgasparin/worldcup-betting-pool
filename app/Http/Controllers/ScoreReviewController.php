@@ -37,7 +37,7 @@ class ScoreReviewController extends Controller
         $proposals = $batch?->proposals()->get()->keyBy('fixture_id') ?? collect();
 
         $fixtures = $tournament->fixtures()
-            ->with(['phase', 'homeTeam', 'awayTeam'])
+            ->with(['phase', 'homeTeam', 'awayTeam', 'liveState'])
             ->orderBy('match_number')
             ->get()
             // Ended matches still awaiting an official result, plus any already proposed in this
