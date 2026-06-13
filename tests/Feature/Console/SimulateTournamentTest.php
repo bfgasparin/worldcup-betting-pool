@@ -77,7 +77,11 @@ class SimulateTournamentTest extends TestCase
     {
         // The default has no human to break ties, so it must auto-resolve every player's standings
         // — including a thirds tie hidden behind a within-group tie — leaving no bracket blocked.
-        $this->artisan('tournament:simulate', ['--players' => 3, '--predict-only' => true])
+        // A fixed --seed pins the deterministic world so this reliably presents the hard case
+        // (a straddling best-thirds cut); the seed-free world stopped doing so after the group
+        // fixtures were renumbered. If the seeder structure changes, re-sweep for a seed whose
+        // simulated world exercises the cut (see docs/investigations/2026-06-13-suite-failures.md).
+        $this->artisan('tournament:simulate', ['--players' => 3, '--predict-only' => true, '--seed' => '2'])
             ->assertSuccessful();
 
         $exercisedThirdsCut = false;
@@ -97,9 +101,9 @@ class SimulateTournamentTest extends TestCase
             }
         });
 
-        // Guard the invariant against going vacuous: the fixed default world must actually present
-        // the hard case (a best-thirds cut tie the no-human default resolves), not a tie-free board
-        // that would pass for free if the resolver regressed. One player's bracket reliably does.
+        // Guard the invariant against going vacuous: the seeded world must actually present the
+        // hard case (a best-thirds cut tie the no-human default resolves), not a tie-free board
+        // that would pass for free if the resolver regressed. The pinned seed guarantees it.
         $this->assertTrue(
             $exercisedThirdsCut,
             'Expected the default simulation to exercise a straddling best-thirds cut, but none did.',
