@@ -60,6 +60,19 @@ class FixtureTest extends TestCase
         $this->assertTrue($fixture->hasEnded());
     }
 
+    public function test_an_explicitly_ended_live_match_has_ended_before_full_time(): void
+    {
+        // Reproduces the report: the admin ended the live match well before full time, so the live
+        // scoreboard is Ended even though only minutes have passed since kickoff.
+        $fixture = Fixture::factory()->create([
+            'status' => FixtureStatus::Live,
+            'kicks_off_at' => now()->subMinutes(10),
+        ]);
+        FixtureLiveState::factory()->for($fixture)->ended()->create();
+
+        $this->assertTrue($fixture->hasEnded());
+    }
+
     public function test_a_finished_fixture_is_not_considered_ended(): void
     {
         $fixture = new Fixture([
@@ -95,6 +108,28 @@ class FixtureTest extends TestCase
         $ids = Fixture::ended()->pluck('id');
 
         $this->assertEquals([$ended->id], $ids->all());
+    }
+
+    public function test_scope_ended_includes_an_explicitly_ended_live_match_before_full_time(): void
+    {
+        // Live, only minutes past kickoff, but the admin has ended the live scoreboard.
+        $endedLive = Fixture::factory()->create([
+            'status' => FixtureStatus::Live,
+            'kicks_off_at' => now()->subMinutes(10),
+        ]);
+        FixtureLiveState::factory()->for($endedLive)->ended()->create();
+
+        // Live, only minutes past kickoff, still in play — must stay excluded.
+        $stillLive = Fixture::factory()->create([
+            'status' => FixtureStatus::Live,
+            'kicks_off_at' => now()->subMinutes(10),
+        ]);
+        FixtureLiveState::factory()->for($stillLive)->create();
+
+        $ids = Fixture::ended()->pluck('id');
+
+        $this->assertTrue($ids->contains($endedLive->id));
+        $this->assertFalse($ids->contains($stillLive->id));
     }
 
     public function test_penalties_are_fillable(): void

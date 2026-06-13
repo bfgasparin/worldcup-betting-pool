@@ -52,7 +52,9 @@ class UpdateScoreProposalRequest extends FormRequest
             }
 
             if (! $fixture->hasEnded()) {
-                $validator->errors()->add('home_goals', __('This match has not ended yet.'));
+                $validator->errors()->add('home_goals', __('This match is not over yet — its final score can be entered :minutes minutes after kickoff.', [
+                    'minutes' => (int) config('scoring.match_duration_minutes'),
+                ]));
 
                 return;
             }

@@ -22,6 +22,7 @@ use App\Models\Tournament;
 use App\Models\User;
 use App\Notifications\PredictionWindowOpenedNotification;
 use App\Notifications\TopOfLeaderboardNotification;
+use App\Services\Live\EndLiveMatch;
 use Database\Seeders\WorldCup2026Seeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
@@ -371,6 +372,28 @@ class ApproveScoreBatchTest extends TestCase
         // The rejected fixture is never finished, so its still-open board is left alone.
         $this->assertNotSame(FixtureStatus::Finished, $rejectedFixture->fresh()->status);
         $this->assertSame(LiveStatus::Live, $rejectedFixture->fresh()->liveState->status);
+    }
+
+    public function test_ending_an_untouched_live_match_then_approving_publishes_a_zero_zero_result(): void
+    {
+        $fixture = $this->tournament->groupFixtures()->orderBy('match_number')->first();
+
+        // Reproduce the report: the match went live and was ended without the admin ever touching
+        // the score. An untouched board has null goals, which used to yield a null-goal proposal
+        // that blocked approval with "Every match in the batch needs a final score."
+        $fixture->update(['status' => FixtureStatus::Live]);
+        FixtureLiveState::factory()->for($fixture)->create();
+        app(EndLiveMatch::class)->end($fixture);
+
+        $this->actingAs($this->admin())
+            ->post(route('manage.scores.approve', $this->tournament))
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('manage.scores.review', $this->tournament));
+
+        $fixture->refresh();
+        $this->assertSame(FixtureStatus::Finished, $fixture->status);
+        $this->assertSame(0, $fixture->home_goals);
+        $this->assertSame(0, $fixture->away_goals);
     }
 
     private function proposeOneGroupFixture(ScoreBatch $batch, Fixture $fixture, int $home = 2, int $away = 1): ScoreProposal

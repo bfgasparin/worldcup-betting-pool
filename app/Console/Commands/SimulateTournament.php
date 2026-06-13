@@ -8,6 +8,7 @@ use App\Enums\ProposalStatus;
 use App\Models\Entry;
 use App\Models\EntryGroupOrdering;
 use App\Models\Fixture;
+use App\Models\FixtureLiveState;
 use App\Models\GroupPrediction;
 use App\Models\KnockoutPrediction;
 use App\Models\LeaderboardStanding;
@@ -293,11 +294,12 @@ class SimulateTournament extends Command
     }
 
     /**
-     * Reset the tournament to a fully unplayed state: clear official results, projected knockout
-     * participants, every pool's predictions, tie orderings, leaderboard standings and computed
-     * totals/ranks, and any score batches. Clearing the predictions (not just results) is what lets
-     * a re-run regenerate them — otherwise the generators skip entries that already have picks, so a
-     * changed generation rule (e.g. injecting drawn knockout scores) would never take effect.
+     * Reset the tournament to a fully unplayed state: clear official results, live scoreboards,
+     * projected knockout participants, every pool's predictions, tie orderings, leaderboard
+     * standings and computed totals/ranks, and any score batches. Clearing the predictions (not
+     * just results) is what lets a re-run regenerate them — otherwise the generators skip entries
+     * that already have picks, so a changed generation rule (e.g. injecting drawn knockout scores)
+     * would never take effect.
      */
     private function reset(Tournament $tournament): void
     {
@@ -309,6 +311,10 @@ class SimulateTournament extends Command
             'away_penalties' => null,
             'status' => FixtureStatus::Scheduled->value,
         ]);
+
+        // Drop any live scoreboards so a re-run starts the Live Center fresh; otherwise stale
+        // boards survive against reset fixtures, mirroring Fixture::reschedule()'s liveState delete.
+        FixtureLiveState::whereIn('fixture_id', $tournament->fixtures()->pluck('id'))->delete();
 
         Fixture::whereIn('id', $tournament->knockoutFixtures()->pluck('id'))
             ->update(['home_team_id' => null, 'away_team_id' => null]);

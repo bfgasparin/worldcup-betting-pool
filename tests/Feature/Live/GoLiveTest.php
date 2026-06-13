@@ -6,6 +6,7 @@ use App\Enums\FixtureStatus;
 use App\Enums\LiveStatus;
 use App\Enums\TournamentStatus;
 use App\Models\Fixture;
+use App\Models\FixtureLiveState;
 use App\Models\Tournament;
 use App\Services\Live\GoLive;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -37,6 +38,10 @@ class GoLiveTest extends TestCase
         $this->assertNotNull($state->started_at);
         $this->assertSame(FixtureStatus::Live, $fixture->fresh()->status);
         $this->assertSame(LiveStatus::Live, $fixture->fresh()->liveState->status);
+
+        // The scoreboard starts 0–0, so an untouched match still ends with a concrete score.
+        $this->assertSame(0, $state->home_goals);
+        $this->assertSame(0, $state->away_goals);
 
         // Official result columns are never touched.
         $this->assertNull($fixture->fresh()->home_goals);
@@ -75,5 +80,17 @@ class GoLiveTest extends TestCase
 
         $this->assertSame(LiveStatus::Live, $state->status);
         $this->assertSame(FixtureStatus::Live, $fixture->fresh()->status);
+    }
+
+    public function test_re_going_live_preserves_an_in_progress_score(): void
+    {
+        $fixture = Fixture::factory()->create(['status' => FixtureStatus::Live]);
+        FixtureLiveState::factory()->for($fixture)->withScore(2, 1)->create();
+
+        $state = app(GoLive::class)->force($fixture);
+
+        // Seeding to 0–0 must never wipe a score that is already on the board.
+        $this->assertSame(2, $state->home_goals);
+        $this->assertSame(1, $state->away_goals);
     }
 }

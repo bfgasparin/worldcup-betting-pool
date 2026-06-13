@@ -1,9 +1,21 @@
 import { Head, router, usePage } from '@inertiajs/react';
-import { Minus, Plus, Radio } from 'lucide-react';
-import { useState } from 'react';
+import { Minus, Plus, Radio, Search } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { LiveBadge } from '@/components/live-badge';
 import { TeamScoreRow } from '@/components/team-score-row';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { useTranslation } from '@/hooks/use-translation';
 import type { Translator } from '@/hooks/use-translation';
 import { getActiveLocale } from '@/lib/locale';
@@ -14,6 +26,40 @@ import type { LiveControlFixture } from '@/types/live';
 interface LiveControlProps {
     tournament: { name: string; slug: string };
     fixtures: LiveControlFixture[];
+}
+
+type LiveTab = 'liveReady' | 'upcoming' | 'ended' | 'all';
+type LiveBucket = 'liveReady' | 'upcoming' | 'ended';
+
+/**
+ * Which filter bucket a fixture belongs to. A live match folds into "Live & ready" so it stays
+ * visible (and manageable) in the default view — it only moves to "Ended" once the admin actually
+ * ends it. No clock math here: `can_go_live`/`live_status` are computed server-side.
+ */
+function classifyFixture(fixture: LiveControlFixture): LiveBucket {
+    if (fixture.live_status === 'ended') {
+        return 'ended';
+    }
+
+    if (fixture.live_status === 'live' || fixture.can_go_live) {
+        return 'liveReady';
+    }
+
+    return 'upcoming';
+}
+
+/** Case-insensitive substring match across both team names and both placeholder labels. */
+function matchesQuery(fixture: LiveControlFixture, needle: string): boolean {
+    return [
+        fixture.home_team?.name,
+        fixture.away_team?.name,
+        fixture.home_label,
+        fixture.away_label,
+    ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(needle);
 }
 
 function formatKickoff(
@@ -175,13 +221,38 @@ function LiveControlRow({
             </div>
 
             {isLive && (
-                <Button
-                    variant="outline"
-                    onClick={endMatch}
-                    className="w-full sm:w-auto sm:self-end"
-                >
-                    {t('End match')}
-                </Button>
+                <Dialog>
+                    <DialogTrigger asChild>
+                        <Button
+                            variant="outline"
+                            className="w-full sm:w-auto sm:self-end"
+                        >
+                            {t('End match')}
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>{t('End this match?')}</DialogTitle>
+                            <DialogDescription>
+                                {t(
+                                    "This closes the live scoreboard and sends the current score for approval. Double-check the score first — you can't reopen the match here.",
+                                )}
+                            </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter className="gap-2">
+                            <DialogClose asChild>
+                                <Button variant="secondary">
+                                    {t('Cancel')}
+                                </Button>
+                            </DialogClose>
+                            <DialogClose asChild>
+                                <Button onClick={endMatch}>
+                                    {t('End match')}
+                                </Button>
+                            </DialogClose>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             )}
 
             {fixture.live_status === null && fixture.can_go_live && (
@@ -209,6 +280,35 @@ export default function LiveControl({
     const { t } = useTranslation();
     const timezone = usePage().props.timezone;
 
+    const [tab, setTab] = useState<LiveTab>('liveReady');
+    const [query, setQuery] = useState('');
+
+    // Counts come from the full set, so they stay put while the admin types a search.
+    const counts = useMemo(() => {
+        const tally = {
+            liveReady: 0,
+            upcoming: 0,
+            ended: 0,
+            all: fixtures.length,
+        };
+
+        for (const fixture of fixtures) {
+            tally[classifyFixture(fixture)] += 1;
+        }
+
+        return tally;
+    }, [fixtures]);
+
+    const visible = useMemo(() => {
+        const needle = query.trim().toLowerCase();
+
+        return fixtures.filter((fixture) => {
+            const inTab = tab === 'all' || classifyFixture(fixture) === tab;
+
+            return inTab && (needle === '' || matchesQuery(fixture, needle));
+        });
+    }, [fixtures, tab, query]);
+
     return (
         <>
             <Head title={`${t(tournament.name)} · ${t('Live control')}`} />
@@ -232,18 +332,7 @@ export default function LiveControl({
                         </div>
                     </header>
 
-                    {fixtures.length > 0 ? (
-                        <div className="card-elevated overflow-hidden rounded-2xl border border-border">
-                            {fixtures.map((fixture) => (
-                                <LiveControlRow
-                                    key={fixture.id}
-                                    fixture={fixture}
-                                    slug={tournament.slug}
-                                    timezone={timezone}
-                                />
-                            ))}
-                        </div>
-                    ) : (
+                    {fixtures.length === 0 ? (
                         <div className="card-elevated flex flex-col items-center gap-3 rounded-3xl border border-border p-12 text-center">
                             <Radio className="size-9 text-muted-foreground" />
                             <p className="font-display text-lg font-semibold">
@@ -255,6 +344,76 @@ export default function LiveControl({
                                 )}
                             </p>
                         </div>
+                    ) : (
+                        <>
+                            <div className="mb-5 flex flex-col gap-3">
+                                <SegmentedTabs<LiveTab>
+                                    aria-label={t('Filter matches')}
+                                    value={tab}
+                                    onChange={setTab}
+                                    items={[
+                                        {
+                                            value: 'liveReady',
+                                            label: t('Live & ready'),
+                                            count: counts.liveReady,
+                                        },
+                                        {
+                                            value: 'upcoming',
+                                            label: t('Upcoming'),
+                                            count: counts.upcoming,
+                                        },
+                                        {
+                                            value: 'ended',
+                                            label: t('Ended'),
+                                            count: counts.ended,
+                                        },
+                                        {
+                                            value: 'all',
+                                            label: t('All'),
+                                            count: counts.all,
+                                        },
+                                    ]}
+                                />
+                                <div className="relative sm:max-w-sm">
+                                    <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input
+                                        type="search"
+                                        value={query}
+                                        onChange={(event) =>
+                                            setQuery(event.target.value)
+                                        }
+                                        placeholder={t('Search by team')}
+                                        className="pl-9"
+                                    />
+                                </div>
+                            </div>
+
+                            {visible.length > 0 ? (
+                                <div className="card-elevated overflow-hidden rounded-2xl border border-border">
+                                    {visible.map((fixture) => (
+                                        <LiveControlRow
+                                            key={fixture.id}
+                                            fixture={fixture}
+                                            slug={tournament.slug}
+                                            timezone={timezone}
+                                        />
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="card-elevated flex flex-col items-center gap-3 rounded-3xl border border-border p-12 text-center">
+                                    <Radio className="size-9 text-muted-foreground" />
+                                    <p className="max-w-md font-display text-base font-semibold text-muted-foreground">
+                                        {query.trim() !== ''
+                                            ? t(
+                                                  'No match matches your search. Try the All tab.',
+                                              )
+                                            : t(
+                                                  'No matches in this view — check Upcoming or All.',
+                                              )}
+                                    </p>
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
             </div>

@@ -74,10 +74,12 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
     );
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const save = (rejected: boolean) => {
         setSaving(true);
         setSaved(false);
+        setError(null);
         router.patch(
             manage.scores.proposal({
                 tournament: slug,
@@ -92,6 +94,11 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
             {
                 preserveScroll: true,
                 onSuccess: () => setSaved(true),
+                onError: (formErrors) =>
+                    setError(
+                        Object.values(formErrors)[0] ??
+                            t('Could not save this score.'),
+                    ),
                 onFinish: () => setSaving(false),
             },
         );
@@ -120,6 +127,8 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
     const handleScore = (side: 'home' | 'away', value: string): void => {
         const nextHome = side === 'home' ? value : home;
         const nextAway = side === 'away' ? value : away;
+
+        setError(null);
 
         if (side === 'home') {
             setHome(value);
@@ -237,6 +246,10 @@ function ReviewRow({ row, slug }: { row: ReviewRowData; slug: string }) {
                         </span>
                     )}
                 </div>
+            )}
+
+            {error && (
+                <p className="text-xs font-medium text-destructive">{error}</p>
             )}
 
             <div className="flex flex-wrap items-center justify-end gap-2">

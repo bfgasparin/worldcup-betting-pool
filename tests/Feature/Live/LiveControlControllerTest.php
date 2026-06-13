@@ -45,6 +45,53 @@ class LiveControlControllerTest extends TestCase
             ->assertInertia(fn ($page) => $page->component('manage/live', false)->has('fixtures', 1));
     }
 
+    public function test_index_includes_ready_upcoming_and_ended_fixtures(): void
+    {
+        $tournament = Tournament::factory()->create();
+
+        // Ready: scheduled and inside the go-live buffer.
+        Fixture::factory()->for($tournament)->create([
+            'status' => FixtureStatus::Scheduled,
+            'kicks_off_at' => now()->addMinutes(5),
+        ]);
+
+        // Upcoming: scheduled with known teams, but well outside the buffer.
+        Fixture::factory()->for($tournament)->create([
+            'status' => FixtureStatus::Scheduled,
+            'kicks_off_at' => now()->addDays(3),
+        ]);
+
+        // Ended: a live scoreboard the admin already closed.
+        $ended = Fixture::factory()->for($tournament)->ended()->create();
+        FixtureLiveState::factory()->for($ended)->ended()->withScore(2, 1)->create();
+
+        $this->actingAs($this->admin())
+            ->get(route('manage.live.index', $tournament))
+            ->assertInertia(fn ($page) => $page
+                ->component('manage/live', false)
+                ->has('fixtures', 3)
+                // Each row carries the fields the client buckets on (Live & ready / Upcoming / Ended).
+                ->has('fixtures.0', fn ($fixture) => $fixture
+                    ->has('can_go_live')
+                    ->has('live_status')
+                    ->etc()));
+    }
+
+    public function test_index_excludes_empty_placeholder_knockout_slots(): void
+    {
+        $tournament = Tournament::factory()->create();
+
+        // A knockout slot with no resolved teams can't go live and isn't searchable — keep it out.
+        Fixture::factory()->for($tournament)->knockout()->create([
+            'status' => FixtureStatus::Scheduled,
+            'kicks_off_at' => now()->addDays(3),
+        ]);
+
+        $this->actingAs($this->admin())
+            ->get(route('manage.live.index', $tournament))
+            ->assertInertia(fn ($page) => $page->component('manage/live', false)->has('fixtures', 0));
+    }
+
     public function test_non_admins_cannot_access_the_console(): void
     {
         $tournament = Tournament::factory()->create();
