@@ -3,8 +3,10 @@
 namespace Tests\Feature\Predictions;
 
 use App\Enums\LeaderboardCategory;
+use App\Enums\OrderingScope;
 use App\Enums\PhaseKey;
 use App\Models\Entry;
+use App\Models\EntryGroupOrdering;
 use App\Models\Pool;
 use App\Models\Team;
 use App\Models\Tournament;
@@ -263,6 +265,185 @@ class PredictionJsonImporterTest extends TestCase
         return ['matches' => $matches];
     }
 
+    public function test_group_standings_break_a_within_group_tie(): void
+    {
+        $byPosition = $this->groupATeamsByPosition();
+
+        // The player stated the lower seed (position 2) finishes ahead of position 1 — the reverse of
+        // the seed-order default the derivation would otherwise apply to the tie.
+        $standings = [$byPosition[2]->code, $byPosition[1]->code, $byPosition[3]->code, $byPosition[4]->code];
+        $json = $this->blob($this->tieRule(), $standings);
+
+        $target = $this->entryFor(User::factory()->create());
+        $parsed = $this->importer->parse($this->pool, $json);
+        $this->importer->commit($target, $this->accept($parsed));
+
+        $row = $this->withinGroupOrdering($target);
+        $this->assertSame(
+            [$byPosition[2]->id, $byPosition[1]->id],
+            array_map('intval', $row->ordered_team_ids),
+            'The within-group ordering should follow the pasted standings, not seed order.',
+        );
+
+        // The resolved bracket ranks the group with the user's stated winner first.
+        $resolved = (new BracketResolver)->resolve($target->fresh());
+        $this->assertSame($byPosition[2]->id, $resolved->standings['A']->winner());
+        $this->assertSame($byPosition[1]->id, $resolved->standings['A']->runnerUp());
+    }
+
+    public function test_a_within_group_tie_falls_back_to_seed_order_without_group_standings(): void
+    {
+        $byPosition = $this->groupATeamsByPosition();
+
+        $target = $this->entryFor(User::factory()->create());
+        $this->importer->commit($target, $this->accept($this->importer->parse($this->pool, $this->blob($this->tieRule()))));
+
+        $row = $this->withinGroupOrdering($target);
+        $this->assertSame(
+            [$byPosition[1]->id, $byPosition[2]->id],
+            array_map('intval', $row->ordered_team_ids),
+            'With no pasted standings the tie keeps the seed-order default.',
+        );
+
+        $resolved = (new BracketResolver)->resolve($target->fresh());
+        $this->assertSame($byPosition[1]->id, $resolved->standings['A']->winner());
+    }
+
+    public function test_group_standings_are_ignored_when_the_group_has_no_tie(): void
+    {
+        $byPosition = $this->groupATeamsByPosition();
+
+        // Seed-order scores leave no tie in group A; a contradictory standings list must not override
+        // a position the scores already decided.
+        $standings = [$byPosition[2]->code, $byPosition[1]->code, $byPosition[3]->code, $byPosition[4]->code];
+        $json = $this->blob($this->seedOrderScores(), $standings);
+
+        $target = $this->entryFor(User::factory()->create());
+        $parsed = $this->importer->parse($this->pool, $json);
+        $preview = $this->importer->preview($target, $parsed);
+        $this->assertFalse($preview['has_errors']);
+
+        $this->importer->commit($target, $this->accept($parsed));
+
+        $groupA = $this->tournament->groups()->where('name', 'A')->firstOrFail();
+        $this->assertSame(
+            0,
+            $target->groupOrderings()->where('scope', OrderingScope::WithinGroup)->where('group_id', $groupA->id)->count(),
+            'A group with no tie has no within-group ordering, so the standings are ignored.',
+        );
+
+        // The scores still decide: position 1 wins, not the pasted position 2.
+        $resolved = (new BracketResolver)->resolve($target->fresh());
+        $this->assertSame($byPosition[1]->id, $resolved->standings['A']->winner());
+    }
+
+    public function test_the_preview_reports_which_group_ties_the_standings_resolved(): void
+    {
+        $byPosition = $this->groupATeamsByPosition();
+        $standings = [$byPosition[2]->code, $byPosition[1]->code, $byPosition[3]->code, $byPosition[4]->code];
+
+        $parsed = $this->importer->parse($this->pool, $this->blob($this->tieRule(), $standings));
+        $resolvedPreview = $this->importer->preview($this->entryFor(User::factory()->create()), $parsed);
+
+        $groupATie = collect($resolvedPreview['group_ties'])->firstWhere('group', 'A');
+        $this->assertNotNull($groupATie, 'The tied group A should be reported.');
+        $this->assertTrue($groupATie['resolved_by_standings']);
+        $this->assertSame($byPosition[2]->id, $groupATie['teams'][0]['id']);
+
+        // The same tie with no standings is reported as unresolved (seed-order default).
+        $defaultParsed = $this->importer->parse($this->pool, $this->blob($this->tieRule()));
+        $defaultPreview = $this->importer->preview($this->entryFor(User::factory()->create()), $defaultParsed);
+        $defaultTie = collect($defaultPreview['group_ties'])->firstWhere('group', 'A');
+        $this->assertNotNull($defaultTie);
+        $this->assertFalse($defaultTie['resolved_by_standings']);
+    }
+
+    /**
+     * A position-based rule that leaves group positions 1 and 2 perfectly level on every score
+     * tiebreak (they draw their head-to-head; each beats positions 3 and 4 by the same 1–0) so the
+     * derivation cannot separate them — the only remaining separator is a manual order.
+     *
+     * @return callable(int, int): array{int, int}
+     */
+    private function tieRule(): callable
+    {
+        return function (int $homePosition, int $awayPosition): array {
+            if (min($homePosition, $awayPosition) === 1 && max($homePosition, $awayPosition) === 2) {
+                return [1, 1];
+            }
+
+            return $homePosition < $awayPosition ? [1, 0] : [0, 1];
+        };
+    }
+
+    /**
+     * A full group-stage blob where group A is scored by $ruleForA (every other group seed-order), with
+     * an optional `group_standings` entry for group A.
+     *
+     * @param  callable(int, int): array{int, int}  $ruleForA
+     * @param  list<string>|null  $groupAStandings  team codes in the user's stated order for group A
+     * @return array<string, mixed>
+     */
+    private function blob(callable $ruleForA, ?array $groupAStandings = null): array
+    {
+        $seedOrder = $this->seedOrderScores();
+        $matches = [];
+
+        foreach ($this->tournament->groups()->orderBy('sort_order')->get() as $group) {
+            $positions = $group->teams()->get()->mapWithKeys(fn (Team $team): array => [$team->id => $team->pivot->position]);
+            $rule = $group->name === 'A' ? $ruleForA : $seedOrder;
+
+            foreach ($group->fixtures()->with(['homeTeam', 'awayTeam'])->orderBy('match_number')->get() as $fixture) {
+                [$home, $away] = $rule($positions[$fixture->home_team_id], $positions[$fixture->away_team_id]);
+
+                $matches[] = [
+                    'match_number' => $fixture->match_number,
+                    'home_team' => $fixture->homeTeam->code,
+                    'away_team' => $fixture->awayTeam->code,
+                    'home_goals' => $home,
+                    'away_goals' => $away,
+                ];
+            }
+        }
+
+        $json = ['matches' => $matches];
+
+        if ($groupAStandings !== null) {
+            $json['group_standings'] = [['group' => 'A', 'standings' => $groupAStandings]];
+        }
+
+        return $json;
+    }
+
+    /**
+     * Group A's teams keyed by seed position (1–4).
+     *
+     * @return array<int, Team>
+     */
+    private function groupATeamsByPosition(): array
+    {
+        $group = $this->tournament->groups()->where('name', 'A')->firstOrFail();
+
+        $byPosition = [];
+        foreach ($group->teams()->get() as $team) {
+            $byPosition[$team->pivot->position] = $team;
+        }
+
+        ksort($byPosition);
+
+        return $byPosition;
+    }
+
+    private function withinGroupOrdering(Entry $entry): EntryGroupOrdering
+    {
+        $groupA = $this->tournament->groups()->where('name', 'A')->firstOrFail();
+
+        return $entry->groupOrderings()
+            ->where('scope', OrderingScope::WithinGroup)
+            ->where('group_id', $groupA->id)
+            ->firstOrFail();
+    }
+
     private function buildReferenceEntry(): Entry
     {
         $entry = $this->entryFor(User::factory()->create());
@@ -331,7 +512,7 @@ class PredictionJsonImporterTest extends TestCase
 
     private function accept(ParsedImport $parsed): CorrectedImport
     {
-        return new CorrectedImport($parsed->groupRows(), $parsed->knockoutRows(), $parsed->thirdsTeamIds);
+        return new CorrectedImport($parsed->groupRows(), $parsed->knockoutRows(), $parsed->thirdsTeamIds, $parsed->groupStandings);
     }
 
     /**

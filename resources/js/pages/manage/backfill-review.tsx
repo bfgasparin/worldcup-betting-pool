@@ -29,6 +29,12 @@ interface RowData {
     severity: 'ok' | 'warning' | 'error';
 }
 
+interface GroupTie {
+    group: string;
+    resolved_by_standings: boolean;
+    teams: TeamRef[];
+}
+
 interface PreviewData {
     rows: RowData[];
     banner: {
@@ -40,6 +46,7 @@ interface PreviewData {
     };
     thirds: { json: TeamRef[]; derived: TeamRef[] };
     counts: { group: number; knockout: number };
+    group_ties: GroupTie[];
     has_errors: boolean;
 }
 
@@ -49,6 +56,7 @@ interface ReviewProps {
     user: { id: number; name: string; email: string | null };
     preview: PreviewData;
     thirds_team_ids: number[];
+    group_standings_team_ids: Record<string, number[]>;
 }
 
 type RowValue = { home: string; away: string; advancing: string };
@@ -308,12 +316,62 @@ function Banner({ preview }: { preview: PreviewData }) {
     );
 }
 
+function GroupTiesNotice({ ties }: { ties: GroupTie[] }) {
+    const { t } = useTranslation();
+
+    if (ties.length === 0) {
+        return null;
+    }
+
+    return (
+        <div className="rounded-2xl border border-border bg-card p-4 text-sm shadow-[var(--sh-sm)]">
+            <p className="mb-2 font-semibold">{t('Group ties')}</p>
+            <ul className="flex flex-col gap-2.5">
+                {ties.map((tie) => (
+                    <li
+                        key={tie.group}
+                        className="flex flex-wrap items-center gap-x-2 gap-y-1"
+                    >
+                        <span className="font-display font-semibold">
+                            {t('Group :group', { group: tie.group })}
+                        </span>
+                        <span className="text-muted-foreground">
+                            {tie.resolved_by_standings
+                                ? t('ordered from the standings you pasted')
+                                : t('no standings provided — kept seed order')}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                            {tie.teams.map((team, index) => (
+                                <span
+                                    key={team.id}
+                                    className="inline-flex items-center gap-1"
+                                >
+                                    {index > 0 && (
+                                        <span className="text-muted-foreground">
+                                            ›
+                                        </span>
+                                    )}
+                                    <Flag team={team} className="h-3.5 w-5" />
+                                    <span className="text-xs font-medium">
+                                        {team.code ?? team.name}
+                                    </span>
+                                </span>
+                            ))}
+                        </span>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+
 export default function BackfillReview({
     tournament,
     pool,
     user,
     preview,
     thirds_team_ids: thirdsTeamIds,
+    group_standings_team_ids: groupStandingsTeamIds,
 }: ReviewProps) {
     const { t } = useTranslation();
 
@@ -390,6 +448,7 @@ export default function BackfillReview({
                 group,
                 knockout,
                 thirds_team_ids: thirdsTeamIds,
+                group_standings_team_ids: groupStandingsTeamIds,
             },
             {
                 onError: (formErrors) => setErrors(formErrors),
@@ -452,6 +511,8 @@ export default function BackfillReview({
                 )}
 
                 <Banner preview={preview} />
+
+                <GroupTiesNotice ties={preview.group_ties} />
 
                 {preview.banner.already_populated && (
                     <label className="flex items-start gap-3 rounded-2xl border border-amber/40 bg-accent/[0.07] p-4 text-sm">

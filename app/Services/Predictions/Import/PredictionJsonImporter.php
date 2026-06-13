@@ -55,9 +55,10 @@ class PredictionJsonImporter
     {
         $rawMatches = is_array($json['matches'] ?? null) ? $json['matches'] : [];
         $rawThirds = is_array($json['third_places_classification'] ?? null) ? $json['third_places_classification'] : [];
+        $rawStandings = is_array($json['group_standings'] ?? null) ? $json['group_standings'] : [];
 
         $fixtures = $pool->tournament->fixtures()->with('phase')->get()->keyBy('match_number');
-        $teams = $this->teamsByCode($rawMatches, $rawThirds);
+        $teams = $this->teamsByCode($rawMatches, $rawThirds, $rawStandings);
 
         $unknownCodes = [];
         $unknownNumbers = [];
@@ -115,11 +116,47 @@ class PredictionJsonImporter
             }
         }
 
+        // The optional "group_standings" gives the user's stated finishing order per group, used only
+        // to break a genuine within-group score-tie the derivation can't ({@see overrideGroupOrderings}).
+        $groupStandings = [];
+        foreach ($rawStandings as $raw) {
+            if (! is_array($raw)) {
+                continue;
+            }
+
+            $label = $this->code($raw['group'] ?? null);
+            $codes = is_array($raw['standings'] ?? null) ? $raw['standings'] : [];
+
+            if ($label === null || $codes === []) {
+                continue;
+            }
+
+            $ids = [];
+            foreach ($codes as $rawCode) {
+                $code = $this->code($rawCode);
+
+                if ($code === null) {
+                    continue;
+                }
+
+                if ($teams->has($code)) {
+                    $ids[] = $teams->get($code)->id;
+                } else {
+                    $unknownCodes[] = $code;
+                }
+            }
+
+            if ($ids !== []) {
+                $groupStandings[$label] = array_values(array_unique($ids));
+            }
+        }
+
         return new ParsedImport(
             matches: $matches,
             thirdsTeamIds: array_values(array_unique($thirdsIds)),
             unknownTeamCodes: array_values(array_unique($unknownCodes)),
             unknownMatchNumbers: array_values(array_unique($unknownNumbers)),
+            groupStandings: $groupStandings,
         );
     }
 
@@ -150,7 +187,7 @@ class PredictionJsonImporter
         try {
             $alreadyPopulated = $this->hasExistingPredictions($entry);
 
-            $this->applyToSandbox($entry, $parsed->groupRows(), $parsed->knockoutRows(), $parsed->thirdsTeamIds);
+            $this->applyToSandbox($entry, $parsed->groupRows(), $parsed->knockoutRows(), $parsed->thirdsTeamIds, $parsed->groupStandings);
 
             return $this->buildPreviewPayload($entry, $parsed, $alreadyPopulated);
         } finally {
@@ -167,7 +204,7 @@ class PredictionJsonImporter
     public function commit(Entry $entry, CorrectedImport $corrected): void
     {
         DB::transaction(function () use ($entry, $corrected): void {
-            $this->applyToSandbox($entry, $corrected->groupRows, $corrected->knockoutRows, $corrected->thirdsTeamIds);
+            $this->applyToSandbox($entry, $corrected->groupRows, $corrected->knockoutRows, $corrected->thirdsTeamIds, $corrected->groupStandings);
         });
 
         // Kept outside the write transaction, mirroring ApproveScoreBatch: each manages its own.
@@ -183,8 +220,9 @@ class PredictionJsonImporter
      * @param  list<array{fixture_id: int, home_goals: int, away_goals: int}>  $groupRows
      * @param  list<array{fixture_id: int, home_goals: int|null, away_goals: int|null, advancing_pick: int|null}>  $knockoutRows
      * @param  list<int>  $thirdsTeamIds
+     * @param  array<string, list<int>>  $groupStandings  uppercased group label => stated finishing order
      */
-    private function applyToSandbox(Entry $entry, array $groupRows, array $knockoutRows, array $thirdsTeamIds): void
+    private function applyToSandbox(Entry $entry, array $groupRows, array $knockoutRows, array $thirdsTeamIds, array $groupStandings = []): void
     {
         $this->writeGroupPredictions($entry, $groupRows);
 
@@ -197,9 +235,10 @@ class PredictionJsonImporter
         }
 
         // Upfront: no human to break ties — take the deterministic defaults, then honour the user's
-        // own third-place ordering where it resolves the straddling cut (everything else stays default).
+        // stated within-group and third-place orderings where they resolve a tie (otherwise stay default).
         $this->tieOrdering->applyToEntry($entry);
         $this->overrideThirdsOrdering($entry, $thirdsTeamIds);
+        $this->overrideGroupOrderings($entry, $groupStandings);
 
         // Derive the Round-of-32 participants from the group scores.
         $this->resolver->persist($entry);
@@ -334,6 +373,39 @@ class PredictionJsonImporter
     }
 
     /**
+     * Replace each within-group default ordering with the order the user stated in `group_standings`,
+     * but only for a group whose pasted order is a full permutation of the tied cluster the default
+     * identified — otherwise keep the seed-order default. A group without a genuine tie has no
+     * ordering row, so it is silently skipped; this is purely a tiebreak.
+     *
+     * @param  array<string, list<int>>  $groupStandings  uppercased group label => stated finishing order
+     */
+    private function overrideGroupOrderings(Entry $entry, array $groupStandings): void
+    {
+        if ($groupStandings === []) {
+            return;
+        }
+
+        $groupsById = $entry->pool->tournament->groups()->get()->keyBy('id');
+
+        foreach ($entry->groupOrderings()->where('scope', OrderingScope::WithinGroup)->get() as $row) {
+            $label = strtoupper($groupsById->get($row->group_id)?->name ?? '');
+            $provided = array_map('intval', $groupStandings[$label] ?? []);
+
+            if ($provided === []) {
+                continue;
+            }
+
+            $tied = array_map('intval', $row->tied_team_ids);
+            $ordered = array_values(array_filter($provided, fn (int $id): bool => in_array($id, $tied, true)));
+
+            if (count($ordered) === count($tied) && array_diff($tied, $ordered) === []) {
+                $row->update(['ordered_team_ids' => $ordered]);
+            }
+        }
+    }
+
+    /**
      * The team that advances given a score: the higher-scoring side for a decisive result, the
      * pick for a draw (when it is one of the two slot teams), null when incomplete or unresolved.
      */
@@ -393,6 +465,11 @@ class PredictionJsonImporter
         $thirdsMismatch = $derivedThirds !== [] && $parsed->thirdsTeamIds !== []
             && array_diff($derivedThirds, $jsonThirds) !== [];
 
+        // Only upfront pools derive group standings, so only they can carry a within-group tie.
+        $groupTies = $entry->pool->predictsKnockoutBracket()
+            ? $this->groupTiesReport($entry, $parsed, $teams)
+            : [];
+
         $hasErrors = $hasRowError
             || $parsed->unknownMatchNumbers !== []
             || $parsed->unknownTeamCodes !== [];
@@ -420,8 +497,49 @@ class PredictionJsonImporter
                 'group' => count(array_filter($rows, fn (array $row): bool => ! $row['is_knockout'])),
                 'knockout' => count(array_filter($rows, fn (array $row): bool => $row['is_knockout'])),
             ],
+            'group_ties' => $groupTies,
             'has_errors' => $hasErrors,
         ];
+    }
+
+    /**
+     * One row per group that finished with a genuine score-tie (a within-group ordering exists),
+     * carrying the final applied order and whether the user's `group_standings` resolved it (vs the
+     * seed-order default). Read after the sandbox apply, so `ordered_team_ids` already reflects any
+     * override. Lets the admin see whether their pasted standings took effect.
+     *
+     * @param  Collection<int, Team>  $teams
+     * @return list<array{group: string, resolved_by_standings: bool, teams: list<array<string, mixed>>}>
+     */
+    private function groupTiesReport(Entry $entry, ParsedImport $parsed, Collection $teams): array
+    {
+        $groupsById = $entry->pool->tournament->groups()->get()->keyBy('id');
+
+        $report = [];
+
+        foreach ($entry->groupOrderings()->where('scope', OrderingScope::WithinGroup)->get() as $row) {
+            $group = $groupsById->get($row->group_id);
+
+            if ($group === null) {
+                continue;
+            }
+
+            $tied = array_map('intval', $row->tied_team_ids);
+            $provided = array_map('intval', $parsed->groupStandings[strtoupper($group->name)] ?? []);
+            $ordered = array_values(array_filter($provided, fn (int $id): bool => in_array($id, $tied, true)));
+            $resolved = count($ordered) === count($tied) && array_diff($tied, $ordered) === [];
+
+            $report[] = [
+                'group' => $group->name,
+                'resolved_by_standings' => $resolved,
+                'teams' => array_values(array_filter(array_map(
+                    fn (int $id): ?array => $this->teamRef($teams->get($id)),
+                    array_map('intval', $row->ordered_team_ids),
+                ))),
+            ];
+        }
+
+        return $report;
     }
 
     /**
@@ -577,9 +695,10 @@ class PredictionJsonImporter
      *
      * @param  array<int, mixed>  $rawMatches
      * @param  array<int, mixed>  $rawThirds
+     * @param  array<int, mixed>  $rawStandings
      * @return Collection<string, Team>
      */
-    private function teamsByCode(array $rawMatches, array $rawThirds): Collection
+    private function teamsByCode(array $rawMatches, array $rawThirds, array $rawStandings = []): Collection
     {
         $codes = [];
 
@@ -602,6 +721,18 @@ class PredictionJsonImporter
 
             if ($code !== null) {
                 $codes[] = $code;
+            }
+        }
+
+        foreach ($rawStandings as $raw) {
+            $standings = is_array($raw) && is_array($raw['standings'] ?? null) ? $raw['standings'] : [];
+
+            foreach ($standings as $rawCode) {
+                $code = $this->code($rawCode);
+
+                if ($code !== null) {
+                    $codes[] = $code;
+                }
             }
         }
 
