@@ -5,6 +5,7 @@ namespace Tests\Feature\Console;
 use App\Enums\FixtureStatus;
 use App\Enums\TournamentStatus;
 use App\Models\Entry;
+use App\Models\FixtureLiveState;
 use App\Models\GroupPrediction;
 use App\Models\KnockoutPrediction;
 use App\Models\Pool;
@@ -182,6 +183,19 @@ class SimulateTournamentTest extends TestCase
         $this->assertNull($final->home_goals);
         $this->assertNull($final->home_team_id);
         $this->assertSame(FixtureStatus::Scheduled, $final->status);
+    }
+
+    public function test_reset_clears_live_scoreboards(): void
+    {
+        $fixture = $this->tournament->fixtures()->firstOrFail();
+        FixtureLiveState::factory()->for($fixture)->withScore(2, 1)->create();
+        $this->assertDatabaseCount('fixture_live_states', 1);
+
+        // --predict-only so the reset runs but nothing new goes live afterward.
+        $this->artisan('tournament:simulate', ['--players' => 2, '--predict-only' => true, '--reset' => true])
+            ->assertSuccessful();
+
+        $this->assertDatabaseCount('fixture_live_states', 0);
     }
 
     public function test_predict_only_sets_up_predictions_without_results(): void
